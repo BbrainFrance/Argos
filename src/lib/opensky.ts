@@ -1,4 +1,4 @@
-import { Aircraft } from "@/types";
+import { Aircraft, GeoPosition } from "@/types";
 
 const OPENSKY_BASE = "https://opensky-network.org/api";
 
@@ -15,53 +15,83 @@ export async function fetchAircraftFrance(): Promise<Aircraft[]> {
 
   try {
     const res = await fetch(url, { next: { revalidate: 10 } });
-
     if (!res.ok) {
       console.error(`OpenSky API error: ${res.status}`);
       return [];
     }
 
     const data = await res.json();
-
     if (!data.states) return [];
+    const now = Date.now();
 
-    return data.states.map((s: (string | number | boolean | null)[]): Aircraft => ({
-      icao24: s[0] as string,
-      callsign: s[1] ? (s[1] as string).trim() : null,
-      originCountry: s[2] as string,
-      longitude: s[5] as number | null,
-      latitude: s[6] as number | null,
-      baroAltitude: s[7] as number | null,
-      geoAltitude: s[13] as number | null,
-      velocity: s[9] as number | null,
-      trueTrack: s[10] as number | null,
-      verticalRate: s[11] as number | null,
-      onGround: s[8] as boolean,
-      squawk: s[14] as string | null,
-      lastContact: s[4] as number,
-      timePosition: s[3] as number | null,
-    }));
+    return data.states.map((s: (string | number | boolean | null)[]): Aircraft => {
+      const lat = s[6] as number | null;
+      const lng = s[5] as number | null;
+      const alt = s[7] as number | null;
+      const callsign = s[1] ? (s[1] as string).trim() : null;
+      const icao24 = s[0] as string;
+
+      const position: GeoPosition | null =
+        lat !== null && lng !== null
+          ? { lat, lng, alt: alt ?? undefined, timestamp: now }
+          : null;
+
+      return {
+        id: `ac-${icao24}`,
+        type: "aircraft",
+        label: callsign || icao24.toUpperCase(),
+        position,
+        trail: position ? [position] : [],
+        tracked: false,
+        flagged: false,
+        metadata: {
+          icao24,
+          callsign,
+          originCountry: s[2] as string,
+          baroAltitude: s[7] as number | null,
+          geoAltitude: s[13] as number | null,
+          velocity: s[9] as number | null,
+          trueTrack: s[10] as number | null,
+          verticalRate: s[11] as number | null,
+          onGround: s[8] as boolean,
+          squawk: s[14] as string | null,
+          lastContact: s[4] as number,
+        },
+      };
+    });
   } catch (err) {
     console.error("OpenSky fetch failed:", err);
     return [];
   }
 }
 
-export function computeStats(aircraft: Aircraft[]) {
-  const active = aircraft.filter((a) => !a.onGround && a.latitude && a.longitude);
-  const altitudes = active.map((a) => a.baroAltitude ?? 0).filter((a) => a > 0);
-  const speeds = active.map((a) => a.velocity ?? 0).filter((v) => v > 0);
-  const countries = [...new Set(aircraft.map((a) => a.originCountry))];
+export function mergeAircraftWithHistory(
+  incoming: Aircraft[],
+  existing: Map<string, Aircraft>,
+  maxTrailLength = 50
+): Map<string, Aircraft> {
+  const merged = new Map<string, Aircraft>();
 
-  return {
-    totalAircraft: aircraft.length,
-    activeFlights: active.length,
-    avgAltitude: altitudes.length > 0
-      ? Math.round(altitudes.reduce((a, b) => a + b, 0) / altitudes.length)
-      : 0,
-    avgSpeed: speeds.length > 0
-      ? Math.round((speeds.reduce((a, b) => a + b, 0) / speeds.length) * 3.6)
-      : 0,
-    countriesDetected: countries.sort(),
-  };
+  for (const ac of incoming) {
+    const prev = existing.get(ac.id);
+    if (prev && ac.position) {
+      const trail = [...prev.trail];
+      const lastPos = trail[trail.length - 1];
+      if (!lastPos || lastPos.lat !== ac.position.lat || lastPos.lng !== ac.position.lng) {
+        trail.push(ac.position);
+      }
+      if (trail.length > maxTrailLength) trail.splice(0, trail.length - maxTrailLength);
+
+      merged.set(ac.id, {
+        ...ac,
+        trail,
+        tracked: prev.tracked,
+        flagged: prev.flagged,
+      });
+    } else {
+      merged.set(ac.id, ac);
+    }
+  }
+
+  return merged;
 }

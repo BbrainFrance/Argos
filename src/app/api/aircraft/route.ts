@@ -1,18 +1,15 @@
 import { NextResponse } from "next/server";
-import { fetchAircraftFrance, computeStats } from "@/lib/opensky";
-import { generateAlerts } from "@/lib/alerts";
+import { fetchAircraftFrance } from "@/lib/opensky";
 
 export const revalidate = 10;
+export const dynamic = "force-dynamic";
 
 export async function GET() {
   const aircraft = await fetchAircraftFrance();
-  const stats = computeStats(aircraft);
-  const alerts = generateAlerts(aircraft);
 
   return NextResponse.json({
     aircraft,
-    stats,
-    alerts,
     timestamp: new Date().toISOString(),
+    count: aircraft.length,
   });
 }

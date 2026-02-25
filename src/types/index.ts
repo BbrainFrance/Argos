@@ -1,18 +1,90 @@
-export interface Aircraft {
-  icao24: string;
-  callsign: string | null;
-  originCountry: string;
-  longitude: number | null;
-  latitude: number | null;
-  baroAltitude: number | null;
-  geoAltitude: number | null;
-  velocity: number | null;
-  trueTrack: number | null;
-  verticalRate: number | null;
-  onGround: boolean;
-  squawk: string | null;
-  lastContact: number;
-  timePosition: number | null;
+export type EntityType = "aircraft" | "vessel" | "infrastructure" | "zone" | "event";
+
+export interface GeoPosition {
+  lat: number;
+  lng: number;
+  alt?: number;
+  timestamp: number;
+}
+
+export interface Entity {
+  id: string;
+  type: EntityType;
+  label: string;
+  position: GeoPosition | null;
+  metadata: Record<string, string | number | boolean | null>;
+  trail: GeoPosition[];
+  tracked: boolean;
+  flagged: boolean;
+}
+
+export interface Aircraft extends Entity {
+  type: "aircraft";
+  metadata: {
+    icao24: string;
+    callsign: string | null;
+    originCountry: string;
+    baroAltitude: number | null;
+    geoAltitude: number | null;
+    velocity: number | null;
+    trueTrack: number | null;
+    verticalRate: number | null;
+    onGround: boolean;
+    squawk: string | null;
+    lastContact: number;
+  };
+}
+
+export interface Vessel extends Entity {
+  type: "vessel";
+  metadata: {
+    mmsi: string;
+    name: string | null;
+    shipType: string | null;
+    flag: string | null;
+    speed: number | null;
+    course: number | null;
+    heading: number | null;
+    destination: string | null;
+    draught: number | null;
+    length: number | null;
+  };
+}
+
+export interface Infrastructure extends Entity {
+  type: "infrastructure";
+  metadata: {
+    category: "military_base" | "airport" | "nuclear_plant" | "port" | "government" | "energy" | "telecom";
+    name: string;
+    operator: string | null;
+    status: string | null;
+    importance: "critical" | "high" | "medium" | "low";
+  };
+}
+
+export interface ZoneOfInterest {
+  id: string;
+  name: string;
+  type: "surveillance" | "exclusion" | "alert";
+  polygon: [number, number][];
+  color: string;
+  active: boolean;
+  alertOnEntry: boolean;
+  alertOnExit: boolean;
+  createdAt: Date;
+}
+
+export interface Alert {
+  id: string;
+  type: "info" | "warning" | "danger" | "critical";
+  category: "squawk" | "military" | "anomaly" | "geofence" | "pattern" | "proximity";
+  title: string;
+  message: string;
+  entityId?: string;
+  zoneId?: string;
+  timestamp: Date;
+  source: string;
+  acknowledged: boolean;
 }
 
 export interface MapViewState {
@@ -21,24 +93,45 @@ export interface MapViewState {
   zoom: number;
 }
 
-export interface Alert {
-  id: string;
-  type: "info" | "warning" | "danger";
-  title: string;
-  message: string;
-  timestamp: Date;
-  source: string;
-}
-
 export interface DashboardStats {
   totalAircraft: number;
   activeFlights: number;
+  totalVessels: number;
   avgAltitude: number;
   avgSpeed: number;
   countriesDetected: string[];
+  infrastructureCount: number;
+  activeAlerts: number;
+  trackedEntities: number;
 }
 
-export type DataSource = "opensky" | "ais" | "sentinel" | "osm";
+export interface FilterState {
+  search: string;
+  entityTypes: EntityType[];
+  countries: string[];
+  altitudeRange: [number, number];
+  speedRange: [number, number];
+  showOnGround: boolean;
+  showTrackedOnly: boolean;
+  showFlaggedOnly: boolean;
+  infrastructureCategories: string[];
+}
+
+export interface TimelineState {
+  playing: boolean;
+  speed: number;
+  currentTime: number;
+  startTime: number;
+  endTime: number;
+  snapshots: DataSnapshot[];
+}
+
+export interface DataSnapshot {
+  timestamp: number;
+  entities: Entity[];
+}
+
+export type DataSource = "opensky" | "ais" | "osm" | "sentinel" | "manual";
 
 export interface DataLayer {
   id: string;
@@ -47,4 +140,16 @@ export interface DataLayer {
   enabled: boolean;
   color: string;
   icon: string;
+  entityCount: number;
+}
+
+export interface AnalysisResult {
+  id: string;
+  type: "anomaly" | "pattern" | "correlation" | "prediction";
+  severity: "low" | "medium" | "high" | "critical";
+  title: string;
+  description: string;
+  entities: string[];
+  confidence: number;
+  timestamp: Date;
 }
