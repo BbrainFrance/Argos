@@ -1,0 +1,62 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap");
+
+:root {
+  --argos-bg: #0a0e17;
+  --argos-surface: #111827;
+  --argos-panel: #1a2332;
+  --argos-border: #1e3a5f;
+  --argos-accent: #00d4ff;
+  --argos-accent-dim: #0891b2;
+  --argos-text: #e2e8f0;
+  --argos-text-dim: #64748b;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--argos-border) var(--argos-bg);
+}
+
+*::-webkit-scrollbar {
+  width: 6px;
+}
+
+*::-webkit-scrollbar-track {
+  background: var(--argos-bg);
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--argos-border);
+  border-radius: 3px;
+}
+
+body {
+  background: var(--argos-bg);
+  color: var(--argos-text);
+  font-family: "Inter", system-ui, sans-serif;
+  overflow: hidden;
+}
+
+@layer utilities {
+  .glass-panel {
+    @apply bg-argos-panel/80 backdrop-blur-md border border-argos-border/50 rounded-lg;
+  }
+
+  .glow-accent {
+    box-shadow: 0 0 20px rgba(0, 212, 255, 0.15), 0 0 60px rgba(0, 212, 255, 0.05);
+  }
+
+  .grid-overlay {
+    background-image:
+      linear-gradient(rgba(0, 212, 255, 0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0, 212, 255, 0.03) 1px, transparent 1px);
+    background-size: 50px 50px;
+  }
+
+  .text-glow {
+    text-shadow: 0 0 10px rgba(0, 212, 255, 0.5);
+  }
+}
