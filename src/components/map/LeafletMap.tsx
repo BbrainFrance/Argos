@@ -449,34 +449,35 @@ export default function LeafletMap({
     });
   }, [cellTowers, showCellTowers]);
 
-  // Disable entity interaction when in placement/mission modes
-  useEffect(() => {
+  // Click overlay ref for placement/mission modes
+  const overlayRef = useRef<HTMLDivElement>(null);
+  const startPosRef = useRef<{ x: number; y: number } | null>(null);
+
+  const handleOverlayPointerDown = useCallback((e: React.PointerEvent) => {
+    startPosRef.current = { x: e.clientX, y: e.clientY };
+  }, []);
+
+  const handleOverlayPointerUp = useCallback((e: React.PointerEvent) => {
+    const start = startPosRef.current;
+    startPosRef.current = null;
+    if (!start) return;
+    const dx = Math.abs(e.clientX - start.x);
+    const dy = Math.abs(e.clientY - start.y);
+    if (dx > 5 || dy > 5) return;
+
     const map = mapRef.current;
-    if (!map) return;
-    const container = map.getContainer();
-    const interactionBlocked = placeMarkerMode || missionPlanMode;
+    const container = containerRef.current;
+    if (!map || !container) return;
 
-    if (interactionBlocked) {
-      container.classList.add("leaflet-crosshair-mode");
-    } else {
-      container.classList.remove("leaflet-crosshair-mode");
+    const rect = container.getBoundingClientRect();
+    const point = L.point(e.clientX - rect.left, e.clientY - rect.top);
+    const latlng = map.containerPointToLatLng(point);
+
+    if (placeMarkerMode) {
+      onMapClickRef.current?.({ lat: latlng.lat, lng: latlng.lng });
+    } else if (missionPlanMode) {
+      onMissionWaypointAddRef.current?.({ lat: latlng.lat, lng: latlng.lng });
     }
-
-    if (!interactionBlocked) return;
-
-    const handler = (e: L.LeafletMouseEvent) => {
-      if (placeMarkerMode) {
-        onMapClickRef.current?.({ lat: e.latlng.lat, lng: e.latlng.lng });
-      } else if (missionPlanMode) {
-        onMissionWaypointAddRef.current?.({ lat: e.latlng.lat, lng: e.latlng.lng });
-      }
-    };
-    map.on("click", handler);
-
-    return () => {
-      map.off("click", handler);
-      container.classList.remove("leaflet-crosshair-mode");
-    };
   }, [placeMarkerMode, missionPlanMode]);
 
   // Measure mode
@@ -879,5 +880,20 @@ export default function LeafletMap({
     };
   }, [drawMode]);
 
-  return <div ref={containerRef} className="w-full h-full" />;
+  const interactionBlocked = placeMarkerMode || missionPlanMode;
+
+  return (
+    <div className="relative w-full h-full">
+      <div ref={containerRef} className="w-full h-full" />
+      {interactionBlocked && (
+        <div
+          ref={overlayRef}
+          className="absolute inset-0 cursor-crosshair"
+          style={{ zIndex: 9999 }}
+          onPointerDown={handleOverlayPointerDown}
+          onPointerUp={handleOverlayPointerUp}
+        />
+      )}
+    </div>
+  );
 }

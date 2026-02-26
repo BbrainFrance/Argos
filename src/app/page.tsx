@@ -284,10 +284,12 @@ export default function ArgosPage() {
     return () => clearInterval(interval);
   }, [activeLayers.satellites]);
 
-  // Cell tower fetch on layer activation
+  // Cell tower fetch on layer activation — uses viewport bounds
   useEffect(() => {
     if (!activeLayers.cellTowers) { setCellTowers([]); return; }
-    fetch("/api/cell-towers?latMin=41&latMax=51&lonMin=-6&lonMax=10&limit=1000")
+    const b = mapBoundsRef.current;
+    const qs = `latMin=${b.latMin.toFixed(2)}&latMax=${b.latMax.toFixed(2)}&lonMin=${b.lonMin.toFixed(2)}&lonMax=${b.lonMax.toFixed(2)}&limit=500`;
+    fetch(`/api/cell-towers?${qs}`)
       .then((r) => r.ok ? r.json() : null)
       .then((data) => { if (data?.towers) setCellTowers(data.towers); })
       .catch(() => {});

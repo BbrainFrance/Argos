@@ -29,8 +29,10 @@
     "prisma": "^7.4.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "react-globe.gl": "^2.37.0",
     "recharts": "^2.15.0",
     "satellite.js": "^6.0.2",
+    "three": "^0.183.1",
     "utf-8-validate": "^6.0.6",
     "ws": "^8.19.0"
   },
@@ -41,6 +43,7 @@
     "@types/pg": "^8.16.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "@types/three": "^0.183.1",
     "@types/ws": "^8.18.1",
     "autoprefixer": "^10.4.25",
     "eslint": "^9.0.0",

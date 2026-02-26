@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import { Entity, Infrastructure, MapViewState, ZoneOfInterest, OperationalMarker, MissionRoute, EntityLink, SatellitePosition, CellTower } from "@/types";
 
 const LeafletMap = dynamic(() => import("./LeafletMap"), { ssr: false });
-const MapLibreGlobe = dynamic(() => import("./MapLibreGlobe"), { ssr: false });
+const ThreeGlobe = dynamic(() => import("./ThreeGlobe"), { ssr: false });
 
 interface MapContainerProps {
   entities: Entity[];
@@ -70,7 +70,7 @@ export default function MapContainer({
   return (
     <div className="relative w-full h-full">
       {viewState.mode === "3d" ? (
-        <MapLibreGlobe
+        <ThreeGlobe
           entities={entities}
           infrastructure={infrastructure}
           zones={zones}

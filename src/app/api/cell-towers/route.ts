@@ -31,7 +31,16 @@ export async function GET(request: Request) {
   }
 
   try {
-    const query = `[out:json][timeout:25][bbox:${latMin},${lonMin},${latMax},${lonMax}];(node["man_made"="mast"]["tower:type"="communication"];node["man_made"="tower"]["tower:type"="communication"];node["telecom"="antenna"];);out body ${limit};`;
+    const query = `
+[out:json][timeout:60];
+(
+  node["man_made"="mast"](${latMin},${lonMin},${latMax},${lonMax});
+  node["man_made"="tower"]["tower:type"="communication"](${latMin},${lonMin},${latMax},${lonMax});
+  node["telecom"~"."](${latMin},${lonMin},${latMax},${lonMax});
+  node["communication:mobile_phone"="yes"](${latMin},${lonMin},${latMax},${lonMax});
+);
+out body ${limit};
+`;
 
     const res = await fetch("https://overpass-api.de/api/interpreter", {
       method: "POST",
@@ -41,7 +50,8 @@ export async function GET(request: Request) {
     });
 
     if (!res.ok) {
-      console.error(`CellTower: Overpass API error ${res.status}`);
+      const txt = await res.text().catch(() => "");
+      console.error(`CellTower: Overpass API error ${res.status}: ${txt.slice(0, 300)}`);
       return NextResponse.json({ towers: [], error: `Overpass API error: ${res.status}` });
     }
 
