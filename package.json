@@ -63,7 +63,7 @@
     "typescript": "^5.7.0"
   },
   "engines": {
-    "node": ">=20.0.0"
+    "node": "22.x"
   },
   "overrides": {
     "fast-xml-parser": "^5.3.6"

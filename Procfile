@@ -1,1 +1,1 @@
-web: npx prisma migrate deploy && npm start
+web: npx prisma migrate deploy && node .next/standalone/server.js
