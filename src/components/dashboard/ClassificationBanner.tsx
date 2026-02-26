@@ -61,7 +61,7 @@ export function ClassificationFooter({ level }: { level: ClassificationLevel }) 
       className="w-full text-center py-0.5 text-[6px] font-mono tracking-widest select-none"
       style={{ backgroundColor: meta.color, color: meta.pdfTextColor.join(",") === "0,0,0" ? "#000" : "#fff" }}
     >
-      {meta.shortLabel} — ARGOS SOUVERAIN
+      {meta.shortLabel} — ARGOS
     </div>
   );
 }

@@ -41,7 +41,7 @@ export default function LoginPage() {
         <div className="text-center mb-8">
           <div className="inline-block px-4 py-1 border border-argos-danger/40 rounded-sm mb-6">
             <span className="text-[8px] font-mono text-argos-danger tracking-[0.4em] uppercase">
-              Confidentiel Defense
+              Acces Restreint
             </span>
           </div>
 
@@ -53,7 +53,7 @@ export default function LoginPage() {
             <div className="w-8 h-px bg-argos-accent/30" />
           </div>
           <p className="text-[9px] font-mono text-argos-text-dim tracking-[0.2em] uppercase">
-            Plateforme de Renseignement Souveraine
+            Plateforme d'Analyse Geospatiale
           </p>
         </div>
 

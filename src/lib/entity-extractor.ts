@@ -103,8 +103,6 @@ const ORGANIZATIONS = [
   "FBI",
   "MI6",
   "MI5",
-  "DGSE",
-  "DGSI",
   "BND",
   "Mossad",
   "FSB",
@@ -136,8 +134,11 @@ const ORGANIZATIONS = [
   "Boeing",
   "Northrop Grumman",
   "General Dynamics",
-  "SGDSN",
+  "CERT",
+  "DGSE",
+  "DGSI",
   "ANSSI",
+  "SGDSN",
   "COMCYBER",
 ];
 

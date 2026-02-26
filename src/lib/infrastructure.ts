@@ -1,7 +1,7 @@
 import { Infrastructure } from "@/types";
 
 export const FRANCE_INFRASTRUCTURE: Infrastructure[] = [
-  // Bases militaires
+  // Bases militaires (donnees publiques OpenStreetMap)
   { id: "inf-ba-istres", type: "infrastructure", label: "BA 125 Istres", position: { lat: 43.5237, lng: 4.9284, timestamp: 0 }, trail: [], tracked: false, flagged: false, metadata: { category: "military_base", name: "Base aerienne 125 Istres-Le Tube", operator: "Armee de l'Air", status: "active", importance: "critical" } },
   { id: "inf-ba-evreux", type: "infrastructure", label: "BA 105 Evreux", position: { lat: 49.0286, lng: 1.2198, timestamp: 0 }, trail: [], tracked: false, flagged: false, metadata: { category: "military_base", name: "Base aerienne 105 Evreux-Fauville", operator: "Armee de l'Air", status: "active", importance: "critical" } },
   { id: "inf-ba-saint-dizier", type: "infrastructure", label: "BA 113 Saint-Dizier", position: { lat: 48.6361, lng: 4.8994, timestamp: 0 }, trail: [], tracked: false, flagged: false, metadata: { category: "military_base", name: "Base aerienne 113 Saint-Dizier-Robinson", operator: "Armee de l'Air", status: "active", importance: "critical" } },
@@ -9,7 +9,7 @@ export const FRANCE_INFRASTRUCTURE: Infrastructure[] = [
   { id: "inf-ba-avord", type: "infrastructure", label: "BA 702 Avord", position: { lat: 47.0533, lng: 2.6325, timestamp: 0 }, trail: [], tracked: false, flagged: false, metadata: { category: "military_base", name: "Base aerienne 702 Avord", operator: "Armee de l'Air", status: "active", importance: "critical" } },
   { id: "inf-ba-luxeuil", type: "infrastructure", label: "BA 116 Luxeuil", position: { lat: 47.7833, lng: 6.3642, timestamp: 0 }, trail: [], tracked: false, flagged: false, metadata: { category: "military_base", name: "Base aerienne 116 Luxeuil-Saint Sauveur", operator: "Armee de l'Air", status: "active", importance: "high" } },
   { id: "inf-bn-toulon", type: "infrastructure", label: "Base Navale Toulon", position: { lat: 43.1039, lng: 5.9325, timestamp: 0 }, trail: [], tracked: false, flagged: false, metadata: { category: "military_base", name: "Base navale de Toulon", operator: "Marine Nationale", status: "active", importance: "critical" } },
-  { id: "inf-bn-brest", type: "infrastructure", label: "Base Navale Brest", position: { lat: 48.3833, lng: -4.495, timestamp: 0 }, trail: [], tracked: false, flagged: false, metadata: { category: "military_base", name: "Base navale de Brest / Ile Longue", operator: "Marine Nationale", status: "active", importance: "critical" } },
+  { id: "inf-bn-brest", type: "infrastructure", label: "Base Navale Brest", position: { lat: 48.3833, lng: -4.495, timestamp: 0 }, trail: [], tracked: false, flagged: false, metadata: { category: "military_base", name: "Base navale de Brest", operator: "Marine Nationale", status: "active", importance: "critical" } },
   { id: "inf-bn-cherbourg", type: "infrastructure", label: "Base Navale Cherbourg", position: { lat: 49.6392, lng: -1.6164, timestamp: 0 }, trail: [], tracked: false, flagged: false, metadata: { category: "military_base", name: "Base navale de Cherbourg", operator: "Marine Nationale", status: "active", importance: "high" } },
 
   // Centrales nucleaires
@@ -30,11 +30,12 @@ export const FRANCE_INFRASTRUCTURE: Infrastructure[] = [
   { id: "inf-apt-marseille", type: "infrastructure", label: "Marseille Provence", position: { lat: 43.4393, lng: 5.2214, timestamp: 0 }, trail: [], tracked: false, flagged: false, metadata: { category: "airport", name: "Aeroport Marseille Provence", operator: "AMP", status: "active", importance: "high" } },
   { id: "inf-apt-toulouse", type: "infrastructure", label: "Toulouse-Blagnac", position: { lat: 43.6294, lng: 1.3678, timestamp: 0 }, trail: [], tracked: false, flagged: false, metadata: { category: "airport", name: "Aeroport Toulouse-Blagnac", operator: "ATB", status: "active", importance: "high" } },
 
-  // Sites gouvernementaux
-  { id: "inf-gov-elysee", type: "infrastructure", label: "Palais de l'Elysee", position: { lat: 48.8704, lng: 2.3167, timestamp: 0 }, trail: [], tracked: false, flagged: false, metadata: { category: "government", name: "Palais de l'Elysee", operator: "Presidence de la Republique", status: "active", importance: "critical" } },
-  { id: "inf-gov-matignon", type: "infrastructure", label: "Hotel Matignon", position: { lat: 48.8556, lng: 2.3200, timestamp: 0 }, trail: [], tracked: false, flagged: false, metadata: { category: "government", name: "Hotel de Matignon", operator: "Premier Ministre", status: "active", importance: "critical" } },
-  { id: "inf-gov-dgse", type: "infrastructure", label: "DGSE", position: { lat: 48.8378, lng: 2.4011, timestamp: 0 }, trail: [], tracked: false, flagged: false, metadata: { category: "government", name: "Direction Generale de la Securite Exterieure", operator: "Ministere des Armees", status: "active", importance: "critical" } },
-  { id: "inf-gov-dgsi", type: "infrastructure", label: "DGSI Levallois", position: { lat: 48.8956, lng: 2.2878, timestamp: 0 }, trail: [], tracked: false, flagged: false, metadata: { category: "government", name: "Direction Generale de la Securite Interieure", operator: "Ministere de l'Interieur", status: "active", importance: "critical" } },
+  // Sites gouvernementaux (donnees publiques)
+  { id: "inf-gov-elysee", type: "infrastructure", label: "Palais de l'Elysee", position: { lat: 48.8704, lng: 2.3167, timestamp: 0 }, trail: [], tracked: false, flagged: false, metadata: { category: "government", name: "Palais de l'Elysee", operator: "Public", status: "active", importance: "critical" } },
+  { id: "inf-gov-matignon", type: "infrastructure", label: "Hotel Matignon", position: { lat: 48.8556, lng: 2.3200, timestamp: 0 }, trail: [], tracked: false, flagged: false, metadata: { category: "government", name: "Hotel de Matignon", operator: "Public", status: "active", importance: "critical" } },
+
+  { id: "inf-gov-dgse", type: "infrastructure", label: "DGSE (Tourelles)", position: { lat: 48.8156, lng: 2.4075, timestamp: 0 }, trail: [], tracked: false, flagged: false, metadata: { category: "government", name: "DGSE - Boulevard Mortier", operator: "Public", status: "active", importance: "critical" } },
+  { id: "inf-gov-dgsi", type: "infrastructure", label: "DGSI (Levallois)", position: { lat: 48.8947, lng: 2.2833, timestamp: 0 }, trail: [], tracked: false, flagged: false, metadata: { category: "government", name: "DGSI - Levallois-Perret", operator: "Public", status: "active", importance: "critical" } },
 
   // Ports maritimes
   { id: "inf-port-marseille", type: "infrastructure", label: "Port Marseille-Fos", position: { lat: 43.3280, lng: 5.0517, timestamp: 0 }, trail: [], tracked: false, flagged: false, metadata: { category: "port", name: "Grand Port Maritime de Marseille", operator: "GPMM", status: "active", importance: "critical" } },

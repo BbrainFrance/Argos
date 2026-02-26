@@ -4,8 +4,8 @@ import ServiceWorkerRegistrar from "@/components/ServiceWorkerRegistrar";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "ARGOS - Plateforme de Renseignement Souveraine",
-  description: "Intelligence spatiale et analyse en temps reel - Souverainete francaise",
+  title: "ARGOS - Plateforme d'Analyse Geospatiale",
+  description: "Plateforme d'analyse geospatiale et de surveillance en temps reel",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,

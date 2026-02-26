@@ -1,7 +1,7 @@
 {
-  "name": "ARGOS - Plateforme de Renseignement Souveraine",
+  "name": "ARGOS - Plateforme d'Analyse Geospatiale",
   "short_name": "ARGOS",
-  "description": "Systeme souverain francais de renseignement geospatial",
+  "description": "Plateforme d'analyse geospatiale et de surveillance en temps reel",
   "start_url": "/",
   "display": "standalone",
   "orientation": "landscape",

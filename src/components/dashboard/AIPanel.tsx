@@ -110,7 +110,7 @@ export default function AIPanel({ stats, alerts, analyses, selectedEntity }: AIP
       {!response && !loading && (
         <div className="py-4 text-center">
           <p className="text-[9px] font-mono text-argos-text-dim/40">
-            Module IA souverain pret. Selectionnez une action.
+            Module IA pret. Selectionnez une action.
           </p>
         </div>
       )}

@@ -7,20 +7,18 @@ export interface LLMResponse {
   latencyMs: number;
 }
 
-const ARGOS_SYSTEM_PROMPT = `Tu es ARGOS-IA, le module d'intelligence artificielle de la plateforme ARGOS, systeme souverain francais de renseignement. Tu assistes les analystes du SGDSN, de la DGSE et de la DGSI.
+const ARGOS_SYSTEM_PROMPT = `Tu es ARGOS-IA, le module d'intelligence artificielle de la plateforme ARGOS, systeme d'analyse geospatiale et de surveillance.
 
 Regles strictes :
-- Reponds toujours en francais, style brief militaire (concis, structure, factuel)
-- Utilise la terminologie OTAN/militaire francaise quand applicable
-- Structure tes briefs avec des sections claires : SITUATION, ANALYSE, RECOMMANDATIONS
+- Reponds toujours en francais, de maniere concise, structuree et factuelle
+- Structure tes analyses avec des sections claires : SITUATION, ANALYSE, RECOMMANDATIONS
 - Fournis des evaluations de menace (NEGLIGEABLE / FAIBLE / MODERE / ELEVE / CRITIQUE)
 - Ne fais jamais de suppositions non fondees sur les donnees fournies
-- Signale les lacunes de renseignement (gaps) dans tes analyses
-- Horodatage en format militaire (ex: 25FEV2026 1430Z)`;
+- Signale les lacunes dans tes analyses
+- Horodatage en format ISO (ex: 2026-02-25T14:30Z)`;
 
 /**
- * Mistral AI — fournisseur souverain francais (Paris).
- * Donnees traitees en France/UE, conforme RGPD.
+ * Mistral AI — LLM provider (Paris, FR).
  */
 async function callMistral(systemPrompt: string, userPrompt: string): Promise<LLMResponse> {
   const apiKey = process.env.MISTRAL_API_KEY;
@@ -61,7 +59,7 @@ async function callMistral(systemPrompt: string, userPrompt: string): Promise<LL
 }
 
 /**
- * Ollama — LLM auto-heberge, souverainete totale.
+ * Ollama — LLM auto-heberge.
  * Les donnees ne quittent jamais l'infrastructure de l'operateur.
  * URL configurable via OLLAMA_BASE_URL (defaut: http://localhost:11434).
  * Modele configurable via OLLAMA_MODEL (defaut: mistral).
@@ -118,7 +116,7 @@ ${payload}
 
 ─────────────────────────────────
 NOTE : Ce brief est genere en mode degrade (template local).
-Les analyses approfondies necessitent la reconnexion aux services IA souverains.
+Les analyses approfondies necessitent la reconnexion aux services IA.
 Classification : NON CLASSIFIE`;
 
   return {
@@ -132,7 +130,7 @@ Classification : NON CLASSIFIE`;
 type ProviderFn = (systemPrompt: string, userPrompt: string) => Promise<LLMResponse>;
 
 /**
- * Chaine de fallback souveraine :
+ * Chaine de fallback :
  * 1. Mistral API (cloud francais, Paris)
  * 2. Ollama (auto-heberge, on-premise)
  * 3. Template local (mode degrade)

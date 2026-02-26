@@ -23,29 +23,29 @@ async function main() {
 
   const operatorPassword = await bcrypt.hash("argos2024", 12);
   await prisma.user.upsert({
-    where: { email: "operateur@argos.gouv.fr" },
+    where: { email: "operateur@argos.local" },
     create: {
-      email: "operateur@argos.gouv.fr",
-      name: "Operateur DGSI",
+      email: "operateur@argos.local",
+      name: "Operateur ARGOS",
       password: operatorPassword,
       role: "OPERATOR",
     },
     update: { password: operatorPassword, role: "OPERATOR" },
   });
-  console.log("  + Utilisateur operateur@argos.gouv.fr (mdp: argos2024)");
+  console.log("  + Utilisateur operateur@argos.local (mdp: argos2024)");
 
   const analystPassword = await bcrypt.hash("argos2024", 12);
   await prisma.user.upsert({
-    where: { email: "analyste@argos.gouv.fr" },
+    where: { email: "analyste@argos.local" },
     create: {
-      email: "analyste@argos.gouv.fr",
-      name: "Analyste DGSE",
+      email: "analyste@argos.local",
+      name: "Analyste ARGOS",
       password: analystPassword,
       role: "ANALYST",
     },
     update: { password: analystPassword, role: "ANALYST" },
   });
-  console.log("  + Utilisateur analyste@argos.gouv.fr (mdp: argos2024)");
+  console.log("  + Utilisateur analyste@argos.local (mdp: argos2024)");
 
   const DEFAULT_ZONES = [
     {
@@ -60,7 +60,7 @@ async function main() {
     },
     {
       id: "zone-ile-longue",
-      name: "Ile Longue (SNLE)",
+      name: "Zone Exclusion Brest",
       type: "EXCLUSION" as const,
       polygon: [[48.35, -4.60], [48.35, -4.45], [48.28, -4.45], [48.28, -4.60]],
       color: "#ef4444",

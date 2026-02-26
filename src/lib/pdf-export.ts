@@ -72,7 +72,7 @@ export function generateReport(data: ReportData): void {
   doc.text("ARGOS", marginL, y + 13);
   doc.setFontSize(8);
   doc.setTextColor(150, 160, 180);
-  doc.text("SYSTEME SOUVERAIN DE RENSEIGNEMENT", marginL, y + 19);
+  doc.text("PLATEFORME D'ANALYSE GEOSPATIALE", marginL, y + 19);
   doc.setTextColor(100, 120, 140);
   doc.setFontSize(7);
   doc.text(`RAPPORT GENERE LE ${formatDate()}`, marginL, y + 25);

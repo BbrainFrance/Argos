@@ -1,6 +1,6 @@
 /**
  * Photo Geolocation — Extract GPS from EXIF or estimate via Mistral Pixtral vision.
- * Priorité: EXIF GPS → Mistral Pixtral (souveraineté française)
+ * Priorite: EXIF GPS → Mistral Pixtral
  */
 
 import ExifReader from "exifreader";

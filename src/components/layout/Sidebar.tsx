@@ -66,7 +66,7 @@ const LAYERS: { id: string; name: string; icon: string; color: string; modes: ("
   { id: "pipelines", name: "Pipelines", icon: "🛢", color: "#84cc16", modes: ["2d"], group: "infra" },
   { id: "militaryBases", name: "Bases Militaires", icon: "🎖", color: "#dc2626", modes: ["2d", "3d"], group: "infra" },
   { id: "nuclearFacilities", name: "Installations Nucl.", icon: "☢", color: "#eab308", modes: ["2d", "3d"], group: "infra" },
-  { id: "intelFeeds", name: "Flux Renseignement", icon: "📰", color: "#64748b", modes: ["2d", "3d"], group: "intel" },
+  { id: "intelFeeds", name: "Flux Intel", icon: "📰", color: "#64748b", modes: ["2d", "3d"], group: "intel" },
 ];
 
 const TOOLS = [
@@ -90,7 +90,7 @@ export default function Sidebar({ activeLayers, onToggleLayer, showTrails, onTog
           {!collapsed && (
             <div>
               <h1 className="text-xs font-bold text-argos-text tracking-[0.2em]">ARGOS</h1>
-              <p className="text-[8px] text-argos-text-dim font-mono">RENSEIGNEMENT SOUVERAIN</p>
+              <p className="text-[8px] text-argos-text-dim font-mono">ANALYSE GEOSPATIALE</p>
             </div>
           )}
         </div>
@@ -110,7 +110,7 @@ export default function Sidebar({ activeLayers, onToggleLayer, showTrails, onTog
             { key: "sources", label: "Sources" },
             { key: "world", label: "World Monitor" },
             { key: "infra", label: "Infrastructures" },
-            { key: "intel", label: "Renseignement" },
+            { key: "intel", label: "Intel" },
           ];
           const filtered = LAYERS.filter((l) => l.modes.includes(viewMode));
           return groups.map((g) => {
