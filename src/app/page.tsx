@@ -274,7 +274,7 @@ export default function ArgosPage() {
   useEffect(() => {
     if (!activeLayers.satellites) { setSatellitePositions([]); return; }
     const fetchSats = () => {
-      fetch("/api/satellites?groups=gps,galileo,iridium,french-mil")
+      fetch("/api/satellites?groups=gps,galileo,iridium,starlink,french-mil")
         .then((r) => r.ok ? r.json() : null)
         .then((data) => { if (data?.satellites) setSatellitePositions(data.satellites); })
         .catch(() => {});

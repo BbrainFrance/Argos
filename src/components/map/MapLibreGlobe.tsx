@@ -470,7 +470,8 @@ export default function MapLibreGlobe({
         .setHTML(
           `<div class="argos-tt">
             <strong style="color:${props.color}">\u{1F6F0} ${props.name}</strong><br/>
-            <span class="dim">${String(props.group).toUpperCase()}</span>
+            <span class="dim">${String(props.group).toUpperCase()}</span><br/>
+            Alt: ${props.alt} km | Vit: ${props.velocity} km/h
           </div>`
         )
         .addTo(map);
@@ -543,7 +544,14 @@ export default function MapLibreGlobe({
       features: satellites.map((s) => ({
         type: "Feature" as const,
         geometry: { type: "Point" as const, coordinates: [s.lng, s.lat] },
-        properties: { id: s.id, name: s.name, group: s.group, color: GROUP_COLORS[s.group] ?? "#f59e0b" },
+        properties: {
+          id: s.id,
+          name: s.name,
+          group: s.group,
+          alt: Math.round(s.alt),
+          velocity: Math.round(s.velocity * 3.6),
+          color: GROUP_COLORS[s.group] ?? "#f59e0b",
+        },
       })),
     } : EMPTY_FC;
     src("sats")?.setData(satFC);
