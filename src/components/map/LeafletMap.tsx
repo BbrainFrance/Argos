@@ -84,6 +84,10 @@ export default function LeafletMap({
   const drawLayerRef = useRef<L.LayerGroup | null>(null);
   const onZoneDrawnRef = useRef(onZoneDrawn);
   onZoneDrawnRef.current = onZoneDrawn;
+  const onMapClickRef = useRef(onMapClick);
+  onMapClickRef.current = onMapClick;
+  const onMissionWaypointAddRef = useRef(onMissionWaypointAdd);
+  onMissionWaypointAddRef.current = onMissionWaypointAdd;
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
@@ -353,38 +357,32 @@ export default function LeafletMap({
   // Mission plan mode
   useEffect(() => {
     const map = mapRef.current;
-    if (!map) return;
-    if (missionPlanMode) {
-      map.getContainer().style.cursor = "crosshair";
-      const handler = (e: L.LeafletMouseEvent) => {
-        onMissionWaypointAdd?.({ lat: e.latlng.lat, lng: e.latlng.lng });
-      };
-      map.on("click", handler);
-      return () => {
-        map.off("click", handler);
-        map.getContainer().style.cursor = "";
-      };
-    }
-  }, [missionPlanMode, onMissionWaypointAdd]);
+    if (!map || !missionPlanMode) return;
+    map.getContainer().style.cursor = "crosshair";
+    const handler = (e: L.LeafletMouseEvent) => {
+      onMissionWaypointAddRef.current?.({ lat: e.latlng.lat, lng: e.latlng.lng });
+    };
+    map.on("click", handler);
+    return () => {
+      map.off("click", handler);
+      map.getContainer().style.cursor = "";
+    };
+  }, [missionPlanMode]);
 
   // Place marker mode
   useEffect(() => {
     const map = mapRef.current;
-    if (!map) return;
-    if (placeMarkerMode) {
-      map.getContainer().style.cursor = "crosshair";
-      const handler = (e: L.LeafletMouseEvent) => {
-        onMapClick?.({ lat: e.latlng.lat, lng: e.latlng.lng });
-      };
-      map.on("click", handler);
-      return () => {
-        map.off("click", handler);
-        map.getContainer().style.cursor = "";
-      };
-    } else {
+    if (!map || !placeMarkerMode) return;
+    map.getContainer().style.cursor = "crosshair";
+    const handler = (e: L.LeafletMouseEvent) => {
+      onMapClickRef.current?.({ lat: e.latlng.lat, lng: e.latlng.lng });
+    };
+    map.on("click", handler);
+    return () => {
+      map.off("click", handler);
       map.getContainer().style.cursor = "";
-    }
-  }, [placeMarkerMode, onMapClick]);
+    };
+  }, [placeMarkerMode]);
 
   // Measure mode
   useEffect(() => {

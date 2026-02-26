@@ -85,7 +85,23 @@ export default function CommandCenter({ stats, alerts, analyses, entities, selec
   const speak = useCallback((text: string) => {
     if (!synthRef.current) return;
     synthRef.current.cancel();
-    const clean = text.replace(/[*#_\[\]]/g, "").slice(0, 500);
+    const clean = text
+      .replace(/\|[^\n]*\|/g, "")
+      .replace(/[-]{3,}/g, "")
+      .replace(/#{1,6}\s*/g, "")
+      .replace(/\*{1,3}([^*]*)\*{1,3}/g, "$1")
+      .replace(/`[^`]*`/g, "")
+      .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
+      .replace(/[*#_\[\]`|~>]/g, "")
+      .replace(/^\s*[-•]\s*/gm, "")
+      .replace(/^\s*\d+\.\s*/gm, "")
+      .replace(/[\u{1F000}-\u{1FFFF}]|[\u{2600}-\u{27BF}]|[\u{FE00}-\u{FEFF}]/gu, "")
+      .replace(/\n{2,}/g, ". ")
+      .replace(/\n/g, " ")
+      .replace(/\s{2,}/g, " ")
+      .trim()
+      .slice(0, 500);
+    if (!clean) return;
     const utterance = new SpeechSynthesisUtterance(clean);
     utterance.lang = "fr-FR";
     if (bestVoiceRef.current) utterance.voice = bestVoiceRef.current;
