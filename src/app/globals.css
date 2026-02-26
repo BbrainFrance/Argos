@@ -60,3 +60,58 @@ body {
     text-shadow: 0 0 10px rgba(0, 212, 255, 0.5);
   }
 }
+
+.prediction-tooltip {
+  background: rgba(0, 0, 0, 0.7) !important;
+  border: 1px solid rgba(255, 255, 255, 0.3) !important;
+  color: #fff !important;
+  font-family: monospace !important;
+  font-size: 8px !important;
+  padding: 1px 4px !important;
+  border-radius: 2px !important;
+  box-shadow: none !important;
+}
+
+.prediction-tooltip::before {
+  display: none !important;
+}
+
+.nato-marker {
+  background: transparent !important;
+  border: none !important;
+}
+
+.ops-marker {
+  background: transparent !important;
+  border: none !important;
+}
+
+.gibs-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  background: linear-gradient(to right, #1e3a5f, #06b6d4);
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+}
+
+.gibs-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #06b6d4;
+  border: 2px solid #0a0e17;
+  box-shadow: 0 0 8px rgba(6, 182, 212, 0.5);
+  cursor: pointer;
+}
+
+.gibs-slider::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #06b6d4;
+  border: 2px solid #0a0e17;
+  box-shadow: 0 0 8px rgba(6, 182, 212, 0.5);
+  cursor: pointer;
+}

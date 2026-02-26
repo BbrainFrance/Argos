@@ -3,8 +3,16 @@
 import { useEffect, useRef, useCallback } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { Entity, Aircraft, Infrastructure, ZoneOfInterest } from "@/types";
+import { Entity, Aircraft, Vessel, Infrastructure, ZoneOfInterest, OperationalMarker, MissionRoute, EntityLink } from "@/types";
 import { INFRA_ICONS } from "@/lib/infrastructure";
+import {
+  generateNATOSymbol,
+  getAircraftAffiliation,
+  getAircraftModifier,
+  getVesselAffiliation,
+  getVesselModifier,
+} from "@/lib/nato-symbols";
+import { predictTrajectory } from "@/lib/interpolation";
 
 interface LeafletMapProps {
   entities: Entity[];
@@ -14,6 +22,21 @@ interface LeafletMapProps {
   onSelectEntity: (entity: Entity) => void;
   showTrails: boolean;
   showInfrastructure: boolean;
+  showSatellite?: boolean;
+  showSentinel?: boolean;
+  gibsDate?: string;
+  gibsProduct?: string;
+  drawMode?: boolean;
+  measureMode?: boolean;
+  operationalMarkers?: OperationalMarker[];
+  placeMarkerMode?: boolean;
+  missionPlanMode?: boolean;
+  missionRoutes?: MissionRoute[];
+  activeMissionWaypoints?: MissionRoute["waypoints"];
+  onMapClick?: (latlng: { lat: number; lng: number }) => void;
+  entityLinks?: EntityLink[];
+  onMissionWaypointAdd?: (latlng: { lat: number; lng: number }) => void;
+  onZoneDrawn?: (polygon: [number, number][]) => void;
 }
 
 const FRANCE_CENTER: [number, number] = [46.6, 2.3];
@@ -26,13 +49,41 @@ export default function LeafletMap({
   onSelectEntity,
   showTrails,
   showInfrastructure,
+  showSatellite = false,
+  showSentinel = false,
+  gibsDate,
+  gibsProduct,
+  drawMode = false,
+  measureMode = false,
+  operationalMarkers = [],
+  placeMarkerMode = false,
+  missionPlanMode = false,
+  missionRoutes = [],
+  activeMissionWaypoints = [],
+  entityLinks = [],
+  onMapClick,
+  onMissionWaypointAdd,
+  onZoneDrawn,
 }: LeafletMapProps) {
   const mapRef = useRef<L.Map | null>(null);
   const entityLayerRef = useRef<L.LayerGroup | null>(null);
   const trailLayerRef = useRef<L.LayerGroup | null>(null);
   const infraLayerRef = useRef<L.LayerGroup | null>(null);
   const zoneLayerRef = useRef<L.LayerGroup | null>(null);
+  const satLayerRef = useRef<L.TileLayer | null>(null);
+  const sentinelLayerRef = useRef<L.TileLayer | null>(null);
+  const measureLayerRef = useRef<L.LayerGroup | null>(null);
+  const opsLayerRef = useRef<L.LayerGroup | null>(null);
+  const predictionLayerRef = useRef<L.LayerGroup | null>(null);
+  const missionLayerRef = useRef<L.LayerGroup | null>(null);
+  const linkLayerRef = useRef<L.LayerGroup | null>(null);
+  const measurePointsRef = useRef<L.LatLng[]>([]);
+  const entityMarkersRef = useRef<Map<string, L.Marker>>(new Map());
   const containerRef = useRef<HTMLDivElement>(null);
+  const drawPointsRef = useRef<[number, number][]>([]);
+  const drawLayerRef = useRef<L.LayerGroup | null>(null);
+  const onZoneDrawnRef = useRef(onZoneDrawn);
+  onZoneDrawnRef.current = onZoneDrawn;
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
@@ -54,6 +105,12 @@ export default function LeafletMap({
     trailLayerRef.current = L.layerGroup().addTo(map);
     infraLayerRef.current = L.layerGroup().addTo(map);
     zoneLayerRef.current = L.layerGroup().addTo(map);
+    drawLayerRef.current = L.layerGroup().addTo(map);
+    measureLayerRef.current = L.layerGroup().addTo(map);
+    opsLayerRef.current = L.layerGroup().addTo(map);
+    predictionLayerRef.current = L.layerGroup().addTo(map);
+    missionLayerRef.current = L.layerGroup().addTo(map);
+    linkLayerRef.current = L.layerGroup().addTo(map);
     mapRef.current = map;
 
     return () => {
@@ -64,6 +121,372 @@ export default function LeafletMap({
 
   const onSelectEntityRef = useRef(onSelectEntity);
   onSelectEntityRef.current = onSelectEntity;
+
+  // Satellite layer toggle
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    if (showSatellite && !satLayerRef.current) {
+      satLayerRef.current = L.tileLayer(
+        "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+        { maxZoom: 19, attribution: "Esri, Maxar" }
+      ).addTo(map);
+    } else if (!showSatellite && satLayerRef.current) {
+      map.removeLayer(satLayerRef.current);
+      satLayerRef.current = null;
+    }
+  }, [showSatellite]);
+
+  // NASA GIBS imagery layer with temporal navigation
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    if (sentinelLayerRef.current) {
+      map.removeLayer(sentinelLayerRef.current);
+      sentinelLayerRef.current = null;
+    }
+
+    if (showSentinel) {
+      const dateStr = gibsDate || (() => {
+        const d = new Date();
+        d.setDate(d.getDate() - 3);
+        return d.toISOString().slice(0, 10);
+      })();
+
+      const product = gibsProduct || "MODIS_Terra_CorrectedReflectance_TrueColor";
+      const ext = product.includes("NDVI") ? "png" : "jpg";
+      const maxZoom = product.includes("NDVI") ? 8 : 9;
+
+      sentinelLayerRef.current = L.tileLayer(
+        `https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/${product}/default/${dateStr}/GoogleMapsCompatible_Level9/{z}/{y}/{x}.${ext}`,
+        {
+          maxZoom,
+          attribution: `NASA GIBS — ${dateStr}`,
+          opacity: 0.85,
+        }
+      ).addTo(map);
+    }
+  }, [showSentinel, gibsDate, gibsProduct]);
+
+  // Operational markers (blue/red force, intel)
+  useEffect(() => {
+    if (!opsLayerRef.current) return;
+    opsLayerRef.current.clearLayers();
+
+    operationalMarkers.forEach((m) => {
+      const size = 28;
+      const domain: "land" | "sea" | "air" = m.category === "naval" ? "sea" : "land";
+
+      const CATEGORY_MODS: Record<string, string> = {
+        infantry: "INF", armor: "ARM", artillery: "ART", air_defense: "AD",
+        logistics: "LOG", command: "CMD", recon: "RCN", engineering: "ENG",
+        naval: "NAV", special_ops: "SOF", medical: "MED", observation: "OBS",
+        threat: "THR", ied: "IED", checkpoint: "CP", hq: "HQ", custom: "",
+      };
+
+      const svgHtml = generateNATOSymbol({
+        affiliation: m.affiliation,
+        domain,
+        size,
+        modifier: CATEGORY_MODS[m.category] ?? "",
+      });
+
+      const icon = L.divIcon({
+        className: "ops-marker",
+        html: `<div style="cursor:pointer;">${svgHtml}</div>`,
+        iconSize: [size, size],
+        iconAnchor: [size / 2, size / 2],
+      });
+
+      const marker = L.marker([m.position.lat, m.position.lng], { icon, zIndexOffset: 500 });
+
+      const affLabel = m.affiliation === "friendly" ? "AMI" : m.affiliation === "hostile" ? "HOSTILE" : m.affiliation === "suspect" ? "SUSPECT" : "NEUTRE";
+      marker.bindTooltip(
+        `<div style="font-family:monospace;font-size:10px;background:#1a2332ee;color:#e2e8f0;padding:6px 10px;border:1px solid #1e3a5f;border-radius:4px;min-width:140px;">
+          <strong>${m.label}</strong> <span style="color:#64748b;font-size:8px;">[${affLabel}]</span><br/>
+          <span style="color:#64748b;">${m.category.replace("_", " ").toUpperCase()}</span><br/>
+          ${m.notes ? `<span style="color:#94a3b8;">${m.notes}</span><br/>` : ""}
+          ${m.weaponRange ? `Portee: ${m.weaponRange} km` : ""}
+        </div>`,
+        { className: "argos-tooltip", direction: "top", offset: [0, -14] }
+      );
+
+      opsLayerRef.current!.addLayer(marker);
+
+      if (m.weaponRange) {
+        const rangeColor = m.affiliation === "hostile" || m.affiliation === "suspect" ? "#ff404060" : "#4080ff40";
+        const rangeBorder = m.affiliation === "hostile" || m.affiliation === "suspect" ? "#ff4040" : "#4080ff";
+        const circle = L.circle([m.position.lat, m.position.lng], {
+          radius: m.weaponRange * 1000,
+          color: rangeBorder,
+          fillColor: rangeColor,
+          fillOpacity: 0.15,
+          weight: 1.5,
+          dashArray: "6 4",
+        });
+        opsLayerRef.current!.addLayer(circle);
+      }
+    });
+  }, [operationalMarkers]);
+
+  // Entity links rendering
+  useEffect(() => {
+    if (!linkLayerRef.current) return;
+    linkLayerRef.current.clearLayers();
+
+    const LINK_COLORS: Record<string, string> = {
+      escort: "#4080ff", surveillance: "#ff4040", supply: "#f59e0b",
+      command: "#8b5cf6", comms: "#06b6d4", threat: "#ef4444", unknown: "#64748b",
+    };
+
+    const LINK_DASH: Record<string, string | undefined> = {
+      escort: undefined, surveillance: "6 4", supply: "4 4",
+      command: "2 6", comms: "8 2", threat: "2 2", unknown: "4 8",
+    };
+
+    entityLinks.forEach((link) => {
+      const source = entities.find((e) => e.id === link.sourceId);
+      const target = entities.find((e) => e.id === link.targetId);
+      if (!source?.position || !target?.position) return;
+
+      const color = LINK_COLORS[link.type] ?? "#64748b";
+      const dash = LINK_DASH[link.type];
+
+      const line = L.polyline(
+        [[source.position.lat, source.position.lng], [target.position.lat, target.position.lng]],
+        { color, weight: 2, opacity: 0.6, dashArray: dash }
+      );
+
+      const midLat = (source.position.lat + target.position.lat) / 2;
+      const midLng = (source.position.lng + target.position.lng) / 2;
+
+      const typeLabel = link.type.toUpperCase();
+      line.bindTooltip(
+        `<div style="font-family:monospace;font-size:9px;background:#1a2332ee;color:#e2e8f0;padding:3px 6px;border:1px solid ${color};border-radius:3px;">
+          <span style="color:${color};">${typeLabel}</span>${link.label ? ` — ${link.label}` : ""}
+        </div>`,
+        { className: "argos-tooltip", permanent: false, direction: "center", offset: [0, 0] }
+      );
+
+      linkLayerRef.current!.addLayer(line);
+
+      linkLayerRef.current!.addLayer(
+        L.circleMarker([midLat, midLng], { radius: 3, color, fillColor: color, fillOpacity: 0.5, weight: 1 })
+      );
+    });
+  }, [entityLinks, entities]);
+
+  // Mission routes rendering
+  useEffect(() => {
+    if (!missionLayerRef.current) return;
+    missionLayerRef.current.clearLayers();
+
+    const WP_COLORS: Record<string, string> = {
+      start: "#00ff00", waypoint: "#ffffff", objective: "#ff4040", rally: "#f59e0b", extraction: "#8b5cf6",
+    };
+
+    const allRoutes = [...missionRoutes];
+    if (activeMissionWaypoints.length > 0) {
+      allRoutes.push({
+        id: "__active__",
+        name: "En cours",
+        waypoints: activeMissionWaypoints,
+        color: "#00ffaa",
+        createdBy: "operator",
+        createdAt: new Date(),
+      });
+    }
+
+    allRoutes.forEach((route) => {
+      if (route.waypoints.length < 1) return;
+
+      if (route.waypoints.length > 1) {
+        const latlngs = route.waypoints.map((wp) => [wp.position.lat, wp.position.lng] as [number, number]);
+        missionLayerRef.current!.addLayer(
+          L.polyline(latlngs, {
+            color: route.color,
+            weight: 2.5,
+            opacity: 0.8,
+            dashArray: route.id === "__active__" ? "8 4" : undefined,
+          })
+        );
+      }
+
+      route.waypoints.forEach((wp, i) => {
+        const color = WP_COLORS[wp.type] ?? "#ffffff";
+        const isObjective = wp.type === "objective";
+        const radius = isObjective ? 8 : 5;
+
+        const circle = L.circleMarker([wp.position.lat, wp.position.lng], {
+          radius,
+          color,
+          fillColor: color,
+          fillOpacity: isObjective ? 0.5 : 0.3,
+          weight: 2,
+        });
+
+        circle.bindTooltip(
+          `<div style="font-family:monospace;font-size:9px;background:#1a2332ee;color:#e2e8f0;padding:4px 8px;border:1px solid ${color};border-radius:3px;">
+            <strong style="color:${color};">${wp.label || `WP-${i + 1}`}</strong><br/>
+            <span style="color:#64748b;">${wp.type.toUpperCase()}</span>
+          </div>`,
+          { className: "argos-tooltip", direction: "top", offset: [0, -8] }
+        );
+
+        missionLayerRef.current!.addLayer(circle);
+      });
+    });
+  }, [missionRoutes, activeMissionWaypoints]);
+
+  // Disable entity interaction when in placement/mission modes
+  useEffect(() => {
+    const panes = mapRef.current?.getPane("markerPane");
+    const overlayPane = mapRef.current?.getPane("overlayPane");
+    const interactionBlocked = placeMarkerMode || missionPlanMode;
+
+    if (panes) panes.style.pointerEvents = interactionBlocked ? "none" : "auto";
+    if (overlayPane) overlayPane.style.pointerEvents = interactionBlocked ? "none" : "auto";
+  }, [placeMarkerMode, missionPlanMode]);
+
+  // Mission plan mode
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    if (missionPlanMode) {
+      map.getContainer().style.cursor = "crosshair";
+      const handler = (e: L.LeafletMouseEvent) => {
+        onMissionWaypointAdd?.({ lat: e.latlng.lat, lng: e.latlng.lng });
+      };
+      map.on("click", handler);
+      return () => {
+        map.off("click", handler);
+        map.getContainer().style.cursor = "";
+      };
+    }
+  }, [missionPlanMode, onMissionWaypointAdd]);
+
+  // Place marker mode
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    if (placeMarkerMode) {
+      map.getContainer().style.cursor = "crosshair";
+      const handler = (e: L.LeafletMouseEvent) => {
+        onMapClick?.({ lat: e.latlng.lat, lng: e.latlng.lng });
+      };
+      map.on("click", handler);
+      return () => {
+        map.off("click", handler);
+        map.getContainer().style.cursor = "";
+      };
+    } else {
+      map.getContainer().style.cursor = "";
+    }
+  }, [placeMarkerMode, onMapClick]);
+
+  // Measure mode
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !measureLayerRef.current) return;
+
+    if (!measureMode) {
+      measureLayerRef.current.clearLayers();
+      measurePointsRef.current = [];
+      map.getContainer().style.cursor = "";
+      return;
+    }
+
+    map.getContainer().style.cursor = "crosshair";
+    measurePointsRef.current = [];
+    measureLayerRef.current.clearLayers();
+
+    function formatDistance(meters: number): string {
+      if (meters >= 1000) return `${(meters / 1000).toFixed(2)} km`;
+      return `${Math.round(meters)} m`;
+    }
+
+    function redrawMeasure() {
+      measureLayerRef.current!.clearLayers();
+      const pts = measurePointsRef.current;
+
+      for (let i = 0; i < pts.length; i++) {
+        const circleMarker = L.circleMarker(pts[i], {
+          radius: 4,
+          color: "#00d4ff",
+          fillColor: "#00d4ff",
+          fillOpacity: 1,
+          weight: 2,
+        });
+        measureLayerRef.current!.addLayer(circleMarker);
+      }
+
+      if (pts.length >= 2) {
+        const polyline = L.polyline(pts, {
+          color: "#00d4ff",
+          weight: 2,
+          opacity: 0.8,
+          dashArray: "6 4",
+        });
+        measureLayerRef.current!.addLayer(polyline);
+
+        let totalDist = 0;
+        for (let i = 1; i < pts.length; i++) {
+          totalDist += pts[i - 1].distanceTo(pts[i]);
+        }
+
+        const lastPt = pts[pts.length - 1];
+        const label = L.marker(lastPt, {
+          icon: L.divIcon({
+            className: "measure-label",
+            html: `<div style="background:#1a2332ee;color:#00d4ff;font-family:monospace;font-size:11px;padding:3px 8px;border:1px solid #00d4ff80;border-radius:3px;white-space:nowrap;font-weight:bold;">${formatDistance(totalDist)}</div>`,
+            iconSize: [0, 0],
+            iconAnchor: [-10, 10],
+          }),
+        });
+        measureLayerRef.current!.addLayer(label);
+
+        for (let i = 1; i < pts.length; i++) {
+          const segDist = pts[i - 1].distanceTo(pts[i]);
+          const midLat = (pts[i - 1].lat + pts[i].lat) / 2;
+          const midLng = (pts[i - 1].lng + pts[i].lng) / 2;
+          if (pts.length > 2) {
+            const segLabel = L.marker([midLat, midLng], {
+              icon: L.divIcon({
+                className: "measure-seg-label",
+                html: `<div style="background:#1a233299;color:#94a3b8;font-family:monospace;font-size:9px;padding:1px 4px;border:1px solid #1e3a5f;border-radius:2px;white-space:nowrap;">${formatDistance(segDist)}</div>`,
+                iconSize: [0, 0],
+                iconAnchor: [-8, 8],
+              }),
+            });
+            measureLayerRef.current!.addLayer(segLabel);
+          }
+        }
+      }
+    }
+
+    function onMeasureClick(e: L.LeafletMouseEvent) {
+      measurePointsRef.current.push(e.latlng);
+      redrawMeasure();
+    }
+
+    function onMeasureDblClick(e: L.LeafletMouseEvent) {
+      e.originalEvent.preventDefault();
+      e.originalEvent.stopPropagation();
+    }
+
+    map.on("click", onMeasureClick);
+    map.on("dblclick", onMeasureDblClick);
+    map.doubleClickZoom.disable();
+
+    return () => {
+      map.off("click", onMeasureClick);
+      map.off("dblclick", onMeasureDblClick);
+      map.doubleClickZoom.enable();
+      map.getContainer().style.cursor = "";
+    };
+  }, [measureMode]);
 
   // Render zones
   useEffect(() => {
@@ -119,74 +542,249 @@ export default function LeafletMap({
   // Render entities + trails
   useEffect(() => {
     if (!entityLayerRef.current || !trailLayerRef.current) return;
-    entityLayerRef.current.clearLayers();
+
     trailLayerRef.current.clearLayers();
 
+    const currentIds = new Set<string>();
+
     entities.forEach((entity) => {
-      if (entity.type !== "aircraft" || !entity.position) return;
-      const ac = entity as Aircraft;
+      if (!entity.position) return;
+      currentIds.add(entity.id);
       const isSelected = entity.id === selectedEntityId;
-      const rotation = ac.metadata.trueTrack ?? 0;
-      const isGrounded = ac.metadata.onGround;
+      const existing = entityMarkersRef.current.get(entity.id);
 
-      let color = "#00d4ff";
-      if (isGrounded) color = "#475569";
-      if (ac.flagged) color = "#ef4444";
-      if (ac.tracked) color = "#f59e0b";
-      if (isSelected) color = "#10b981";
+      if (entity.type === "aircraft") {
+        const ac = entity as Aircraft;
+        const heading = ac.metadata.trueTrack ?? undefined;
+        const isGrounded = ac.metadata.onGround;
+        const affiliation = getAircraftAffiliation(ac.metadata.originCountry, ac.metadata.squawk);
+        const modifier = getAircraftModifier(ac.metadata.callsign, ac.metadata.squawk);
+        const size = isSelected ? 26 : isGrounded ? 12 : 20;
 
-      const squawk = ac.metadata.squawk;
-      if (squawk === "7700" || squawk === "7600" || squawk === "7500") color = "#ef4444";
-
-      const size = isSelected ? 12 : isGrounded ? 4 : 7;
-
-      const icon = L.divIcon({
-        className: "aircraft-marker",
-        html: `<div style="
-          width:0;height:0;
-          border-left:${size/2}px solid transparent;
-          border-right:${size/2}px solid transparent;
-          border-bottom:${size}px solid ${color};
-          filter: drop-shadow(0 0 ${isSelected ? 8 : 4}px ${color}80);
-          transform:rotate(${rotation}deg);
-          cursor:pointer;
-          transition:all 0.3s;
-        "></div>`,
-        iconSize: [size, size],
-        iconAnchor: [size / 2, size / 2],
-      });
-
-      const marker = L.marker([ac.position!.lat, ac.position!.lng], { icon, zIndexOffset: isSelected ? 1000 : isGrounded ? -100 : 0 });
-      marker.on("click", () => onSelectEntityRef.current(entity));
-
-      const speedKmh = ac.metadata.velocity ? (ac.metadata.velocity * 3.6).toFixed(0) : "N/A";
-      marker.bindTooltip(
-        `<div style="font-family:monospace;font-size:10px;background:#1a2332ee;color:#e2e8f0;padding:6px 10px;border:1px solid #1e3a5f;border-radius:4px;min-width:120px;">
-          <strong style="color:${color};">${ac.label}</strong><br/>
-          <span style="color:#64748b;">${ac.metadata.originCountry}</span><br/>
-          Alt: ${ac.metadata.baroAltitude?.toFixed(0) ?? "N/A"} m<br/>
-          Vit: ${speedKmh} km/h<br/>
-          Cap: ${ac.metadata.trueTrack?.toFixed(0) ?? "—"}°
-          ${squawk ? `<br/>Sqk: <span style="color:${squawk.startsWith("7") ? "#ef4444" : "#e2e8f0"};">${squawk}</span>` : ""}
-        </div>`,
-        { className: "argos-tooltip", direction: "top", offset: [0, -10] }
-      );
-
-      entityLayerRef.current!.addLayer(marker);
-
-      // Trail
-      if (showTrails && (ac.tracked || isSelected) && ac.trail.length > 1) {
-        const latlngs = ac.trail.map((p) => [p.lat, p.lng] as [number, number]);
-        const polyline = L.polyline(latlngs, {
-          color,
-          weight: 2,
-          opacity: 0.6,
-          dashArray: "4 4",
+        const svgHtml = generateNATOSymbol({
+          affiliation,
+          domain: isGrounded ? "land" : "air",
+          size,
+          heading: isGrounded ? undefined : heading,
+          selected: isSelected,
+          tracked: ac.tracked,
+          flagged: ac.flagged,
+          modifier,
         });
-        trailLayerRef.current!.addLayer(polyline);
+
+        const natoIcon = L.divIcon({
+          className: "nato-marker",
+          html: `<div style="cursor:pointer;">${svgHtml}</div>`,
+          iconSize: [size, size],
+          iconAnchor: [size / 2, size / 2],
+        });
+
+        if (existing) {
+          existing.setLatLng([ac.position!.lat, ac.position!.lng]);
+          existing.setIcon(natoIcon);
+          existing.setZIndexOffset(isSelected ? 1000 : isGrounded ? -100 : 0);
+        } else {
+          const marker = L.marker([ac.position!.lat, ac.position!.lng], { icon: natoIcon, zIndexOffset: isSelected ? 1000 : isGrounded ? -100 : 0 });
+          marker.on("click", () => onSelectEntityRef.current(entity));
+
+          const speedKmh = ac.metadata.velocity ? (ac.metadata.velocity * 3.6).toFixed(0) : "N/A";
+          const affiliationLabel = affiliation === "friendly" ? "AMI" : affiliation === "hostile" ? "HOSTILE" : affiliation === "suspect" ? "SUSPECT" : "NEUTRE";
+          const squawk = ac.metadata.squawk;
+          marker.bindTooltip(
+            `<div style="font-family:monospace;font-size:10px;background:#1a2332ee;color:#e2e8f0;padding:6px 10px;border:1px solid #1e3a5f;border-radius:4px;min-width:140px;">
+              <strong>${ac.label}</strong> <span style="color:#64748b;font-size:8px;">[${affiliationLabel}]</span><br/>
+              <span style="color:#64748b;">${ac.metadata.originCountry}</span><br/>
+              Alt: ${ac.metadata.baroAltitude?.toFixed(0) ?? "N/A"} m | Vit: ${speedKmh} km/h<br/>
+              Cap: ${ac.metadata.trueTrack?.toFixed(0) ?? "—"}°
+              ${squawk ? `<br/>Sqk: <span style="color:${squawk.startsWith("7") ? "#ef4444" : "#e2e8f0"};">${squawk}</span>` : ""}
+              ${modifier ? `<br/><span style="color:#f59e0b;">${modifier}</span>` : ""}
+            </div>`,
+            { className: "argos-tooltip", direction: "top", offset: [0, -10] }
+          );
+
+          entityLayerRef.current!.addLayer(marker);
+          entityMarkersRef.current.set(entity.id, marker);
+        }
+
+        const trailColor = affiliation === "hostile" ? "#ff4040" : affiliation === "friendly" ? "#4080ff" : "#80e080";
+        if (showTrails && ac.trail.length > 1) {
+          const latlngs = ac.trail.map((p) => [p.lat, p.lng] as [number, number]);
+          const trailOpacity = (ac.tracked || isSelected) ? 0.7 : 0.35;
+          const trailWeight = (ac.tracked || isSelected) ? 2.5 : 1.5;
+          trailLayerRef.current!.addLayer(L.polyline(latlngs, { color: trailColor, weight: trailWeight, opacity: trailOpacity, dashArray: "4 4" }));
+        }
+      }
+
+      if (entity.type === "vessel") {
+        const vs = entity as Vessel;
+        const heading = vs.metadata.course ?? vs.metadata.heading ?? undefined;
+        const affiliation = getVesselAffiliation(vs.metadata.flag, vs.metadata.shipType);
+        const modifier = getVesselModifier(vs.metadata.shipType);
+        const size = isSelected ? 24 : 16;
+
+        const svgHtml = generateNATOSymbol({
+          affiliation,
+          domain: "sea",
+          size,
+          heading,
+          selected: isSelected,
+          tracked: vs.tracked,
+          flagged: vs.flagged,
+          modifier,
+        });
+
+        const natoIcon = L.divIcon({
+          className: "nato-marker",
+          html: `<div style="cursor:pointer;">${svgHtml}</div>`,
+          iconSize: [size, size],
+          iconAnchor: [size / 2, size / 2],
+        });
+
+        if (existing) {
+          existing.setLatLng([vs.position!.lat, vs.position!.lng]);
+          existing.setIcon(natoIcon);
+        } else {
+          const marker = L.marker([vs.position!.lat, vs.position!.lng], { icon: natoIcon, zIndexOffset: isSelected ? 1000 : 0 });
+          marker.on("click", () => onSelectEntityRef.current(entity));
+
+          const speedKnots = vs.metadata.speed != null ? vs.metadata.speed.toFixed(1) : "N/A";
+          const affiliationLabel = affiliation === "friendly" ? "AMI" : affiliation === "hostile" ? "HOSTILE" : affiliation === "unknown" ? "INCONNU" : "NEUTRE";
+          marker.bindTooltip(
+            `<div style="font-family:monospace;font-size:10px;background:#1a2332ee;color:#e2e8f0;padding:6px 10px;border:1px solid #1e3a5f;border-radius:4px;min-width:140px;">
+              <strong>${vs.label}</strong> <span style="color:#64748b;font-size:8px;">[${affiliationLabel}]</span><br/>
+              <span style="color:#64748b;">${vs.metadata.shipType ?? "Navire"}</span>
+              ${vs.metadata.flag ? ` — ${vs.metadata.flag}` : ""}<br/>
+              Vit: ${speedKnots} kts | Cap: ${vs.metadata.course?.toFixed(0) ?? "—"}°
+              ${vs.metadata.destination ? `<br/>Dest: ${vs.metadata.destination}` : ""}
+              ${modifier ? `<br/><span style="color:#f59e0b;">${modifier}</span>` : ""}
+            </div>`,
+            { className: "argos-tooltip", direction: "top", offset: [0, -10] }
+          );
+
+          entityLayerRef.current!.addLayer(marker);
+          entityMarkersRef.current.set(entity.id, marker);
+        }
+
+        const trailColor = affiliation === "hostile" ? "#ff4040" : affiliation === "friendly" ? "#4080ff" : "#80e080";
+        if (showTrails && vs.trail.length > 1) {
+          const latlngs = vs.trail.map((p) => [p.lat, p.lng] as [number, number]);
+          const trailOpacity = (vs.tracked || isSelected) ? 0.7 : 0.35;
+          const trailWeight = (vs.tracked || isSelected) ? 2.5 : 1.5;
+          trailLayerRef.current!.addLayer(L.polyline(latlngs, { color: trailColor, weight: trailWeight, opacity: trailOpacity, dashArray: "4 4" }));
+        }
       }
     });
+
+    for (const [id, marker] of entityMarkersRef.current) {
+      if (!currentIds.has(id)) {
+        entityLayerRef.current!.removeLayer(marker);
+        entityMarkersRef.current.delete(id);
+      }
+    }
+
+    if (predictionLayerRef.current) {
+      predictionLayerRef.current.clearLayers();
+      entities.forEach((entity) => {
+        if (!entity.position) return;
+        const shouldPredict = entity.tracked || entity.id === selectedEntityId;
+        if (!shouldPredict) return;
+
+        const prediction = predictTrajectory(entity, 15, 8);
+        if (prediction.length < 2) return;
+
+        const predColor = entity.type === "aircraft" ? "#ffffff" : "#00ffaa";
+        const latlngs: [number, number][] = [
+          [entity.position.lat, entity.position.lng],
+          ...prediction.map((p) => [p.lat, p.lng] as [number, number]),
+        ];
+
+        predictionLayerRef.current!.addLayer(
+          L.polyline(latlngs, { color: predColor, weight: 1.5, opacity: 0.5, dashArray: "3 6" })
+        );
+
+        const last = prediction[prediction.length - 1];
+        const minutes = Math.round(last.timeOffset / 60);
+        predictionLayerRef.current!.addLayer(
+          L.circleMarker([last.lat, last.lng], { radius: 4, color: predColor, fillColor: predColor, fillOpacity: 0.4, weight: 1 })
+            .bindTooltip(`T+${minutes}min`, { permanent: true, direction: "right", className: "prediction-tooltip", offset: [6, 0] })
+        );
+      });
+    }
   }, [entities, selectedEntityId, showTrails]);
+
+  // Draw mode
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !drawLayerRef.current) return;
+
+    const container = map.getContainer();
+
+    if (!drawMode) {
+      container.style.cursor = "";
+      drawPointsRef.current = [];
+      drawLayerRef.current.clearLayers();
+      return;
+    }
+
+    container.style.cursor = "crosshair";
+    drawPointsRef.current = [];
+    drawLayerRef.current.clearLayers();
+
+    function onMapClick(e: L.LeafletMouseEvent) {
+      const points = drawPointsRef.current;
+      const dl = drawLayerRef.current!;
+      points.push([e.latlng.lat, e.latlng.lng]);
+
+      dl.clearLayers();
+
+      points.forEach((p, i) => {
+        const cm = L.circleMarker([p[0], p[1]], {
+          radius: 5,
+          color: "#f59e0b",
+          fillColor: "#f59e0b",
+          fillOpacity: i === 0 ? 0.8 : 0.5,
+          weight: 2,
+        });
+        dl.addLayer(cm);
+      });
+
+      if (points.length > 1) {
+        const line = L.polyline(points, { color: "#f59e0b", weight: 2, dashArray: "6 4" });
+        dl.addLayer(line);
+      }
+
+      if (points.length >= 3) {
+        const preview = L.polygon(points, {
+          color: "#f59e0b",
+          fillColor: "#f59e0b",
+          fillOpacity: 0.08,
+          weight: 1,
+          dashArray: "4 4",
+        });
+        dl.addLayer(preview);
+      }
+    }
+
+    function onDblClick(e: L.LeafletMouseEvent) {
+      e.originalEvent.stopPropagation();
+      e.originalEvent.preventDefault();
+      const points = drawPointsRef.current;
+      if (points.length >= 3 && onZoneDrawnRef.current) {
+        onZoneDrawnRef.current([...points]);
+      }
+    }
+
+    map.on("click", onMapClick);
+    map.on("dblclick", onDblClick);
+    map.doubleClickZoom.disable();
+
+    return () => {
+      map.off("click", onMapClick);
+      map.off("dblclick", onDblClick);
+      map.doubleClickZoom.enable();
+      container.style.cursor = "";
+    };
+  }, [drawMode]);
 
   return <div ref={containerRef} className="w-full h-full" />;
 }

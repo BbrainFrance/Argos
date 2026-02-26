@@ -133,6 +133,46 @@ export interface DataSnapshot {
 
 export type DataSource = "opensky" | "ais" | "osm" | "sentinel" | "manual";
 
+// ─── OPERATIONAL MARKERS ─────────────────────────────────────
+
+export type MarkerAffiliation = "friendly" | "hostile" | "neutral" | "unknown" | "suspect";
+export type MarkerCategory = "infantry" | "armor" | "artillery" | "air_defense" | "logistics" |
+  "command" | "recon" | "engineering" | "naval" | "special_ops" | "medical" | "observation" |
+  "threat" | "ied" | "checkpoint" | "hq" | "custom";
+
+export interface OperationalMarker {
+  id: string;
+  affiliation: MarkerAffiliation;
+  category: MarkerCategory;
+  label: string;
+  position: GeoPosition;
+  notes: string;
+  weaponRange?: number;
+  createdBy: string;
+  createdAt: Date;
+}
+
+export type RelationType = "escort" | "surveillance" | "supply" | "command" | "comms" | "threat" | "unknown";
+
+export interface EntityLink {
+  id: string;
+  sourceId: string;
+  targetId: string;
+  type: RelationType;
+  label?: string;
+  createdBy: string;
+  createdAt: Date;
+}
+
+export interface MissionRoute {
+  id: string;
+  name: string;
+  waypoints: { position: GeoPosition; label: string; type: "start" | "waypoint" | "objective" | "rally" | "extraction" }[];
+  color: string;
+  createdBy: string;
+  createdAt: Date;
+}
+
 export interface DataLayer {
   id: string;
   name: string;

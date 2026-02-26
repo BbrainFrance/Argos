@@ -9,12 +9,28 @@ interface SidebarProps {
   onToggleTrails: () => void;
   showInfra: boolean;
   onToggleInfra: () => void;
+  drawMode: boolean;
+  onToggleDraw: () => void;
+  measureMode: boolean;
+  onToggleMeasure: () => void;
+  placeMarkerMode?: boolean;
+  onTogglePlaceMarker?: () => void;
+  operationalMarkerCount?: number;
+  onClearMarkers?: () => void;
+  missionPlanMode?: boolean;
+  onToggleMissionPlan?: () => void;
+  missionRouteCount?: number;
+  linkMode?: boolean;
+  onToggleLinkMode?: () => void;
+  entityLinkCount?: number;
+  onExportPDF?: () => void;
 }
 
 const LAYERS = [
   { id: "air", name: "Trafic Aerien", icon: "✈", color: "#00d4ff", available: true },
-  { id: "maritime", name: "Trafic Maritime", icon: "⚓", color: "#10b981", available: false },
-  { id: "satellite", name: "Imagerie Satellite", icon: "🛰", color: "#f59e0b", available: false },
+  { id: "maritime", name: "Trafic Maritime", icon: "⚓", color: "#10b981", available: true },
+  { id: "satellite", name: "Imagerie Satellite", icon: "🛰", color: "#f59e0b", available: true },
+  { id: "sentinel", name: "Imagerie NASA GIBS", icon: "🌍", color: "#06b6d4", available: true },
   { id: "infra", name: "Infrastructures", icon: "🏛", color: "#8b5cf6", available: true },
 ];
 
@@ -24,7 +40,7 @@ const TOOLS = [
   { id: "measure", name: "Mesure", icon: "📏" },
 ];
 
-export default function Sidebar({ activeLayers, onToggleLayer, showTrails, onToggleTrails, showInfra, onToggleInfra }: SidebarProps) {
+export default function Sidebar({ activeLayers, onToggleLayer, showTrails, onToggleTrails, showInfra, onToggleInfra, drawMode, onToggleDraw, measureMode, onToggleMeasure, placeMarkerMode, onTogglePlaceMarker, operationalMarkerCount = 0, onClearMarkers, missionPlanMode, onToggleMissionPlan, missionRouteCount = 0, linkMode, onToggleLinkMode, entityLinkCount = 0, onExportPDF }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
 
   return (
@@ -101,13 +117,118 @@ export default function Sidebar({ activeLayers, onToggleLayer, showTrails, onTog
                 <span className="text-sm">〰</span>
                 <span className={`text-[10px] font-mono ${showTrails ? "text-argos-accent" : "text-argos-text-dim"}`}>Trajectoires</span>
               </button>
+              <button
+                onClick={onToggleDraw}
+                className={`w-full flex items-center gap-2 px-2 py-2 rounded text-left transition-all ${
+                  drawMode
+                    ? "bg-argos-warning/10 border border-argos-warning/40"
+                    : "hover:bg-argos-panel/30 border border-transparent"
+                }`}
+              >
+                <span className="text-sm">⬡</span>
+                <span className={`text-[10px] font-mono ${drawMode ? "text-argos-warning" : "text-argos-text-dim"}`}>
+                  {drawMode ? "Dessin en cours..." : "Dessiner Zone"}
+                </span>
+              </button>
+              <button
+                onClick={onToggleMeasure}
+                className={`w-full flex items-center gap-2 px-2 py-2 rounded text-left transition-all ${
+                  measureMode
+                    ? "bg-argos-accent/10 border border-argos-accent/40"
+                    : "hover:bg-argos-panel/30 border border-transparent"
+                }`}
+              >
+                <span className="text-sm">📏</span>
+                <span className={`text-[10px] font-mono ${measureMode ? "text-argos-accent" : "text-argos-text-dim"}`}>
+                  {measureMode ? "Mesure active..." : "Mesure Distance"}
+                </span>
+              </button>
+            </div>
+
+            <p className="text-[8px] font-mono text-red-400/60 uppercase tracking-[0.2em] px-1 pt-2">Operationnel</p>
+            <div className="space-y-0.5">
+              <button
+                onClick={onTogglePlaceMarker}
+                className={`w-full flex items-center gap-2 px-2 py-2 rounded text-left transition-all ${
+                  placeMarkerMode
+                    ? "bg-red-500/10 border border-red-500/40"
+                    : "hover:bg-argos-panel/30 border border-transparent"
+                }`}
+              >
+                <span className="text-sm">🎯</span>
+                <span className={`text-[10px] font-mono ${placeMarkerMode ? "text-red-400" : "text-argos-text-dim"}`}>
+                  {placeMarkerMode ? "Placement..." : "Placer Unite"}
+                </span>
+              </button>
+              {operationalMarkerCount > 0 && (
+                <div className="flex items-center justify-between px-2 py-1">
+                  <span className="text-[9px] font-mono text-argos-text-dim">
+                    {operationalMarkerCount} marqueur{operationalMarkerCount > 1 ? "s" : ""}
+                  </span>
+                  <button
+                    onClick={onClearMarkers}
+                    className="text-[8px] font-mono text-red-400/60 hover:text-red-400 transition-colors"
+                  >
+                    EFFACER
+                  </button>
+                </div>
+              )}
+              <button
+                onClick={onToggleMissionPlan}
+                className={`w-full flex items-center gap-2 px-2 py-2 rounded text-left transition-all ${
+                  missionPlanMode
+                    ? "bg-emerald-500/10 border border-emerald-500/40"
+                    : "hover:bg-argos-panel/30 border border-transparent"
+                }`}
+              >
+                <span className="text-sm">🗺</span>
+                <span className={`text-[10px] font-mono ${missionPlanMode ? "text-emerald-400" : "text-argos-text-dim"}`}>
+                  {missionPlanMode ? "Planification..." : "Plan Mission"}
+                </span>
+              </button>
+              {missionRouteCount > 0 && (
+                <div className="flex items-center px-2 py-1">
+                  <span className="text-[9px] font-mono text-argos-text-dim">
+                    {missionRouteCount} route{missionRouteCount > 1 ? "s" : ""}
+                  </span>
+                </div>
+              )}
+              <button
+                onClick={onToggleLinkMode}
+                className={`w-full flex items-center gap-2 px-2 py-2 rounded text-left transition-all ${
+                  linkMode
+                    ? "bg-violet-500/10 border border-violet-500/40"
+                    : "hover:bg-argos-panel/30 border border-transparent"
+                }`}
+              >
+                <span className="text-sm">🔗</span>
+                <span className={`text-[10px] font-mono ${linkMode ? "text-violet-400" : "text-argos-text-dim"}`}>
+                  {linkMode ? "Liaison active..." : "Lier Entites"}
+                </span>
+              </button>
+              {entityLinkCount > 0 && (
+                <div className="flex items-center px-2 py-1">
+                  <span className="text-[9px] font-mono text-argos-text-dim">
+                    {entityLinkCount} liaison{entityLinkCount > 1 ? "s" : ""}
+                  </span>
+                </div>
+              )}
             </div>
           </>
         )}
       </div>
 
-      {/* Status */}
-      <div className="p-2 border-t border-argos-border/30">
+      {/* Export & Status */}
+      <div className="p-2 border-t border-argos-border/30 space-y-2">
+        {!collapsed && (
+          <button
+            onClick={onExportPDF}
+            className="w-full flex items-center gap-2 px-2 py-2 rounded text-left transition-all hover:bg-argos-panel/30 border border-transparent hover:border-argos-border/30"
+          >
+            <span className="text-sm">📄</span>
+            <span className="text-[10px] font-mono text-argos-text-dim">Export PDF</span>
+          </button>
+        )}
         <div className={`flex items-center gap-2 ${collapsed ? "justify-center" : "px-1"}`}>
           <div className="w-1.5 h-1.5 rounded-full bg-argos-success animate-pulse" />
           {!collapsed && <span className="text-[8px] font-mono text-argos-text-dim">OPERATIONNEL</span>}

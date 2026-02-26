@@ -1,9 +1,10 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { Entity, Infrastructure, MapViewState, ZoneOfInterest } from "@/types";
+import { Entity, Infrastructure, MapViewState, ZoneOfInterest, OperationalMarker, MissionRoute, EntityLink } from "@/types";
 
 const LeafletMap = dynamic(() => import("./LeafletMap"), { ssr: false });
+const MapLibreGlobe = dynamic(() => import("./MapLibreGlobe"), { ssr: false });
 
 interface MapContainerProps {
   entities: Entity[];
@@ -14,6 +15,21 @@ interface MapContainerProps {
   onSelectEntity: (entity: Entity) => void;
   showTrails: boolean;
   showInfrastructure: boolean;
+  showSatellite?: boolean;
+  showSentinel?: boolean;
+  gibsDate?: string;
+  gibsProduct?: string;
+  drawMode?: boolean;
+  measureMode?: boolean;
+  operationalMarkers?: OperationalMarker[];
+  placeMarkerMode?: boolean;
+  missionPlanMode?: boolean;
+  missionRoutes?: MissionRoute[];
+  activeMissionWaypoints?: MissionRoute["waypoints"];
+  onMapClick?: (latlng: { lat: number; lng: number }) => void;
+  entityLinks?: EntityLink[];
+  onMissionWaypointAdd?: (latlng: { lat: number; lng: number }) => void;
+  onZoneDrawn?: (polygon: [number, number][]) => void;
 }
 
 export default function MapContainer({
@@ -25,18 +41,61 @@ export default function MapContainer({
   onSelectEntity,
   showTrails,
   showInfrastructure,
+  showSatellite,
+    showSentinel,
+    gibsDate,
+    gibsProduct,
+    drawMode,
+  measureMode,
+  operationalMarkers,
+  placeMarkerMode,
+  missionPlanMode,
+  missionRoutes,
+  activeMissionWaypoints,
+  entityLinks,
+  onMapClick,
+  onMissionWaypointAdd,
+  onZoneDrawn,
 }: MapContainerProps) {
   return (
     <div className="relative w-full h-full">
-      <LeafletMap
-        entities={entities}
-        infrastructure={infrastructure}
-        zones={zones}
-        selectedEntityId={selectedEntityId}
-        onSelectEntity={onSelectEntity}
-        showTrails={showTrails}
-        showInfrastructure={showInfrastructure}
-      />
+      {viewState.mode === "3d" ? (
+        <MapLibreGlobe
+          entities={entities}
+          infrastructure={infrastructure}
+          zones={zones}
+          selectedEntityId={selectedEntityId}
+          onSelectEntity={onSelectEntity}
+          showTrails={showTrails}
+          showInfrastructure={showInfrastructure}
+          showSatellite={showSatellite}
+        />
+      ) : (
+        <LeafletMap
+          entities={entities}
+          infrastructure={infrastructure}
+          zones={zones}
+          selectedEntityId={selectedEntityId}
+          onSelectEntity={onSelectEntity}
+          showTrails={showTrails}
+          showInfrastructure={showInfrastructure}
+          showSatellite={showSatellite}
+          showSentinel={showSentinel}
+          gibsDate={gibsDate}
+          gibsProduct={gibsProduct}
+          drawMode={drawMode}
+          measureMode={measureMode}
+          operationalMarkers={operationalMarkers}
+          placeMarkerMode={placeMarkerMode}
+          missionPlanMode={missionPlanMode}
+          missionRoutes={missionRoutes}
+          activeMissionWaypoints={activeMissionWaypoints}
+          entityLinks={entityLinks}
+          onMapClick={onMapClick}
+          onMissionWaypointAdd={onMissionWaypointAdd}
+          onZoneDrawn={onZoneDrawn}
+        />
+      )}
 
       {/* Scan line effect */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-[0.03]">

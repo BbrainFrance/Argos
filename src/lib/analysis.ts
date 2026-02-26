@@ -124,6 +124,116 @@ export function runAnalysis(entities: Entity[], infrastructure: Infrastructure[]
     }
   }
 
+  // Circular flight pattern (loiter/surveillance)
+  for (const ac of aircraft) {
+    if (ac.metadata.onGround || ac.trail.length < 6) continue;
+    const trail = ac.trail.slice(-20);
+    let totalHeadingChange = 0;
+    for (let i = 1; i < trail.length; i++) {
+      const dlat = trail[i].lat - trail[i - 1].lat;
+      const dlng = trail[i].lng - trail[i - 1].lng;
+      if (i > 1) {
+        const dlat0 = trail[i - 1].lat - trail[i - 2].lat;
+        const dlng0 = trail[i - 1].lng - trail[i - 2].lng;
+        const angle1 = Math.atan2(dlng0, dlat0);
+        const angle2 = Math.atan2(dlng, dlat);
+        let diff = (angle2 - angle1) * (180 / Math.PI);
+        if (diff > 180) diff -= 360;
+        if (diff < -180) diff += 360;
+        totalHeadingChange += Math.abs(diff);
+      }
+    }
+
+    if (totalHeadingChange > 270) {
+      results.push({
+        id: makeId(),
+        type: "pattern",
+        severity: totalHeadingChange > 600 ? "high" : "medium",
+        title: `Schema circulaire detecte`,
+        description: `${ac.label} effectue un vol circulaire (rotation ${totalHeadingChange.toFixed(0)}°) — possible surveillance`,
+        entities: [ac.id],
+        confidence: Math.min(0.95, totalHeadingChange / 720),
+        timestamp: now,
+      });
+    }
+  }
+
+  // Convoy pattern — multiple entities moving in same direction
+  const moving = nonGround.filter((a) => a.metadata.velocity && a.metadata.velocity > 50 && a.metadata.trueTrack != null);
+  const convoyChecked = new Set<string>();
+  for (const lead of moving) {
+    if (convoyChecked.has(lead.id) || !lead.position) continue;
+    const followers = moving.filter((other) => {
+      if (other.id === lead.id || !other.position || convoyChecked.has(other.id)) return false;
+      const dist = haversineKm(lead.position!.lat, lead.position!.lng, other.position!.lat, other.position!.lng);
+      if (dist > 15) return false;
+      const headingDiff = Math.abs((lead.metadata.trueTrack ?? 0) - (other.metadata.trueTrack ?? 0));
+      return headingDiff < 20 || headingDiff > 340;
+    });
+
+    if (followers.length >= 2) {
+      const ids = [lead.id, ...followers.map((f) => f.id)];
+      ids.forEach((id) => convoyChecked.add(id));
+      results.push({
+        id: makeId(),
+        type: "pattern",
+        severity: "high",
+        title: `Formation / convoi aerien detecte`,
+        description: `${ids.length} aeronefs en formation, cap ~${lead.metadata.trueTrack?.toFixed(0)}° — possible escorte ou vol militaire`,
+        entities: ids,
+        confidence: 0.8,
+        timestamp: now,
+      });
+    }
+  }
+
+  // Convergence toward point — multiple entities heading to same area
+  const convergenceGrid = new Map<string, Aircraft[]>();
+  for (const ac of moving) {
+    if (!ac.position || !ac.metadata.velocity || !ac.metadata.trueTrack) continue;
+    const headRad = (ac.metadata.trueTrack * Math.PI) / 180;
+    const distKm = (ac.metadata.velocity * 3.6 * 15) / 60;
+    const futLat = ac.position.lat + (distKm / 111.32) * Math.cos(headRad);
+    const futLng = ac.position.lng + (distKm / (111.32 * Math.cos(ac.position.lat * Math.PI / 180))) * Math.sin(headRad);
+    const gridKey = `${Math.round(futLat * 4) / 4},${Math.round(futLng * 4) / 4}`;
+    if (!convergenceGrid.has(gridKey)) convergenceGrid.set(gridKey, []);
+    convergenceGrid.get(gridKey)!.push(ac);
+  }
+
+  for (const [grid, converging] of convergenceGrid) {
+    if (converging.length >= 3) {
+      const [latStr, lngStr] = grid.split(",");
+      results.push({
+        id: makeId(),
+        type: "prediction",
+        severity: "high",
+        title: `Convergence detectee`,
+        description: `${converging.length} aeronefs convergent vers ${latStr}°N ${lngStr}°E (T+15min)`,
+        entities: converging.map((c) => c.id),
+        confidence: 0.7,
+        timestamp: now,
+      });
+    }
+  }
+
+  // Vessel anomalies — high speed vessel
+  const vessels = entities.filter((e) => e.type === "vessel" && e.position);
+  for (const v of vessels) {
+    const speed = (v.metadata as Record<string, number | null>).speed;
+    if (speed && speed > 25) {
+      results.push({
+        id: makeId(),
+        type: "anomaly",
+        severity: "medium",
+        title: `Navire grande vitesse`,
+        description: `${v.label} a ${speed.toFixed(1)} noeuds — possible intercepteur ou contrebande`,
+        entities: [v.id],
+        confidence: 0.65,
+        timestamp: now,
+      });
+    }
+  }
+
   return results.sort((a, b) => {
     const sev = { critical: 0, high: 1, medium: 2, low: 3 };
     return sev[a.severity] - sev[b.severity];

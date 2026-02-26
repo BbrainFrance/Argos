@@ -1,6 +1,7 @@
 "use client";
 
 import { MapViewState } from "@/types";
+import { useSession, signOut } from "next-auth/react";
 
 interface TopBarProps {
   viewState: MapViewState;
@@ -13,6 +14,18 @@ interface TopBarProps {
   onRefresh: () => void;
 }
 
+const ROLE_LABELS: Record<string, string> = {
+  ADMIN: "ADM",
+  OPERATOR: "OPR",
+  ANALYST: "ANL",
+};
+
+const ROLE_COLORS: Record<string, string> = {
+  ADMIN: "text-argos-danger",
+  OPERATOR: "text-argos-warning",
+  ANALYST: "text-argos-accent",
+};
+
 export default function TopBar({
   viewState,
   onToggleView,
@@ -23,7 +36,10 @@ export default function TopBar({
   refreshing,
   onRefresh,
 }: TopBarProps) {
+  const { data: session } = useSession();
   const formatTime = (iso: string) => new Date(iso).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+
+  const role = session?.user?.role ?? "ANALYST";
 
   return (
     <header className="h-10 bg-argos-surface/80 backdrop-blur-sm border-b border-argos-border/30 flex items-center justify-between px-4">
@@ -65,6 +81,25 @@ export default function TopBar({
       </div>
 
       <div className="flex items-center gap-2">
+        {session?.user && (
+          <>
+            <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-argos-panel/50 border border-argos-border/20">
+              <div className="w-1.5 h-1.5 rounded-full bg-argos-success" />
+              <span className="text-[9px] font-mono text-argos-text-dim/80">{session.user.name ?? session.user.email}</span>
+              <span className={`text-[8px] font-mono font-semibold ${ROLE_COLORS[role]}`}>
+                [{ROLE_LABELS[role] ?? role}]
+              </span>
+            </div>
+            <button
+              onClick={() => signOut()}
+              className="text-[9px] font-mono px-2 py-1 rounded bg-argos-panel border border-argos-border/30 text-argos-text-dim/50 hover:text-argos-danger hover:border-argos-danger/30 transition-all"
+              title="Deconnexion"
+            >
+              ⏻
+            </button>
+            <div className="h-3 w-px bg-argos-border/30" />
+          </>
+        )}
         <button
           onClick={onRefresh}
           disabled={refreshing}

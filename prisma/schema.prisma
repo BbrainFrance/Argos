@@ -1,0 +1,200 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── UTILISATEURS ────────────────────────────────────────────
+
+enum Role {
+  ADMIN
+  OPERATOR
+  ANALYST
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  password  String
+  role      Role     @default(ANALYST)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("users")
+}
+
+// ─── ENTITES SUIVIES ─────────────────────────────────────────
+
+enum EntityType {
+  AIRCRAFT
+  VESSEL
+}
+
+model TrackedEntity {
+  id        String     @id
+  type      EntityType
+  label     String
+  metadata  Json
+  tracked   Boolean    @default(false)
+  flagged   Boolean    @default(false)
+  firstSeen DateTime   @default(now())
+  lastSeen  DateTime   @updatedAt
+
+  positions Position[]
+  alerts    Alert[]
+
+  @@index([type])
+  @@index([tracked])
+  @@index([flagged])
+  @@map("tracked_entities")
+}
+
+// ─── POSITIONS HISTORIQUES ───────────────────────────────────
+
+model Position {
+  id        String   @id @default(cuid())
+  entityId  String
+  lat       Float
+  lng       Float
+  alt       Float?
+  speed     Float?
+  heading   Float?
+  timestamp DateTime
+
+  entity TrackedEntity @relation(fields: [entityId], references: [id], onDelete: Cascade)
+
+  @@index([entityId, timestamp])
+  @@index([timestamp])
+  @@map("positions")
+}
+
+// ─── ALERTES ─────────────────────────────────────────────────
+
+enum AlertSeverity {
+  INFO
+  WARNING
+  DANGER
+  CRITICAL
+}
+
+enum AlertCategory {
+  SQUAWK
+  MILITARY
+  ANOMALY
+  GEOFENCE
+  PATTERN
+  PROXIMITY
+}
+
+model Alert {
+  id           String        @id @default(cuid())
+  type         AlertSeverity
+  category     AlertCategory
+  title        String
+  message      String
+  source       String
+  acknowledged Boolean       @default(false)
+  timestamp    DateTime      @default(now())
+
+  entityId String?
+  entity   TrackedEntity? @relation(fields: [entityId], references: [id], onDelete: SetNull)
+
+  zoneId String?
+  zone   Zone?   @relation(fields: [zoneId], references: [id], onDelete: SetNull)
+
+  @@index([timestamp])
+  @@index([entityId])
+  @@index([category])
+  @@index([type])
+  @@map("alerts")
+}
+
+// ─── ZONES DE SURVEILLANCE ───────────────────────────────────
+
+enum ZoneType {
+  SURVEILLANCE
+  EXCLUSION
+  ALERT
+}
+
+model Zone {
+  id           String   @id @default(cuid())
+  name         String
+  type         ZoneType
+  polygon      Json
+  color        String   @default("#8b5cf6")
+  active       Boolean  @default(true)
+  alertOnEntry Boolean  @default(false)
+  alertOnExit  Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  alerts Alert[]
+
+  @@map("zones")
+}
+
+// ─── MARQUEURS OPERATIONNELS ─────────────────────────────────
+
+model OperationalMarker {
+  id          String   @id @default(cuid())
+  affiliation String
+  category    String
+  label       String
+  lat         Float
+  lng         Float
+  notes       String   @default("")
+  weaponRange Float?
+  createdBy   String   @default("operator")
+  createdAt   DateTime @default(now())
+
+  @@index([createdAt])
+  @@map("operational_markers")
+}
+
+// ─── MISSIONS ────────────────────────────────────────────────
+
+model Mission {
+  id        String           @id @default(cuid())
+  name      String
+  color     String           @default("#00ffaa")
+  waypoints MissionWaypoint[]
+  createdBy String           @default("operator")
+  createdAt DateTime         @default(now())
+
+  @@map("missions")
+}
+
+model MissionWaypoint {
+  id        String  @id @default(cuid())
+  missionId String
+  mission   Mission @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  lat       Float
+  lng       Float
+  label     String
+  type      String
+  sortOrder Int
+
+  @@index([missionId])
+  @@map("mission_waypoints")
+}
+
+// ─── LIENS ENTRE ENTITES ─────────────────────────────────────
+
+model EntityLink {
+  id           String   @id @default(cuid())
+  sourceId     String
+  targetId     String
+  relationType String
+  label        String?
+  createdBy    String   @default("operator")
+  createdAt    DateTime @default(now())
+
+  @@index([sourceId])
+  @@index([targetId])
+  @@map("entity_links")
+}
