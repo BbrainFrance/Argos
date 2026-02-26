@@ -114,7 +114,8 @@ export default function LeafletMap({
     });
 
     L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
-      maxZoom: 19,
+      maxZoom: 21,
+      maxNativeZoom: 19,
     }).addTo(map);
 
     L.control.zoom({ position: "bottomright" }).addTo(map);
@@ -162,7 +163,7 @@ export default function LeafletMap({
     if (showSatellite && !satLayerRef.current) {
       satLayerRef.current = L.tileLayer(
         "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-        { maxZoom: 19, attribution: "Esri, Maxar" }
+        { maxZoom: 21, maxNativeZoom: 19, attribution: "Esri, Maxar" }
       ).addTo(map);
     } else if (!showSatellite && satLayerRef.current) {
       map.removeLayer(satLayerRef.current);
@@ -415,33 +416,47 @@ export default function LeafletMap({
     if (!showCellTowers) return;
 
     cellTowers.forEach((tower) => {
-      const radioColor = tower.radio === "LTE" ? "#ef4444" : tower.radio === "UMTS" ? "#f59e0b" : tower.radio === "GSM" ? "#10b981" : "#8b5cf6";
+      const radioColor = tower.radio === "LTE" ? "#ef4444" : tower.radio === "UMTS" ? "#f59e0b" : tower.radio === "GSM" ? "#10b981" : tower.radio === "5G" ? "#3b82f6" : "#8b5cf6";
 
       const marker = L.circleMarker([tower.lat, tower.lng], {
-        radius: 4,
+        radius: 6,
         color: radioColor,
         fillColor: radioColor,
-        fillOpacity: 0.7,
-        weight: 1,
+        fillOpacity: 0.8,
+        weight: 2,
       });
 
       const rangeCircle = L.circle([tower.lat, tower.lng], {
         radius: tower.range,
         color: radioColor,
         fillColor: radioColor,
-        fillOpacity: 0.04,
-        weight: 0.5,
-        dashArray: "4 4",
+        fillOpacity: 0.08,
+        weight: 1,
+        dashArray: "6 4",
       });
 
       marker.bindTooltip(
-        `<div style="font-family:monospace;font-size:9px;background:#1a2332ee;color:#e2e8f0;padding:4px 8px;border:1px solid ${radioColor};border-radius:3px;">
-          <strong style="color:${radioColor};">📡 ${tower.radio}</strong><br/>
-          MCC: ${tower.mcc} | MNC: ${tower.mnc}<br/>
-          LAC: ${tower.lac} | Cell: ${tower.cellId}<br/>
-          Portee: ${(tower.range / 1000).toFixed(1)} km
+        `<div style="font-family:monospace;font-size:10px;background:#1a2332ee;color:#e2e8f0;padding:4px 8px;border:1px solid ${radioColor};border-radius:3px;">
+          <strong style="color:${radioColor};">📡 ${tower.radio}</strong>
+          ${tower.operator ? `<br/>Op: ${tower.operator}` : ""}
         </div>`,
         { className: "argos-tooltip", direction: "top", offset: [0, -6] }
+      );
+
+      marker.bindPopup(
+        `<div style="font-family:monospace;font-size:11px;background:#0d1520;color:#e2e8f0;padding:10px 14px;border:1px solid ${radioColor};border-radius:5px;min-width:220px;">
+          <div style="font-size:13px;font-weight:bold;color:${radioColor};margin-bottom:8px;border-bottom:1px solid ${radioColor}40;padding-bottom:6px;">📡 Antenne ${tower.radio}</div>
+          <table style="width:100%;border-collapse:collapse;">
+            <tr><td style="color:#94a3b8;padding:2px 0;">Operateur</td><td style="text-align:right;font-weight:bold;">${tower.operator || "Inconnu"}</td></tr>
+            <tr><td style="color:#94a3b8;padding:2px 0;">Technologie</td><td style="text-align:right;"><span style="color:${radioColor};font-weight:bold;">${tower.radio}</span></td></tr>
+            <tr><td style="color:#94a3b8;padding:2px 0;">Portee</td><td style="text-align:right;">${(tower.range / 1000).toFixed(1)} km</td></tr>
+            <tr><td style="color:#94a3b8;padding:2px 0;">MCC / MNC</td><td style="text-align:right;">${tower.mcc} / ${tower.mnc}</td></tr>
+            <tr><td style="color:#94a3b8;padding:2px 0;">LAC</td><td style="text-align:right;">${tower.lac}</td></tr>
+            <tr><td style="color:#94a3b8;padding:2px 0;">Cell ID</td><td style="text-align:right;">${tower.cellId}</td></tr>
+            <tr><td style="color:#94a3b8;padding:2px 0;">Position</td><td style="text-align:right;">${tower.lat.toFixed(5)}, ${tower.lng.toFixed(5)}</td></tr>
+          </table>
+        </div>`,
+        { className: "argos-popup", maxWidth: 300 }
       );
 
       cellLayerRef.current!.addLayer(marker);

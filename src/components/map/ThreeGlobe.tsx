@@ -228,9 +228,18 @@ export default function ThreeGlobe({
     return zones
       .filter((z) => z.active && z.polygon.length >= 3)
       .map((z) => ({
-        coords: [...z.polygon.map(([lat, lng]) => ({ lat, lng })), { lat: z.polygon[0][0], lng: z.polygon[0][1] }],
-        color: z.color,
-        label: z.name,
+        type: "Feature" as const,
+        geometry: {
+          type: "Polygon" as const,
+          coordinates: [[
+            ...z.polygon.map(([lat, lng]) => [lng, lat]),
+            [z.polygon[0][1], z.polygon[0][0]],
+          ]],
+        },
+        properties: {
+          color: z.color,
+          label: z.name,
+        },
       }));
   }, [zones]);
 
@@ -348,12 +357,25 @@ export default function ThreeGlobe({
           pathDashAnimateTime={3000}
 
           polygonsData={zonePolygons}
-          polygonCapColor={() => "rgba(0, 212, 255, 0.06)"}
-          polygonSideColor={() => "rgba(0, 212, 255, 0.12)"}
-          polygonStrokeColor={() => "#00d4ff55"}
+          polygonCapColor={(d: object) => {
+            const f = d as { properties?: { color?: string } };
+            const c = f.properties?.color ?? "#00d4ff";
+            return c + "18";
+          }}
+          polygonSideColor={(d: object) => {
+            const f = d as { properties?: { color?: string } };
+            const c = f.properties?.color ?? "#00d4ff";
+            return c + "30";
+          }}
+          polygonStrokeColor={(d: object) => {
+            const f = d as { properties?: { color?: string } };
+            return f.properties?.color ?? "#00d4ff";
+          }}
           polygonLabel={(d: object) => {
-            const zone = d as { label: string; color: string };
-            return `<div class="argos-globe-tt"><strong style="color:${zone.color}">${zone.label}</strong></div>`;
+            const f = d as { properties?: { label?: string; color?: string } };
+            const label = f.properties?.label ?? "";
+            const color = f.properties?.color ?? "#00d4ff";
+            return `<div class="argos-globe-tt"><strong style="color:${color}">${label}</strong></div>`;
           }}
         />
       </div>

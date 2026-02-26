@@ -1021,30 +1021,30 @@ export default function ArgosPage() {
                 )}
 
                 {pendingMarkerPos && (
-                  <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-                    <div className="glass-panel p-5 w-96 space-y-4">
-                      <div className="text-center pb-2 border-b border-red-500/30">
-                        <h3 className="text-xs font-mono text-red-400 tracking-widest uppercase">Marqueur Operationnel</h3>
-                        <p className="text-[9px] font-mono text-argos-text-dim mt-1">
+                  <div className="absolute inset-0 z-[10000] flex items-center justify-center bg-black/60 backdrop-blur-sm">
+                    <div className="glass-panel p-6 w-[480px] max-h-[90vh] overflow-y-auto space-y-5">
+                      <div className="text-center pb-3 border-b border-red-500/30">
+                        <h3 className="text-sm font-mono text-red-400 tracking-widest uppercase font-bold">Marqueur Operationnel</h3>
+                        <p className="text-xs font-mono text-argos-text-dim mt-1">
                           {pendingMarkerPos.lat.toFixed(4)}N, {pendingMarkerPos.lng.toFixed(4)}E
                         </p>
                       </div>
 
-                      <div className="space-y-1">
-                        <label className="text-[9px] font-mono text-argos-text-dim/60 uppercase tracking-widest">Designation</label>
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-mono text-argos-text-dim/70 uppercase tracking-widest">Designation</label>
                         <input
                           type="text"
                           value={newMarker.label}
                           onChange={(e) => setNewMarker((p) => ({ ...p, label: e.target.value }))}
                           placeholder="Ex: BTG Alpha-1"
                           autoFocus
-                          className="w-full px-3 py-2 bg-argos-bg border border-argos-border/50 rounded text-sm font-mono text-argos-text placeholder:text-argos-text-dim/30 focus:outline-none focus:border-argos-accent/50"
+                          className="w-full px-3 py-2.5 bg-argos-bg border border-argos-border/50 rounded text-sm font-mono text-argos-text placeholder:text-argos-text-dim/30 focus:outline-none focus:border-argos-accent/50"
                         />
                       </div>
 
-                      <div className="space-y-1">
-                        <label className="text-[9px] font-mono text-argos-text-dim/60 uppercase tracking-widest">Affiliation</label>
-                        <div className="flex gap-1.5 flex-wrap">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-mono text-argos-text-dim/70 uppercase tracking-widest">Affiliation</label>
+                        <div className="grid grid-cols-5 gap-2">
                           {([
                             { val: "friendly" as const, label: "AMI", color: "border-blue-500 text-blue-400" },
                             { val: "hostile" as const, label: "HOSTILE", color: "border-red-500 text-red-400" },
@@ -1055,8 +1055,8 @@ export default function ArgosPage() {
                             <button
                               key={a.val}
                               onClick={() => setNewMarker((p) => ({ ...p, affiliation: a.val }))}
-                              className={`px-2.5 py-1 text-[8px] font-mono uppercase rounded border transition-all ${
-                                newMarker.affiliation === a.val ? a.color + " bg-white/5" : "border-argos-border/30 text-argos-text-dim/50"
+                              className={`px-2 py-2 text-[10px] font-mono uppercase rounded border transition-all text-center ${
+                                newMarker.affiliation === a.val ? a.color + " bg-white/5 font-bold" : "border-argos-border/30 text-argos-text-dim/50"
                               }`}
                             >
                               {a.label}
@@ -1065,31 +1065,32 @@ export default function ArgosPage() {
                         </div>
                       </div>
 
-                      <div className="space-y-1">
-                        <label className="text-[9px] font-mono text-argos-text-dim/60 uppercase tracking-widest">Type Unite</label>
-                        <div className="flex gap-1 flex-wrap">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-mono text-argos-text-dim/70 uppercase tracking-widest">Type Unite</label>
+                        <div className="grid grid-cols-5 gap-1.5">
                           {([
-                            { val: "infantry" as const, label: "INF" },
-                            { val: "armor" as const, label: "ARM" },
-                            { val: "artillery" as const, label: "ART" },
-                            { val: "air_defense" as const, label: "AD" },
-                            { val: "recon" as const, label: "RCN" },
-                            { val: "special_ops" as const, label: "SOF" },
-                            { val: "logistics" as const, label: "LOG" },
-                            { val: "command" as const, label: "CMD" },
-                            { val: "hq" as const, label: "HQ" },
-                            { val: "medical" as const, label: "MED" },
-                            { val: "engineering" as const, label: "ENG" },
-                            { val: "threat" as const, label: "THR" },
-                            { val: "ied" as const, label: "IED" },
-                            { val: "checkpoint" as const, label: "CP" },
-                            { val: "observation" as const, label: "OBS" },
+                            { val: "infantry" as const, label: "INF", desc: "Infanterie" },
+                            { val: "armor" as const, label: "ARM", desc: "Blindes" },
+                            { val: "artillery" as const, label: "ART", desc: "Artillerie" },
+                            { val: "air_defense" as const, label: "AD", desc: "Defense AA" },
+                            { val: "recon" as const, label: "RCN", desc: "Reco" },
+                            { val: "special_ops" as const, label: "SOF", desc: "Ops Spe" },
+                            { val: "logistics" as const, label: "LOG", desc: "Logistique" },
+                            { val: "command" as const, label: "CMD", desc: "Commandement" },
+                            { val: "hq" as const, label: "HQ", desc: "Etat-Major" },
+                            { val: "medical" as const, label: "MED", desc: "Medical" },
+                            { val: "engineering" as const, label: "ENG", desc: "Genie" },
+                            { val: "threat" as const, label: "THR", desc: "Menace" },
+                            { val: "ied" as const, label: "IED", desc: "Explosif" },
+                            { val: "checkpoint" as const, label: "CP", desc: "Checkpoint" },
+                            { val: "observation" as const, label: "OBS", desc: "Observation" },
                           ]).map((c) => (
                             <button
                               key={c.val}
                               onClick={() => setNewMarker((p) => ({ ...p, category: c.val }))}
-                              className={`px-2 py-1 text-[7px] font-mono uppercase rounded border transition-all ${
-                                newMarker.category === c.val ? "border-argos-accent text-argos-accent bg-argos-accent/10" : "border-argos-border/30 text-argos-text-dim/50"
+                              title={c.desc}
+                              className={`px-1.5 py-2 text-[10px] font-mono uppercase rounded border transition-all text-center ${
+                                newMarker.category === c.val ? "border-argos-accent text-argos-accent bg-argos-accent/10 font-bold" : "border-argos-border/30 text-argos-text-dim/50"
                               }`}
                             >
                               {c.label}
@@ -1098,32 +1099,32 @@ export default function ArgosPage() {
                         </div>
                       </div>
 
-                      <div className="space-y-1">
-                        <label className="text-[9px] font-mono text-argos-text-dim/60 uppercase tracking-widest">Portee armes (km)</label>
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-mono text-argos-text-dim/70 uppercase tracking-widest">Portee armes (km)</label>
                         <input
                           type="number"
                           value={newMarker.weaponRange}
                           onChange={(e) => setNewMarker((p) => ({ ...p, weaponRange: e.target.value }))}
                           placeholder="Ex: 30"
-                          className="w-full px-3 py-2 bg-argos-bg border border-argos-border/50 rounded text-sm font-mono text-argos-text placeholder:text-argos-text-dim/30 focus:outline-none focus:border-argos-accent/50"
+                          className="w-full px-3 py-2.5 bg-argos-bg border border-argos-border/50 rounded text-sm font-mono text-argos-text placeholder:text-argos-text-dim/30 focus:outline-none focus:border-argos-accent/50"
                         />
                       </div>
 
-                      <div className="space-y-1">
-                        <label className="text-[9px] font-mono text-argos-text-dim/60 uppercase tracking-widest">Notes</label>
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-mono text-argos-text-dim/70 uppercase tracking-widest">Notes</label>
                         <textarea
                           value={newMarker.notes}
                           onChange={(e) => setNewMarker((p) => ({ ...p, notes: e.target.value }))}
                           placeholder="Intelligence / observations..."
-                          rows={2}
-                          className="w-full px-3 py-2 bg-argos-bg border border-argos-border/50 rounded text-sm font-mono text-argos-text placeholder:text-argos-text-dim/30 focus:outline-none focus:border-argos-accent/50 resize-none"
+                          rows={3}
+                          className="w-full px-3 py-2.5 bg-argos-bg border border-argos-border/50 rounded text-sm font-mono text-argos-text placeholder:text-argos-text-dim/30 focus:outline-none focus:border-argos-accent/50 resize-none"
                         />
                       </div>
 
-                      <div className="flex gap-2 pt-2">
+                      <div className="flex gap-3 pt-3">
                         <button
                           onClick={() => { setPendingMarkerPos(null); setNewMarker({ label: "", affiliation: "hostile", category: "infantry", notes: "", weaponRange: "" }); }}
-                          className="flex-1 py-2 text-[9px] font-mono uppercase tracking-wider rounded border border-argos-border/30 text-argos-text-dim hover:text-argos-text transition-all"
+                          className="flex-1 py-2.5 text-xs font-mono uppercase tracking-wider rounded border border-argos-border/30 text-argos-text-dim hover:text-argos-text transition-all"
                         >
                           Annuler
                         </button>
@@ -1147,7 +1148,7 @@ export default function ArgosPage() {
                             setNewMarker({ label: "", affiliation: "hostile", category: "infantry", notes: "", weaponRange: "" });
                           }}
                           disabled={!newMarker.label.trim()}
-                          className="flex-1 py-2 text-[9px] font-mono uppercase tracking-wider rounded bg-red-500/10 border border-red-500/40 text-red-400 hover:bg-red-500/20 transition-all disabled:opacity-30"
+                          className="flex-1 py-2.5 text-xs font-mono uppercase tracking-wider rounded bg-red-500/10 border border-red-500/40 text-red-400 hover:bg-red-500/20 transition-all disabled:opacity-30 font-bold"
                         >
                           Deployer
                         </button>
@@ -1160,7 +1161,7 @@ export default function ArgosPage() {
           </div>
 
           {/* Right panel */}
-          <div className="w-80 bg-argos-surface/30 border-l border-argos-border/30 flex flex-col min-h-0">
+          <div className="w-80 flex-shrink-0 bg-argos-surface/30 border-l border-argos-border/30 flex flex-col min-h-0">
             {/* Panel tabs */}
             <div className="flex border-b border-argos-border/30">
               <button

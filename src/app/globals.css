@@ -116,3 +116,16 @@ body {
   box-shadow: 0 0 8px rgba(6, 182, 212, 0.5);
   cursor: pointer;
 }
+
+.argos-popup .leaflet-popup-content-wrapper {
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  border-radius: 5px !important;
+}
+.argos-popup .leaflet-popup-content {
+  margin: 0 !important;
+}
+.argos-popup .leaflet-popup-tip {
+  background: #0d1520 !important;
+}
