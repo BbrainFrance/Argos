@@ -5,18 +5,21 @@ echo "==> Copying assets to standalone..."
 cp -r public .next/standalone/public
 cp -r .next/static .next/standalone/.next/static
 
-echo "==> Cleaning node_modules (keeping only prisma for migrations)..."
-mkdir -p /tmp/_prisma_backup
-cp -r node_modules/prisma /tmp/_prisma_backup/prisma
-cp -r node_modules/@prisma /tmp/_prisma_backup/@prisma
-cp -r node_modules/.prisma /tmp/_prisma_backup/.prisma 2>/dev/null || true
+echo "==> Removing build cache..."
+rm -rf .next/cache
 
-rm -rf node_modules .next/cache
-mkdir -p node_modules
+echo "==> Stripping package.json to runtime-only deps (prisma for migrations)..."
+node -e "
+const fs = require('fs');
+const p = JSON.parse(fs.readFileSync('package.json','utf8'));
+p.dependencies = {
+  prisma: p.dependencies.prisma,
+  '@prisma/client': p.dependencies['@prisma/client'],
+  '@prisma/adapter-pg': p.dependencies['@prisma/adapter-pg'],
+  pg: p.dependencies.pg
+};
+p.devDependencies = {};
+fs.writeFileSync('package.json', JSON.stringify(p, null, 2));
+"
 
-mv /tmp/_prisma_backup/prisma node_modules/prisma
-mv /tmp/_prisma_backup/@prisma node_modules/@prisma
-mv /tmp/_prisma_backup/.prisma node_modules/.prisma 2>/dev/null || true
-rm -rf /tmp/_prisma_backup
-
-echo "==> Postbuild cleanup complete!"
+echo "==> Postbuild complete! npm prune will now remove unused packages."
