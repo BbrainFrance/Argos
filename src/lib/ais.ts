@@ -17,6 +17,7 @@ const OPS_BBOXES: [number, number][][] = [
 ];
 
 const VESSEL_EXPIRY_MS = 30 * 60 * 1000;
+const MAX_VESSELS = 5000;
 const RECONNECT_DELAY_MS = 30_000;
 const MIN_CONNECT_INTERVAL_MS = 15_000;
 
@@ -255,6 +256,13 @@ function handleMessage(data: string) {
       const existing = s.vesselCache.get(update.id);
       const merged = mergeVesselData(existing, update);
       s.vesselCache.set(update.id, merged);
+
+      if (s.vesselCache.size > MAX_VESSELS) {
+        const oldest = [...s.vesselCache.entries()]
+          .sort((a, b) => (a[1].position?.timestamp ?? 0) - (b[1].position?.timestamp ?? 0));
+        const toRemove = oldest.slice(0, s.vesselCache.size - MAX_VESSELS);
+        for (const [key] of toRemove) s.vesselCache.delete(key);
+      }
     }
   } catch {
     // silently ignore malformed messages

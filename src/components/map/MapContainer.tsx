@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { Entity, Infrastructure, MapViewState, ZoneOfInterest, OperationalMarker, MissionRoute, EntityLink } from "@/types";
+import { Entity, Infrastructure, MapViewState, ZoneOfInterest, OperationalMarker, MissionRoute, EntityLink, SatellitePosition, CellTower } from "@/types";
 
 const LeafletMap = dynamic(() => import("./LeafletMap"), { ssr: false });
 const MapLibreGlobe = dynamic(() => import("./MapLibreGlobe"), { ssr: false });
@@ -28,6 +28,10 @@ interface MapContainerProps {
   activeMissionWaypoints?: MissionRoute["waypoints"];
   onMapClick?: (latlng: { lat: number; lng: number }) => void;
   entityLinks?: EntityLink[];
+  satellites?: SatellitePosition[];
+  cellTowers?: CellTower[];
+  showSatellites?: boolean;
+  showCellTowers?: boolean;
   onMissionWaypointAdd?: (latlng: { lat: number; lng: number }) => void;
   onZoneDrawn?: (polygon: [number, number][]) => void;
 }
@@ -53,6 +57,10 @@ export default function MapContainer({
   missionRoutes,
   activeMissionWaypoints,
   entityLinks,
+  satellites,
+  cellTowers,
+  showSatellites,
+  showCellTowers,
   onMapClick,
   onMissionWaypointAdd,
   onZoneDrawn,
@@ -69,6 +77,8 @@ export default function MapContainer({
           showTrails={showTrails}
           showInfrastructure={showInfrastructure}
           showSatellite={showSatellite}
+          satellites={satellites}
+          showSatellites={showSatellites}
         />
       ) : (
         <LeafletMap
@@ -91,6 +101,10 @@ export default function MapContainer({
           missionRoutes={missionRoutes}
           activeMissionWaypoints={activeMissionWaypoints}
           entityLinks={entityLinks}
+          satellites={satellites}
+          cellTowers={cellTowers}
+          showSatellites={showSatellites}
+          showCellTowers={showCellTowers}
           onMapClick={onMapClick}
           onMissionWaypointAdd={onMissionWaypointAdd}
           onZoneDrawn={onZoneDrawn}

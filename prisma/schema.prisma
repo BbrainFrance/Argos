@@ -183,6 +183,21 @@ model MissionWaypoint {
   @@map("mission_waypoints")
 }
 
+// ─── MESSAGES TACTIQUES ─────────────────────────────────────
+
+model TacticalMessage {
+  id        String   @id @default(cuid())
+  sender    String
+  channel   String   @default("general")
+  content   String
+  priority  String   @default("routine")
+  createdAt DateTime @default(now())
+
+  @@index([channel, createdAt])
+  @@index([createdAt])
+  @@map("tactical_messages")
+}
+
 // ─── LIENS ENTRE ENTITES ─────────────────────────────────────
 
 model EntityLink {

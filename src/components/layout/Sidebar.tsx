@@ -46,9 +46,11 @@ interface SidebarProps {
 const LAYERS = [
   { id: "air", name: "Trafic Aerien", icon: "✈", color: "#00d4ff", available: true },
   { id: "maritime", name: "Trafic Maritime", icon: "⚓", color: "#10b981", available: true },
-  { id: "satellite", name: "Imagerie Satellite", icon: "🛰", color: "#f59e0b", available: true },
+  { id: "satellites", name: "Constellations Sat.", icon: "🛰", color: "#f59e0b", available: true },
+  { id: "cellTowers", name: "Antennes Relais", icon: "📡", color: "#ef4444", available: true },
+  { id: "satellite", name: "Imagerie Satellite", icon: "🌐", color: "#8b5cf6", available: true },
   { id: "sentinel", name: "Imagerie NASA GIBS", icon: "🌍", color: "#06b6d4", available: true },
-  { id: "infra", name: "Infrastructures", icon: "🏛", color: "#8b5cf6", available: true },
+  { id: "infra", name: "Infrastructures", icon: "🏛", color: "#9333ea", available: true },
 ];
 
 const TOOLS = [

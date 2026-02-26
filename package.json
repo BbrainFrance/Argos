@@ -30,6 +30,7 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "recharts": "^2.15.0",
+    "satellite.js": "^6.0.2",
     "utf-8-validate": "^6.0.6",
     "ws": "^8.19.0"
   },

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
-import { Entity, Aircraft, Vessel, Infrastructure, ZoneOfInterest } from "@/types";
+import { Entity, Aircraft, Vessel, Infrastructure, ZoneOfInterest, SatellitePosition } from "@/types";
 import { INFRA_ICONS } from "@/lib/infrastructure";
 
 interface MapLibreGlobeProps {
@@ -15,6 +15,8 @@ interface MapLibreGlobeProps {
   showTrails: boolean;
   showInfrastructure: boolean;
   showSatellite?: boolean;
+  satellites?: SatellitePosition[];
+  showSatellites?: boolean;
 }
 
 const GLOBE_STYLE: maplibregl.StyleSpecification = {
@@ -256,6 +258,8 @@ export default function MapLibreGlobe({
   showTrails,
   showInfrastructure,
   showSatellite = false,
+  satellites = [],
+  showSatellites = false,
 }: MapLibreGlobeProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -303,6 +307,7 @@ export default function MapLibreGlobe({
       map.addSource("trails", { type: "geojson", data: EMPTY_FC });
       map.addSource("zones", { type: "geojson", data: EMPTY_FC });
       map.addSource("infra", { type: "geojson", data: EMPTY_FC });
+      map.addSource("sats", { type: "geojson", data: EMPTY_FC });
 
       map.addLayer({
         id: "zones-fill",
@@ -338,6 +343,27 @@ export default function MapLibreGlobe({
           "circle-stroke-width": 1,
           "circle-stroke-color": ["get", "color"],
           "circle-stroke-opacity": 0.3,
+        },
+      });
+      map.addLayer({
+        id: "sats-glow",
+        type: "circle",
+        source: "sats",
+        paint: {
+          "circle-color": ["get", "color"],
+          "circle-radius": 6,
+          "circle-opacity": 0.2,
+          "circle-blur": 1,
+        },
+      });
+      map.addLayer({
+        id: "sats-circle",
+        type: "circle",
+        source: "sats",
+        paint: {
+          "circle-color": ["get", "color"],
+          "circle-radius": 3,
+          "circle-opacity": 0.8,
         },
       });
       map.addLayer({
@@ -485,7 +511,21 @@ export default function MapLibreGlobe({
     src("trails")?.setData(showTrails ? trailsToGeoJSON(entities, selectedEntityId) : EMPTY_FC);
     src("zones")?.setData(zonesToGeoJSON(zones));
     src("infra")?.setData(showInfrastructure ? infraToGeoJSON(infrastructure) : EMPTY_FC);
-  }, [mapReady, entities, infrastructure, zones, selectedEntityId, showTrails, showInfrastructure]);
+
+    const GROUP_COLORS: Record<string, string> = {
+      gps: "#f59e0b", galileo: "#3b82f6", glonass: "#ef4444",
+      iridium: "#06b6d4", starlink: "#a855f7", military: "#dc2626", "french-mil": "#2563eb",
+    };
+    const satFC: GeoJSON.FeatureCollection = showSatellites ? {
+      type: "FeatureCollection",
+      features: satellites.map((s) => ({
+        type: "Feature" as const,
+        geometry: { type: "Point" as const, coordinates: [s.lng, s.lat] },
+        properties: { id: s.id, name: s.name, group: s.group, color: GROUP_COLORS[s.group] ?? "#f59e0b" },
+      })),
+    } : EMPTY_FC;
+    src("sats")?.setData(satFC);
+  }, [mapReady, entities, infrastructure, zones, selectedEntityId, showTrails, showInfrastructure, satellites, showSatellites]);
 
   return (
     <>

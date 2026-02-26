@@ -183,6 +183,46 @@ export interface DataLayer {
   entityCount: number;
 }
 
+// ─── SATELLITES ──────────────────────────────────────────────
+
+export type SatelliteGroup = "gps" | "galileo" | "glonass" | "iridium" | "starlink" | "military" | "french-mil";
+
+export interface SatellitePosition {
+  id: string;
+  name: string;
+  group: SatelliteGroup;
+  lat: number;
+  lng: number;
+  alt: number;
+  velocity: number;
+}
+
+// ─── CELL TOWERS ────────────────────────────────────────────
+
+export interface CellTower {
+  id: string;
+  lat: number;
+  lng: number;
+  mcc: number;
+  mnc: number;
+  lac: number;
+  cellId: number;
+  radio: string;
+  range: number;
+  operator?: string;
+}
+
+// ─── TACTICAL CHAT ──────────────────────────────────────────
+
+export interface TacticalMessage {
+  id: string;
+  sender: string;
+  channel: string;
+  content: string;
+  priority: "routine" | "priority" | "flash";
+  timestamp: Date;
+}
+
 export interface AnalysisResult {
   id: string;
   type: "anomaly" | "pattern" | "correlation" | "prediction";

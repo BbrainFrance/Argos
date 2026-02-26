@@ -3,7 +3,7 @@
 import { useEffect, useRef, useCallback } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { Entity, Aircraft, Vessel, Infrastructure, ZoneOfInterest, OperationalMarker, MissionRoute, EntityLink } from "@/types";
+import { Entity, Aircraft, Vessel, Infrastructure, ZoneOfInterest, OperationalMarker, MissionRoute, EntityLink, SatellitePosition, CellTower } from "@/types";
 import { INFRA_ICONS } from "@/lib/infrastructure";
 import {
   generateNATOSymbol,
@@ -35,6 +35,10 @@ interface LeafletMapProps {
   activeMissionWaypoints?: MissionRoute["waypoints"];
   onMapClick?: (latlng: { lat: number; lng: number }) => void;
   entityLinks?: EntityLink[];
+  satellites?: SatellitePosition[];
+  cellTowers?: CellTower[];
+  showSatellites?: boolean;
+  showCellTowers?: boolean;
   onMissionWaypointAdd?: (latlng: { lat: number; lng: number }) => void;
   onZoneDrawn?: (polygon: [number, number][]) => void;
 }
@@ -61,6 +65,10 @@ export default function LeafletMap({
   missionRoutes = [],
   activeMissionWaypoints = [],
   entityLinks = [],
+  satellites = [],
+  cellTowers = [],
+  showSatellites = false,
+  showCellTowers = false,
   onMapClick,
   onMissionWaypointAdd,
   onZoneDrawn,
@@ -77,6 +85,8 @@ export default function LeafletMap({
   const predictionLayerRef = useRef<L.LayerGroup | null>(null);
   const missionLayerRef = useRef<L.LayerGroup | null>(null);
   const linkLayerRef = useRef<L.LayerGroup | null>(null);
+  const satLayerGroupRef = useRef<L.LayerGroup | null>(null);
+  const cellLayerRef = useRef<L.LayerGroup | null>(null);
   const measurePointsRef = useRef<L.LatLng[]>([]);
   const entityMarkersRef = useRef<Map<string, L.Marker>>(new Map());
   const containerRef = useRef<HTMLDivElement>(null);
@@ -115,6 +125,8 @@ export default function LeafletMap({
     predictionLayerRef.current = L.layerGroup().addTo(map);
     missionLayerRef.current = L.layerGroup().addTo(map);
     linkLayerRef.current = L.layerGroup().addTo(map);
+    satLayerGroupRef.current = L.layerGroup().addTo(map);
+    cellLayerRef.current = L.layerGroup().addTo(map);
     mapRef.current = map;
 
     return () => {
@@ -343,6 +355,83 @@ export default function LeafletMap({
       });
     });
   }, [missionRoutes, activeMissionWaypoints]);
+
+  // Satellite constellation rendering
+  useEffect(() => {
+    if (!satLayerGroupRef.current) return;
+    satLayerGroupRef.current.clearLayers();
+    if (!showSatellites) return;
+
+    const GROUP_COLORS: Record<string, string> = {
+      gps: "#f59e0b", galileo: "#3b82f6", glonass: "#ef4444",
+      iridium: "#06b6d4", starlink: "#a855f7", military: "#dc2626", "french-mil": "#2563eb",
+    };
+
+    satellites.forEach((sat) => {
+      const color = GROUP_COLORS[sat.group] ?? "#f59e0b";
+      const size = sat.group === "starlink" ? 3 : 5;
+
+      const marker = L.circleMarker([sat.lat, sat.lng], {
+        radius: size,
+        color,
+        fillColor: color,
+        fillOpacity: 0.6,
+        weight: 1,
+      });
+
+      marker.bindTooltip(
+        `<div style="font-family:monospace;font-size:9px;background:#1a2332ee;color:#e2e8f0;padding:4px 8px;border:1px solid ${color};border-radius:3px;">
+          <strong style="color:${color};">${sat.name}</strong><br/>
+          <span style="color:#64748b;">${sat.group.toUpperCase()}</span><br/>
+          Alt: ${Math.round(sat.alt)} km | Vit: ${(sat.velocity).toFixed(1)} km/s
+        </div>`,
+        { className: "argos-tooltip", direction: "top", offset: [0, -6] }
+      );
+
+      satLayerGroupRef.current!.addLayer(marker);
+    });
+  }, [satellites, showSatellites]);
+
+  // Cell tower rendering
+  useEffect(() => {
+    if (!cellLayerRef.current) return;
+    cellLayerRef.current.clearLayers();
+    if (!showCellTowers) return;
+
+    cellTowers.forEach((tower) => {
+      const radioColor = tower.radio === "LTE" ? "#ef4444" : tower.radio === "UMTS" ? "#f59e0b" : tower.radio === "GSM" ? "#10b981" : "#8b5cf6";
+
+      const marker = L.circleMarker([tower.lat, tower.lng], {
+        radius: 4,
+        color: radioColor,
+        fillColor: radioColor,
+        fillOpacity: 0.7,
+        weight: 1,
+      });
+
+      const rangeCircle = L.circle([tower.lat, tower.lng], {
+        radius: tower.range,
+        color: radioColor,
+        fillColor: radioColor,
+        fillOpacity: 0.04,
+        weight: 0.5,
+        dashArray: "4 4",
+      });
+
+      marker.bindTooltip(
+        `<div style="font-family:monospace;font-size:9px;background:#1a2332ee;color:#e2e8f0;padding:4px 8px;border:1px solid ${radioColor};border-radius:3px;">
+          <strong style="color:${radioColor};">📡 ${tower.radio}</strong><br/>
+          MCC: ${tower.mcc} | MNC: ${tower.mnc}<br/>
+          LAC: ${tower.lac} | Cell: ${tower.cellId}<br/>
+          Portee: ${(tower.range / 1000).toFixed(1)} km
+        </div>`,
+        { className: "argos-tooltip", direction: "top", offset: [0, -6] }
+      );
+
+      cellLayerRef.current!.addLayer(marker);
+      cellLayerRef.current!.addLayer(rangeCircle);
+    });
+  }, [cellTowers, showCellTowers]);
 
   // Disable entity interaction when in placement/mission modes
   useEffect(() => {

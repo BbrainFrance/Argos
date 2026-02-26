@@ -13,7 +13,8 @@ import FilterBar from "@/components/dashboard/FilterBar";
 import AIPanel from "@/components/dashboard/AIPanel";
 import CommandCenter from "@/components/dashboard/CommandCenter";
 import Timeline from "@/components/dashboard/Timeline";
-import { Aircraft, Vessel, Entity, MapViewState, DashboardStats, Alert, FilterState, AnalysisResult, ZoneOfInterest, OperationalMarker, MarkerAffiliation, MarkerCategory, MissionRoute, EntityLink, RelationType } from "@/types";
+import { Aircraft, Vessel, Entity, MapViewState, DashboardStats, Alert, FilterState, AnalysisResult, ZoneOfInterest, OperationalMarker, MarkerAffiliation, MarkerCategory, MissionRoute, EntityLink, RelationType, SatellitePosition, CellTower } from "@/types";
+import TacticalChat from "@/components/dashboard/TacticalChat";
 import { mergeAircraftWithHistory } from "@/lib/opensky";
 import { generateAlerts } from "@/lib/alerts";
 import { runAnalysis } from "@/lib/analysis";
@@ -104,6 +105,8 @@ export default function ArgosPage() {
   const [newZoneType, setNewZoneType] = useState<"surveillance" | "exclusion" | "alert">("surveillance");
   const [rightPanel, setRightPanel] = useState<"dashboard" | "detail">("dashboard");
 
+  const [satellitePositions, setSatellitePositions] = useState<SatellitePosition[]>([]);
+  const [cellTowers, setCellTowers] = useState<CellTower[]>([]);
   const [gibsDate, setGibsDate] = useState<string>(() => {
     const d = new Date();
     d.setDate(d.getDate() - 3);
@@ -260,6 +263,29 @@ export default function ArgosPage() {
       }
     });
   }, []);
+
+  // Satellite constellation polling
+  useEffect(() => {
+    if (!activeLayers.satellites) { setSatellitePositions([]); return; }
+    const fetchSats = () => {
+      fetch("/api/satellites?groups=gps,galileo,iridium,french-mil")
+        .then((r) => r.ok ? r.json() : null)
+        .then((data) => { if (data?.satellites) setSatellitePositions(data.satellites); })
+        .catch(() => {});
+    };
+    fetchSats();
+    const interval = setInterval(fetchSats, 30_000);
+    return () => clearInterval(interval);
+  }, [activeLayers.satellites]);
+
+  // Cell tower fetch on layer activation
+  useEffect(() => {
+    if (!activeLayers.cellTowers) { setCellTowers([]); return; }
+    fetch("/api/cell-towers?latMin=41&latMax=51&lonMin=-6&lonMax=10&limit=1000")
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => { if (data?.towers) setCellTowers(data.towers); })
+      .catch(() => {});
+  }, [activeLayers.cellTowers]);
 
   useEffect(() => {
     if (timelineActive || loading) return;
@@ -711,6 +737,10 @@ export default function ArgosPage() {
                 measureMode={measureMode}
                 operationalMarkers={operationalMarkers}
                 entityLinks={entityLinks}
+                satellites={satellitePositions}
+                cellTowers={cellTowers}
+                showSatellites={activeLayers.satellites}
+                showCellTowers={activeLayers.cellTowers}
                 placeMarkerMode={placeMarkerMode}
                 missionPlanMode={missionPlanMode}
                 missionRoutes={missionRoutes}
@@ -1172,6 +1202,7 @@ export default function ArgosPage() {
                     analyses={analysisResults}
                     selectedEntity={selectedEntity}
                   />
+                  <TacticalChat operatorName="OPERATOR" />
                   <FilterBar
                     filters={filters}
                     onUpdate={(f) => setFilters((p) => ({ ...p, ...f }))}
