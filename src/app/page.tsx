@@ -629,6 +629,16 @@ export default function ArgosPage() {
           setMissionPlanMode(false);
         }}
         entityLinkCount={entityLinks.length}
+        gibsDate={gibsDate}
+        gibsDaysAgo={gibsDaysAgo}
+        gibsProduct={gibsProduct}
+        onGibsDaysChange={(days) => {
+          setGibsDaysAgo(days);
+          const d = new Date();
+          d.setDate(d.getDate() - days);
+          setGibsDate(d.toISOString().slice(0, 10));
+        }}
+        onGibsProductChange={setGibsProduct}
         onExportPDF={() => {
           generateReport({
             stats,

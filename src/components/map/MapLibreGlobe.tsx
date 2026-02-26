@@ -49,10 +49,7 @@ const GLOBE_STYLE: maplibregl.StyleSpecification = {
     },
     "osm-buildings": {
       type: "vector",
-      tiles: [
-        "https://tiles.openfreemap.org/planet/{z}/{x}/{y}.pbf",
-      ],
-      maxzoom: 14,
+      url: "https://tiles.openfreemap.org/planet",
     },
   },
   layers: [
@@ -80,13 +77,16 @@ const GLOBE_STYLE: maplibregl.StyleSpecification = {
       type: "fill-extrusion",
       source: "osm-buildings",
       "source-layer": "building",
-      minzoom: 13,
+      filter: ["!=", ["get", "hide_3d"], true],
+      minzoom: 14,
       paint: {
         "fill-extrusion-color": [
-          "interpolate", ["linear"], ["get", "render_height"],
-          0, "#1a2332",
-          30, "#243447",
-          100, "#2d4560",
+          "interpolate", ["linear"],
+          ["coalesce", ["get", "render_height"], 5],
+          0, "#1e3a5f",
+          20, "#2a4a6f",
+          50, "#3a5a7f",
+          100, "#4a7090",
         ],
         "fill-extrusion-height": [
           "coalesce", ["get", "render_height"], 5,
@@ -94,7 +94,7 @@ const GLOBE_STYLE: maplibregl.StyleSpecification = {
         "fill-extrusion-base": [
           "coalesce", ["get", "render_min_height"], 0,
         ],
-        "fill-extrusion-opacity": 0.7,
+        "fill-extrusion-opacity": 0.75,
       },
     },
     {
@@ -288,6 +288,12 @@ export default function MapLibreGlobe({
           "horizon-fog-blend": 0.7,
           "fog-color": "#020810",
           "fog-ground-blend": 0.9,
+        });
+        map.setLight({
+          anchor: "viewport",
+          color: "#ffffff",
+          intensity: 0.4,
+          position: [1.5, 90, 80],
         });
       } catch {
         /* v4 fallback */

@@ -2,6 +2,18 @@
 
 import { useState } from "react";
 
+interface GibsProduct {
+  id: string;
+  label: string;
+}
+
+const GIBS_PRODUCTS: GibsProduct[] = [
+  { id: "MODIS_Terra_CorrectedReflectance_TrueColor", label: "VISIBLE" },
+  { id: "MODIS_Terra_CorrectedReflectance_Bands721", label: "IR" },
+  { id: "VIIRS_SNPP_CorrectedReflectance_TrueColor", label: "VIIRS HD" },
+  { id: "MODIS_Terra_NDVI_8Day", label: "NDVI" },
+];
+
 interface SidebarProps {
   activeLayers: Record<string, boolean>;
   onToggleLayer: (id: string) => void;
@@ -24,6 +36,11 @@ interface SidebarProps {
   onToggleLinkMode?: () => void;
   entityLinkCount?: number;
   onExportPDF?: () => void;
+  gibsDate?: string;
+  gibsDaysAgo?: number;
+  gibsProduct?: string;
+  onGibsDaysChange?: (days: number) => void;
+  onGibsProductChange?: (product: string) => void;
 }
 
 const LAYERS = [
@@ -40,7 +57,7 @@ const TOOLS = [
   { id: "measure", name: "Mesure", icon: "📏" },
 ];
 
-export default function Sidebar({ activeLayers, onToggleLayer, showTrails, onToggleTrails, showInfra, onToggleInfra, drawMode, onToggleDraw, measureMode, onToggleMeasure, placeMarkerMode, onTogglePlaceMarker, operationalMarkerCount = 0, onClearMarkers, missionPlanMode, onToggleMissionPlan, missionRouteCount = 0, linkMode, onToggleLinkMode, entityLinkCount = 0, onExportPDF }: SidebarProps) {
+export default function Sidebar({ activeLayers, onToggleLayer, showTrails, onToggleTrails, showInfra, onToggleInfra, drawMode, onToggleDraw, measureMode, onToggleMeasure, placeMarkerMode, onTogglePlaceMarker, operationalMarkerCount = 0, onClearMarkers, missionPlanMode, onToggleMissionPlan, missionRouteCount = 0, linkMode, onToggleLinkMode, entityLinkCount = 0, onExportPDF, gibsDate, gibsDaysAgo = 3, gibsProduct, onGibsDaysChange, onGibsProductChange }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
 
   return (
@@ -103,6 +120,42 @@ export default function Sidebar({ activeLayers, onToggleLayer, showTrails, onTog
             );
           })}
         </div>
+
+        {!collapsed && activeLayers.sentinel && (
+          <div className="px-1 py-2 space-y-2 border border-cyan-500/20 rounded-lg bg-cyan-500/5 p-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[8px] font-mono text-cyan-400 tracking-widest uppercase">GIBS Timeline</span>
+              <span className="text-[9px] font-mono text-argos-text font-bold">{gibsDate}</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[7px] font-mono text-argos-text-dim">J-30</span>
+              <input
+                type="range"
+                min={1}
+                max={30}
+                value={31 - gibsDaysAgo}
+                onChange={(e) => onGibsDaysChange?.(31 - parseInt(e.target.value))}
+                className="flex-1 h-1 gibs-slider"
+              />
+              <span className="text-[7px] font-mono text-argos-text-dim">J-1</span>
+            </div>
+            <div className="flex gap-1 flex-wrap">
+              {GIBS_PRODUCTS.map((p) => (
+                <button
+                  key={p.id}
+                  onClick={() => onGibsProductChange?.(p.id)}
+                  className={`px-1.5 py-0.5 text-[7px] font-mono uppercase rounded border transition-all ${
+                    gibsProduct === p.id
+                      ? "border-cyan-500 text-cyan-400 bg-cyan-500/10"
+                      : "border-argos-border/30 text-argos-text-dim/50 hover:text-argos-text-dim"
+                  }`}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {!collapsed && (
           <>
