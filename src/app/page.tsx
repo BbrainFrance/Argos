@@ -683,6 +683,7 @@ export default function ArgosPage() {
             zones,
           });
         }}
+        viewMode={viewState.mode}
       />
 
       <div className="flex-1 flex flex-col min-w-0">

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useCallback, useMemo, useState } from "react";
+import * as THREE from "three";
 import { Entity, Aircraft, Vessel, Infrastructure, ZoneOfInterest, SatellitePosition } from "@/types";
 import { INFRA_ICONS } from "@/lib/infrastructure";
 import GlobeComponent from "react-globe.gl";
@@ -19,6 +20,7 @@ interface ThreeGlobeProps {
 }
 
 const EARTH_RADIUS_KM = 6371;
+const GLOBE_RADIUS = 100;
 
 const SAT_GROUP_COLORS: Record<string, string> = {
   gps: "#f59e0b",
@@ -29,6 +31,17 @@ const SAT_GROUP_COLORS: Record<string, string> = {
   military: "#dc2626",
   "french-mil": "#2563eb",
 };
+
+function polar2Cartesian(lat: number, lng: number, relAlt: number) {
+  const phi = (90 - lat) * Math.PI / 180;
+  const theta = (90 - lng) * Math.PI / 180;
+  const r = GLOBE_RADIUS * (1 + relAlt);
+  return {
+    x: r * Math.sin(phi) * Math.cos(theta),
+    y: r * Math.cos(phi),
+    z: r * Math.sin(phi) * Math.sin(theta),
+  };
+}
 
 function getEntityColor(entity: Entity, selectedId: string | null): string {
   const isSelected = entity.id === selectedId;
@@ -60,6 +73,16 @@ interface GlobePointData {
   label: string;
   tooltipHtml: string;
   entity?: Entity;
+}
+
+interface SatCustomData {
+  lat: number;
+  lng: number;
+  alt: number;
+  color: string;
+  size: number;
+  tooltipHtml: string;
+  group: string;
 }
 
 export default function ThreeGlobe({
@@ -138,30 +161,6 @@ export default function ThreeGlobe({
       });
   }, [entities, selectedEntityId]);
 
-  const satellitePoints: GlobePointData[] = useMemo(() => {
-    if (!showSatellites) return [];
-    return satellites.map((s) => {
-      const color = SAT_GROUP_COLORS[s.group] ?? "#f59e0b";
-      const altFraction = s.alt / EARTH_RADIUS_KM;
-      const velKmh = (s.velocity * 3.6).toFixed(0);
-
-      return {
-        id: s.id,
-        lat: s.lat,
-        lng: s.lng,
-        alt: altFraction,
-        color,
-        size: s.group === "starlink" ? 0.12 : 0.2,
-        label: s.name,
-        tooltipHtml: `<div class="argos-globe-tt">
-          <strong style="color:${color}">${s.name}</strong><br/>
-          <span class="dim">${s.group.toUpperCase()}</span><br/>
-          Alt: ${Math.round(s.alt)} km | Vit: ${velKmh} km/h
-        </div>`,
-      };
-    });
-  }, [satellites, showSatellites]);
-
   const infraPoints: GlobePointData[] = useMemo(() => {
     if (!showInfrastructure) return [];
     return infrastructure
@@ -185,10 +184,32 @@ export default function ThreeGlobe({
       });
   }, [infrastructure, showInfrastructure]);
 
-  const allPoints = useMemo(
-    () => [...entityPoints, ...satellitePoints, ...infraPoints],
-    [entityPoints, satellitePoints, infraPoints]
+  const surfacePoints = useMemo(
+    () => [...entityPoints, ...infraPoints],
+    [entityPoints, infraPoints]
   );
+
+  const satCustomData: SatCustomData[] = useMemo(() => {
+    if (!showSatellites) return [];
+    return satellites.map((s) => {
+      const color = SAT_GROUP_COLORS[s.group] ?? "#f59e0b";
+      const altFraction = s.alt / EARTH_RADIUS_KM;
+      const velKmh = (s.velocity * 3.6).toFixed(0);
+      return {
+        lat: s.lat,
+        lng: s.lng,
+        alt: altFraction,
+        color,
+        size: s.group === "starlink" ? 0.3 : 0.5,
+        group: s.group,
+        tooltipHtml: `<div class="argos-globe-tt">
+          <strong style="color:${color}">${s.name}</strong><br/>
+          <span class="dim">${s.group.toUpperCase()}</span><br/>
+          Alt: ${Math.round(s.alt)} km | Vit: ${velKmh} km/h
+        </div>`,
+      };
+    });
+  }, [satellites, showSatellites]);
 
   const trailPaths = useMemo(() => {
     if (!showTrails) return [];
@@ -223,6 +244,37 @@ export default function ThreeGlobe({
     []
   );
 
+  const createSatObject = useCallback((d: object) => {
+    const sat = d as SatCustomData;
+    const geo = new THREE.SphereGeometry(sat.size, 8, 6);
+    const mat = new THREE.MeshBasicMaterial({
+      color: new THREE.Color(sat.color),
+      transparent: true,
+      opacity: 0.9,
+    });
+    const mesh = new THREE.Mesh(geo, mat);
+
+    const glowGeo = new THREE.SphereGeometry(sat.size * 2.5, 8, 6);
+    const glowMat = new THREE.MeshBasicMaterial({
+      color: new THREE.Color(sat.color),
+      transparent: true,
+      opacity: 0.15,
+    });
+    const glow = new THREE.Mesh(glowGeo, glowMat);
+
+    const group = new THREE.Group();
+    group.add(mesh);
+    group.add(glow);
+    return group;
+  }, []);
+
+  const updateSatObject = useCallback((obj: object, d: object) => {
+    const sat = d as SatCustomData;
+    const pos = polar2Cartesian(sat.lat, sat.lng, sat.alt);
+    const group = obj as THREE.Group;
+    group.position.set(pos.x, pos.y, pos.z);
+  }, []);
+
   useEffect(() => {
     if (!globeRef.current || initDone.current) return;
     initDone.current = true;
@@ -233,6 +285,7 @@ export default function ThreeGlobe({
       controls.autoRotate = false;
       controls.enableDamping = true;
       controls.dampingFactor = 0.1;
+      controls.minDistance = 101;
     }
   });
 
@@ -261,14 +314,15 @@ export default function ThreeGlobe({
       <div ref={wrapperRef} style={{ width: "100%", height: "100%", background: "#000005" }}>
         <GlobeComponent
           ref={globeRef}
-          globeImageUrl="//unpkg.com/three-globe/example/img/earth-night.jpg"
+          globeImageUrl="//unpkg.com/three-globe/example/img/earth-blue-marble.jpg"
           bumpImageUrl="//unpkg.com/three-globe/example/img/earth-topology.png"
           backgroundImageUrl="//unpkg.com/three-globe/example/img/night-sky.png"
           atmosphereColor="#0891b2"
           atmosphereAltitude={0.15}
           width={dims.w}
           height={dims.h}
-          pointsData={allPoints}
+
+          pointsData={surfacePoints}
           pointLat="lat"
           pointLng="lng"
           pointAltitude="alt"
@@ -277,6 +331,12 @@ export default function ThreeGlobe({
           pointsMerge={false}
           pointLabel="tooltipHtml"
           onPointClick={handlePointClick}
+
+          customLayerData={satCustomData}
+          customThreeObject={createSatObject}
+          customThreeObjectUpdate={updateSatObject}
+          customLayerLabel={(d: object) => (d as SatCustomData).tooltipHtml}
+
           pathsData={trailPaths}
           pathPoints="coords"
           pathPointLat="lat"
@@ -286,6 +346,7 @@ export default function ThreeGlobe({
           pathDashLength={0.01}
           pathDashGap={0.01}
           pathDashAnimateTime={3000}
+
           polygonsData={zonePolygons}
           polygonCapColor={() => "rgba(0, 212, 255, 0.06)"}
           polygonSideColor={() => "rgba(0, 212, 255, 0.12)"}

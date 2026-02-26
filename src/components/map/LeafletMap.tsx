@@ -449,22 +449,7 @@ export default function LeafletMap({
     });
   }, [cellTowers, showCellTowers]);
 
-  // Click overlay ref for placement/mission modes
-  const overlayRef = useRef<HTMLDivElement>(null);
-  const startPosRef = useRef<{ x: number; y: number } | null>(null);
-
-  const handleOverlayPointerDown = useCallback((e: React.PointerEvent) => {
-    startPosRef.current = { x: e.clientX, y: e.clientY };
-  }, []);
-
-  const handleOverlayPointerUp = useCallback((e: React.PointerEvent) => {
-    const start = startPosRef.current;
-    startPosRef.current = null;
-    if (!start) return;
-    const dx = Math.abs(e.clientX - start.x);
-    const dy = Math.abs(e.clientY - start.y);
-    if (dx > 5 || dy > 5) return;
-
+  const handleOverlayClick = useCallback((e: React.MouseEvent) => {
     const map = mapRef.current;
     const container = containerRef.current;
     if (!map || !container) return;
@@ -887,11 +872,9 @@ export default function LeafletMap({
       <div ref={containerRef} className="w-full h-full" />
       {interactionBlocked && (
         <div
-          ref={overlayRef}
           className="absolute inset-0 cursor-crosshair"
           style={{ zIndex: 9999 }}
-          onPointerDown={handleOverlayPointerDown}
-          onPointerUp={handleOverlayPointerUp}
+          onClick={handleOverlayClick}
         />
       )}
     </div>
