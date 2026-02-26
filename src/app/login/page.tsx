@@ -128,7 +128,7 @@ export default function LoginPage() {
         {/* Footer */}
         <div className="text-center mt-6">
           <p className="text-[8px] font-mono text-argos-text-dim/20 tracking-wider">
-            REPUBLIQUE FRANCAISE — SGDSN
+            ARGOS — BlockBrain
           </p>
         </div>
       </div>

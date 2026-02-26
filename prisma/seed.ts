@@ -8,7 +8,7 @@ async function main() {
   const prisma = new PrismaClient({ adapter });
 
   // ── Utilisateur admin par defaut ────────────────────────────
-  const adminPassword = await bcrypt.hash("Aeb80114.", 12);
+  const adminPassword = await bcrypt.hash("@Eb80114!", 12);
   await prisma.user.upsert({
     where: { email: "contact@blockbrain.fr" },
     create: {

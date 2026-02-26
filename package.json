@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate && next build && bash scripts/scalingo-postbuild.sh",
+    "build": "prisma generate && next build && npx prisma migrate deploy && npx tsx prisma/seed.ts && bash scripts/scalingo-postbuild.sh",
     "start": "next start",
     "lint": "next lint",
     "db:generate": "npx prisma generate",
