@@ -84,7 +84,7 @@ export default function LoginPage() {
               onChange={(e) => setEmail(e.target.value)}
               required
               autoFocus
-              placeholder="operateur@argos.gouv.fr"
+              placeholder="email@exemple.com"
               className="w-full px-3 py-2.5 bg-argos-bg border border-argos-border/50 rounded text-sm font-mono text-argos-text placeholder:text-argos-text-dim/30 focus:outline-none focus:border-argos-accent/50 focus:ring-1 focus:ring-argos-accent/20 transition-all"
             />
           </div>
@@ -128,7 +128,7 @@ export default function LoginPage() {
         {/* Footer */}
         <div className="text-center mt-6">
           <p className="text-[8px] font-mono text-argos-text-dim/20 tracking-wider">
-            ARGOS — BlockBrain
+            ARGOS
           </p>
         </div>
       </div>
