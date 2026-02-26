@@ -16,7 +16,8 @@ p.dependencies = {
   prisma: p.dependencies.prisma,
   '@prisma/client': p.dependencies['@prisma/client'],
   '@prisma/adapter-pg': p.dependencies['@prisma/adapter-pg'],
-  pg: p.dependencies.pg
+  pg: p.dependencies.pg,
+  dotenv: p.dependencies.dotenv
 };
 p.devDependencies = {};
 fs.writeFileSync('package.json', JSON.stringify(p, null, 2));
