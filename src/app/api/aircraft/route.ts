@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { fetchAircraftFrance } from "@/lib/opensky";
 import prisma from "@/lib/prisma";
 import { Aircraft, GeoPosition } from "@/types";
@@ -6,17 +6,34 @@ import { Aircraft, GeoPosition } from "@/types";
 export const revalidate = 10;
 export const dynamic = "force-dynamic";
 
-export async function GET() {
-  const aircraft = await fetchAircraftFrance();
+const MAX_RESPONSE = 500;
 
-  if (aircraft.length > 0) {
-    persistInBackground(aircraft);
-    await restoreTrackedFlags(aircraft);
+export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url);
+  const latMin = parseFloat(searchParams.get("latMin") ?? "-90");
+  const latMax = parseFloat(searchParams.get("latMax") ?? "90");
+  const lonMin = parseFloat(searchParams.get("lonMin") ?? "-180");
+  const lonMax = parseFloat(searchParams.get("lonMax") ?? "180");
+
+  const all = await fetchAircraftFrance();
+
+  if (all.length > 0) {
+    persistInBackground(all);
+    await restoreTrackedFlags(all);
+
+    const aircraft = all
+      .filter((ac) => {
+        if (!ac.position) return false;
+        return ac.position.lat >= latMin && ac.position.lat <= latMax &&
+               ac.position.lng >= lonMin && ac.position.lng <= lonMax;
+      })
+      .slice(0, MAX_RESPONSE);
 
     return NextResponse.json({
       aircraft,
       timestamp: new Date().toISOString(),
       count: aircraft.length,
+      total: all.length,
       source: "live",
     });
   }

@@ -1,16 +1,32 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { ensureAISConnection, getVessels, getVesselCount, isConnected } from "@/lib/ais";
 import prisma from "@/lib/prisma";
 import { Vessel, GeoPosition } from "@/types";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+const MAX_RESPONSE = 500;
+
+export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url);
+  const latMin = parseFloat(searchParams.get("latMin") ?? "-90");
+  const latMax = parseFloat(searchParams.get("latMax") ?? "90");
+  const lonMin = parseFloat(searchParams.get("lonMin") ?? "-180");
+  const lonMax = parseFloat(searchParams.get("lonMax") ?? "180");
+
   ensureAISConnection();
 
-  const vessels = getVessels();
+  const all = getVessels();
 
-  if (vessels.length > 0) {
+  if (all.length > 0) {
+    const vessels = all
+      .filter((v) => {
+        if (!v.position) return false;
+        return v.position.lat >= latMin && v.position.lat <= latMax &&
+               v.position.lng >= lonMin && v.position.lng <= lonMax;
+      })
+      .slice(0, MAX_RESPONSE);
+
     persistInBackground(vessels);
     await restoreTrackedFlags(vessels);
 
@@ -18,6 +34,7 @@ export async function GET() {
       vessels,
       timestamp: new Date().toISOString(),
       count: vessels.length,
+      total: all.length,
       connected: isConnected(),
       source: "live",
     });

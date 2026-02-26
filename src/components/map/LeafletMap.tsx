@@ -41,6 +41,7 @@ interface LeafletMapProps {
   showCellTowers?: boolean;
   onMissionWaypointAdd?: (latlng: { lat: number; lng: number }) => void;
   onZoneDrawn?: (polygon: [number, number][]) => void;
+  onBoundsChange?: (bounds: { latMin: number; latMax: number; lonMin: number; lonMax: number }) => void;
 }
 
 const FRANCE_CENTER: [number, number] = [46.6, 2.3];
@@ -72,6 +73,7 @@ export default function LeafletMap({
   onMapClick,
   onMissionWaypointAdd,
   onZoneDrawn,
+  onBoundsChange,
 }: LeafletMapProps) {
   const mapRef = useRef<L.Map | null>(null);
   const entityLayerRef = useRef<L.LayerGroup | null>(null);
@@ -98,6 +100,8 @@ export default function LeafletMap({
   onMapClickRef.current = onMapClick;
   const onMissionWaypointAddRef = useRef(onMissionWaypointAdd);
   onMissionWaypointAddRef.current = onMissionWaypointAdd;
+  const onBoundsChangeRef = useRef(onBoundsChange);
+  onBoundsChangeRef.current = onBoundsChange;
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
@@ -128,6 +132,18 @@ export default function LeafletMap({
     satLayerGroupRef.current = L.layerGroup().addTo(map);
     cellLayerRef.current = L.layerGroup().addTo(map);
     mapRef.current = map;
+
+    const emitBounds = () => {
+      const b = map.getBounds();
+      onBoundsChangeRef.current?.({
+        latMin: b.getSouth(),
+        latMax: b.getNorth(),
+        lonMin: b.getWest(),
+        lonMax: b.getEast(),
+      });
+    };
+    map.on("moveend", emitBounds);
+    setTimeout(emitBounds, 100);
 
     return () => {
       map.remove();

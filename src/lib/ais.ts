@@ -17,7 +17,7 @@ const OPS_BBOXES: [number, number][][] = [
 ];
 
 const VESSEL_EXPIRY_MS = 30 * 60 * 1000;
-const MAX_VESSELS = 5000;
+const MAX_VESSELS = 2000;
 const RECONNECT_DELAY_MS = 30_000;
 const MIN_CONNECT_INTERVAL_MS = 15_000;
 

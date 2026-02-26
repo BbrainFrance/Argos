@@ -69,6 +69,9 @@ export default function ArgosPage() {
   const prevZoneMapRef = useRef<Map<string, string[]>>(new Map());
   const lastPollTimeRef = useRef(Date.now());
   const baseEntitiesRef = useRef<Entity[]>([]);
+  const mapBoundsRef = useRef<{ latMin: number; latMax: number; lonMin: number; lonMax: number }>({
+    latMin: 41, latMax: 52, lonMin: -6, lonMax: 10,
+  });
 
   const [entities, setEntities] = useState<Entity[]>([]);
   const [alerts, setAlerts] = useState<Alert[]>([]);
@@ -131,9 +134,12 @@ export default function ArgosPage() {
   const fetchData = useCallback(async () => {
     setRefreshing(true);
     try {
+      const b = mapBoundsRef.current;
+      const pad = 2;
+      const qs = `latMin=${b.latMin - pad}&latMax=${b.latMax + pad}&lonMin=${b.lonMin - pad}&lonMax=${b.lonMax + pad}`;
       const [aircraftRes, vesselRes] = await Promise.allSettled([
-        fetch("/api/aircraft").then((r) => r.ok ? r.json() : null),
-        fetch("/api/vessels").then((r) => r.ok ? r.json() : null),
+        fetch(`/api/aircraft?${qs}`).then((r) => r.ok ? r.json() : null),
+        fetch(`/api/vessels?${qs}`).then((r) => r.ok ? r.json() : null),
       ]);
 
       const aircraftData = aircraftRes.status === "fulfilled" ? aircraftRes.value : null;
@@ -762,6 +768,7 @@ export default function ArgosPage() {
                   }
                 }}
                 onZoneDrawn={handleZoneDrawn}
+                onBoundsChange={(bounds) => { mapBoundsRef.current = bounds; }}
                 />
 
                 {drawMode && (

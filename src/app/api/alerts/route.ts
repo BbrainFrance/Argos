@@ -39,7 +39,12 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const body = await request.json();
+  let body: Record<string, unknown>;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "invalid JSON body" }, { status: 400 });
+  }
 
   if (Array.isArray(body.alerts)) {
     const created = await prisma.alert.createMany({
@@ -59,13 +64,13 @@ export async function POST(request: NextRequest) {
 
   const alert = await prisma.alert.create({
     data: {
-      type: severityMap[body.type] ?? "INFO",
-      category: categoryMap[body.category] ?? "ANOMALY",
-      title: body.title,
-      message: body.message,
-      source: body.source,
-      entityId: body.entityId ?? null,
-      zoneId: body.zoneId ?? null,
+      type: severityMap[body.type as string] ?? "INFO",
+      category: categoryMap[body.category as string] ?? "ANOMALY",
+      title: body.title as string,
+      message: body.message as string,
+      source: body.source as string,
+      entityId: (body.entityId as string) ?? null,
+      zoneId: (body.zoneId as string) ?? null,
     },
   });
 

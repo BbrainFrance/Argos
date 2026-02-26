@@ -34,6 +34,7 @@ interface MapContainerProps {
   showCellTowers?: boolean;
   onMissionWaypointAdd?: (latlng: { lat: number; lng: number }) => void;
   onZoneDrawn?: (polygon: [number, number][]) => void;
+  onBoundsChange?: (bounds: { latMin: number; latMax: number; lonMin: number; lonMax: number }) => void;
 }
 
 export default function MapContainer({
@@ -64,6 +65,7 @@ export default function MapContainer({
   onMapClick,
   onMissionWaypointAdd,
   onZoneDrawn,
+  onBoundsChange,
 }: MapContainerProps) {
   return (
     <div className="relative w-full h-full">
@@ -108,6 +110,7 @@ export default function MapContainer({
           onMapClick={onMapClick}
           onMissionWaypointAdd={onMissionWaypointAdd}
           onZoneDrawn={onZoneDrawn}
+          onBoundsChange={onBoundsChange}
         />
       )}
 
