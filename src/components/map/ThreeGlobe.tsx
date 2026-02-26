@@ -1,10 +1,34 @@
 "use client";
 
-import { useEffect, useRef, useCallback, useMemo, useState } from "react";
+import { useEffect, useRef, useCallback, useMemo, useState, Component, type ReactNode } from "react";
 import * as THREE from "three";
 import { Entity, Aircraft, Vessel, Infrastructure, ZoneOfInterest, SatellitePosition } from "@/types";
 import { INFRA_ICONS } from "@/lib/infrastructure";
 import GlobeComponent from "react-globe.gl";
+
+class GlobeErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean; error: string }> {
+  state = { hasError: false, error: "" };
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error: error.message };
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="w-full h-full flex items-center justify-center bg-[#000005]">
+          <div className="text-center max-w-md p-6">
+            <div className="text-4xl mb-4">🌐</div>
+            <p className="text-sm font-mono text-argos-accent mb-2">MODE GLOBE INDISPONIBLE</p>
+            <p className="text-[10px] font-mono text-argos-text-dim/60 mb-4">
+              Le rendu 3D necessite WebGL2. Utilisez le mode 2D pour la cartographie.
+            </p>
+            <p className="text-[8px] font-mono text-red-400/40">{this.state.error}</p>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 interface ThreeGlobeProps {
   entities: Entity[];
@@ -287,19 +311,29 @@ export default function ThreeGlobe({
   useEffect(() => {
     if (!globeRef.current || initDone.current) return;
     initDone.current = true;
-    const globe = globeRef.current;
-    globe.pointOfView({ lat: 46.6, lng: 2.3, altitude: 2.5 });
-    const controls = globe.controls();
-    if (controls) {
-      controls.autoRotate = false;
-      controls.enableDamping = true;
-      controls.dampingFactor = 0.1;
-      controls.minDistance = 101;
+    try {
+      const globe = globeRef.current;
+      globe.pointOfView({ lat: 46.6, lng: 2.3, altitude: 2.5 });
+      const controls = globe.controls();
+      if (controls) {
+        controls.autoRotate = false;
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.1;
+        controls.minDistance = 100.01;
+        controls.maxDistance = 500;
+        controls.zoomSpeed = 2;
+      }
+      const renderer = globe.renderer?.();
+      if (renderer) {
+        renderer.capabilities.maxTextureSize = Math.min(renderer.capabilities.maxTextureSize || 8192, 8192);
+      }
+    } catch (e) {
+      console.warn("Globe init warning:", e);
     }
   });
 
   return (
-    <>
+    <GlobeErrorBoundary>
       <style>{`
         .argos-globe-tt {
           font-family: 'JetBrains Mono', monospace;
@@ -323,7 +357,8 @@ export default function ThreeGlobe({
       <div ref={wrapperRef} style={{ width: "100%", height: "100%", background: "#000005" }}>
         <GlobeComponent
           ref={globeRef}
-          globeImageUrl="//unpkg.com/three-globe/example/img/earth-blue-marble.jpg"
+          rendererConfig={{ antialias: true, alpha: false, powerPreference: "high-performance" }}
+          globeImageUrl="//eoimages.gsfc.nasa.gov/images/imagerecords/57000/57752/land_shallow_topo_2048.jpg"
           bumpImageUrl="//unpkg.com/three-globe/example/img/earth-topology.png"
           backgroundImageUrl="//unpkg.com/three-globe/example/img/night-sky.png"
           atmosphereColor="#0891b2"
@@ -379,6 +414,6 @@ export default function ThreeGlobe({
           }}
         />
       </div>
-    </>
+    </GlobeErrorBoundary>
   );
 }

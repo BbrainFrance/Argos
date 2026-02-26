@@ -36,6 +36,11 @@ interface SidebarProps {
   onToggleLinkMode?: () => void;
   entityLinkCount?: number;
   onExportPDF?: () => void;
+  onToggleAudit?: () => void;
+  onOpenSIGINT?: () => void;
+  onOpenGeoINT?: () => void;
+  sigintActive?: boolean;
+  geointActive?: boolean;
   gibsDate?: string;
   gibsDaysAgo?: number;
   gibsProduct?: string;
@@ -44,14 +49,24 @@ interface SidebarProps {
   viewMode?: "2d" | "3d";
 }
 
-const LAYERS: { id: string; name: string; icon: string; color: string; modes: ("2d" | "3d")[] }[] = [
-  { id: "air", name: "Trafic Aerien", icon: "✈", color: "#00d4ff", modes: ["2d", "3d"] },
-  { id: "maritime", name: "Trafic Maritime", icon: "⚓", color: "#10b981", modes: ["2d", "3d"] },
-  { id: "satellites", name: "Constellations Sat.", icon: "🛰", color: "#f59e0b", modes: ["2d", "3d"] },
-  { id: "cellTowers", name: "Antennes Relais", icon: "📡", color: "#ef4444", modes: ["2d"] },
-  { id: "satellite", name: "Imagerie Satellite", icon: "🌐", color: "#8b5cf6", modes: ["2d"] },
-  { id: "sentinel", name: "Imagerie NASA GIBS", icon: "🌍", color: "#06b6d4", modes: ["2d"] },
-  { id: "infra", name: "Infrastructures", icon: "🏛", color: "#9333ea", modes: ["2d", "3d"] },
+const LAYERS: { id: string; name: string; icon: string; color: string; modes: ("2d" | "3d")[]; group: string }[] = [
+  { id: "air", name: "Trafic Aerien", icon: "✈", color: "#00d4ff", modes: ["2d", "3d"], group: "sources" },
+  { id: "maritime", name: "Trafic Maritime", icon: "⚓", color: "#10b981", modes: ["2d", "3d"], group: "sources" },
+  { id: "satellites", name: "Constellations Sat.", icon: "🛰", color: "#f59e0b", modes: ["2d", "3d"], group: "sources" },
+  { id: "cellTowers", name: "Antennes Relais", icon: "📡", color: "#ef4444", modes: ["2d"], group: "sources" },
+  { id: "satellite", name: "Imagerie Satellite", icon: "🌐", color: "#8b5cf6", modes: ["2d"], group: "sources" },
+  { id: "sentinel", name: "Imagerie NASA GIBS", icon: "🌍", color: "#06b6d4", modes: ["2d"], group: "sources" },
+  { id: "infra", name: "Infrastructures", icon: "🏛", color: "#9333ea", modes: ["2d", "3d"], group: "sources" },
+  { id: "conflicts", name: "Conflits ACLED", icon: "💥", color: "#ef4444", modes: ["2d", "3d"], group: "world" },
+  { id: "fires", name: "Feux (NASA FIRMS)", icon: "🔥", color: "#f97316", modes: ["2d", "3d"], group: "world" },
+  { id: "disasters", name: "Catastrophes (GDACS)", icon: "🌊", color: "#06b6d4", modes: ["2d", "3d"], group: "world" },
+  { id: "cyberThreats", name: "Cyber Menaces", icon: "🛡", color: "#a855f7", modes: ["2d", "3d"], group: "world" },
+  { id: "internetOutages", name: "Pannes Internet", icon: "📵", color: "#f43f5e", modes: ["2d", "3d"], group: "world" },
+  { id: "submarineCables", name: "Cables Sous-marins", icon: "🔌", color: "#0ea5e9", modes: ["2d"], group: "infra" },
+  { id: "pipelines", name: "Pipelines", icon: "🛢", color: "#84cc16", modes: ["2d"], group: "infra" },
+  { id: "militaryBases", name: "Bases Militaires", icon: "🎖", color: "#dc2626", modes: ["2d", "3d"], group: "infra" },
+  { id: "nuclearFacilities", name: "Installations Nucl.", icon: "☢", color: "#eab308", modes: ["2d", "3d"], group: "infra" },
+  { id: "intelFeeds", name: "Flux Renseignement", icon: "📰", color: "#64748b", modes: ["2d", "3d"], group: "intel" },
 ];
 
 const TOOLS = [
@@ -60,7 +75,7 @@ const TOOLS = [
   { id: "measure", name: "Mesure", icon: "📏" },
 ];
 
-export default function Sidebar({ activeLayers, onToggleLayer, showTrails, onToggleTrails, showInfra, onToggleInfra, drawMode, onToggleDraw, measureMode, onToggleMeasure, placeMarkerMode, onTogglePlaceMarker, operationalMarkerCount = 0, onClearMarkers, missionPlanMode, onToggleMissionPlan, missionRouteCount = 0, linkMode, onToggleLinkMode, entityLinkCount = 0, onExportPDF, gibsDate, gibsDaysAgo = 3, gibsProduct, onGibsDaysChange, onGibsProductChange, viewMode = "2d" }: SidebarProps) {
+export default function Sidebar({ activeLayers, onToggleLayer, showTrails, onToggleTrails, showInfra, onToggleInfra, drawMode, onToggleDraw, measureMode, onToggleMeasure, placeMarkerMode, onTogglePlaceMarker, operationalMarkerCount = 0, onClearMarkers, missionPlanMode, onToggleMissionPlan, missionRouteCount = 0, linkMode, onToggleLinkMode, entityLinkCount = 0, onExportPDF, onToggleAudit, onOpenSIGINT, onOpenGeoINT, sigintActive = false, geointActive = false, gibsDate, gibsDaysAgo = 3, gibsProduct, onGibsDaysChange, onGibsProductChange, viewMode = "2d" }: SidebarProps) {
   const is2D = viewMode === "2d";
   const [collapsed, setCollapsed] = useState(false);
 
@@ -90,38 +105,56 @@ export default function Sidebar({ activeLayers, onToggleLayer, showTrails, onTog
 
       {/* Layers */}
       <div className="flex-1 overflow-y-auto p-2 space-y-3">
-        {!collapsed && (
-          <p className="text-[8px] font-mono text-argos-text-dim/50 uppercase tracking-[0.2em] px-1 pt-1">Sources</p>
-        )}
-        <div className="space-y-0.5">
-          {LAYERS.filter((l) => l.modes.includes(viewMode)).map((layer) => {
-            const active = layer.id === "infra" ? showInfra : activeLayers[layer.id];
+        {(() => {
+          const groups = [
+            { key: "sources", label: "Sources" },
+            { key: "world", label: "World Monitor" },
+            { key: "infra", label: "Infrastructures" },
+            { key: "intel", label: "Renseignement" },
+          ];
+          const filtered = LAYERS.filter((l) => l.modes.includes(viewMode));
+          return groups.map((g) => {
+            const groupLayers = filtered.filter((l) => l.group === g.key);
+            if (groupLayers.length === 0) return null;
             return (
-              <button
-                key={layer.id}
-                onClick={() => {
-                  if (layer.id === "infra") onToggleInfra();
-                  else onToggleLayer(layer.id);
-                }}
-                className={`w-full flex items-center gap-2 px-2 py-2 rounded text-left transition-all ${
-                  active
-                    ? "bg-argos-panel border border-argos-border/30"
-                    : "hover:bg-argos-panel/30 border border-transparent"
-                } cursor-pointer`}
-              >
-                <span className="text-sm flex-shrink-0">{layer.icon}</span>
+              <div key={g.key}>
                 {!collapsed && (
-                  <>
-                    <span className="text-[10px] font-mono flex-1 truncate" style={{ color: active ? layer.color : "#64748b" }}>
-                      {layer.name}
-                    </span>
-                    {active && <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: layer.color }} />}
-                  </>
+                  <p className="text-[8px] font-mono text-argos-text-dim/50 uppercase tracking-[0.2em] px-1 pt-1 pb-0.5">{g.label}</p>
                 )}
-              </button>
+                <div className="space-y-0.5">
+                  {groupLayers.map((layer) => {
+                    const active = layer.id === "infra" ? showInfra : activeLayers[layer.id];
+                    return (
+                      <button
+                        key={layer.id}
+                        onClick={() => {
+                          if (layer.id === "infra") onToggleInfra();
+                          else onToggleLayer(layer.id);
+                        }}
+                        className={`w-full flex items-center gap-2 px-2 py-1.5 rounded text-left transition-all ${
+                          active
+                            ? "bg-argos-panel border border-argos-border/30"
+                            : "hover:bg-argos-panel/30 border border-transparent"
+                        } cursor-pointer`}
+                      >
+                        <span className="text-sm flex-shrink-0">{layer.icon}</span>
+                        {!collapsed && (
+                          <>
+                            <span className="text-[10px] font-mono flex-1 truncate" style={{ color: active ? layer.color : "#64748b" }}>
+                              {layer.name}
+                            </span>
+                            {active && <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: layer.color }} />}
+                          </>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             );
-          })}
-        </div>
+          });
+        })()}
+      
 
         {!collapsed && activeLayers.sentinel && (
           <div className="px-1 py-2 space-y-2 border border-cyan-500/20 rounded-lg bg-cyan-500/5 p-2">
@@ -275,6 +308,7 @@ export default function Sidebar({ activeLayers, onToggleLayer, showTrails, onTog
                 )}
               </div>
             )}
+
           </>
         )}
       </div>
@@ -282,13 +316,22 @@ export default function Sidebar({ activeLayers, onToggleLayer, showTrails, onTog
       {/* Export & Status */}
       <div className="p-2 border-t border-argos-border/30 space-y-2">
         {!collapsed && (
-          <button
-            onClick={onExportPDF}
-            className="w-full flex items-center gap-2 px-2 py-2 rounded text-left transition-all hover:bg-argos-panel/30 border border-transparent hover:border-argos-border/30"
-          >
-            <span className="text-sm">📄</span>
-            <span className="text-[10px] font-mono text-argos-text-dim">Export PDF</span>
-          </button>
+          <div className="space-y-1">
+            <button
+              onClick={onExportPDF}
+              className="w-full flex items-center gap-2 px-2 py-2 rounded text-left transition-all hover:bg-argos-panel/30 border border-transparent hover:border-argos-border/30"
+            >
+              <span className="text-sm">📄</span>
+              <span className="text-[10px] font-mono text-argos-text-dim">Export PDF</span>
+            </button>
+            <button
+              onClick={onToggleAudit}
+              className="w-full flex items-center gap-2 px-2 py-2 rounded text-left transition-all hover:bg-argos-panel/30 border border-transparent hover:border-argos-border/30"
+            >
+              <span className="text-sm">📋</span>
+              <span className="text-[10px] font-mono text-argos-text-dim">Audit Trail</span>
+            </button>
+          </div>
         )}
         <div className={`flex items-center gap-2 ${collapsed ? "justify-center" : "px-1"}`}>
           <div className="w-1.5 h-1.5 rounded-full bg-argos-success animate-pulse" />

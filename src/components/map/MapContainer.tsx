@@ -1,9 +1,11 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { Entity, Infrastructure, MapViewState, ZoneOfInterest, OperationalMarker, MissionRoute, EntityLink, SatellitePosition, CellTower } from "@/types";
+import { Entity, Infrastructure, MapViewState, ZoneOfInterest, OperationalMarker, MissionRoute, EntityLink, SatellitePosition, CellTower, ConflictEvent, FireHotspot, NaturalDisaster, CyberThreat, InternetOutage, SubmarineCable, Pipeline, MilitaryBase, NuclearFacility } from "@/types";
+import type { MapItem } from "@/components/dashboard/MapItemDetail";
+import type { SIGINTTrace } from "@/components/dashboard/SIGINTPanel";
 
-const LeafletMap = dynamic(() => import("./LeafletMap"), { ssr: false });
+const DeckGLMap = dynamic(() => import("./DeckGLMap"), { ssr: false });
 const ThreeGlobe = dynamic(() => import("./ThreeGlobe"), { ssr: false });
 
 interface MapContainerProps {
@@ -32,9 +34,20 @@ interface MapContainerProps {
   cellTowers?: CellTower[];
   showSatellites?: boolean;
   showCellTowers?: boolean;
+  conflictEvents?: ConflictEvent[];
+  fireHotspots?: FireHotspot[];
+  naturalDisasters?: NaturalDisaster[];
+  cyberThreats?: CyberThreat[];
+  internetOutages?: InternetOutage[];
+  submarineCables?: SubmarineCable[];
+  pipelines?: Pipeline[];
+  militaryBases?: MilitaryBase[];
+  nuclearFacilities?: NuclearFacility[];
   onMissionWaypointAdd?: (latlng: { lat: number; lng: number }) => void;
   onZoneDrawn?: (polygon: [number, number][]) => void;
   onBoundsChange?: (bounds: { latMin: number; latMax: number; lonMin: number; lonMax: number }) => void;
+  onSelectMapItem?: (item: MapItem) => void;
+  sigintTraces?: SIGINTTrace[];
 }
 
 export default function MapContainer({
@@ -62,10 +75,21 @@ export default function MapContainer({
   cellTowers,
   showSatellites,
   showCellTowers,
+  conflictEvents,
+  fireHotspots,
+  naturalDisasters,
+  cyberThreats,
+  internetOutages,
+  submarineCables,
+  pipelines,
+  militaryBases,
+  nuclearFacilities,
   onMapClick,
   onMissionWaypointAdd,
   onZoneDrawn,
   onBoundsChange,
+  onSelectMapItem,
+  sigintTraces,
 }: MapContainerProps) {
   return (
     <div className="relative w-full h-full">
@@ -83,7 +107,7 @@ export default function MapContainer({
           showSatellites={showSatellites}
         />
       ) : (
-        <LeafletMap
+        <DeckGLMap
           entities={entities}
           infrastructure={infrastructure}
           zones={zones}
@@ -111,6 +135,17 @@ export default function MapContainer({
           onMissionWaypointAdd={onMissionWaypointAdd}
           onZoneDrawn={onZoneDrawn}
           onBoundsChange={onBoundsChange}
+          conflictEvents={conflictEvents}
+          fireHotspots={fireHotspots}
+          naturalDisasters={naturalDisasters}
+          cyberThreats={cyberThreats}
+          internetOutages={internetOutages}
+          submarineCables={submarineCables}
+          pipelines={pipelines}
+          militaryBases={militaryBases}
+          nuclearFacilities={nuclearFacilities}
+          onSelectMapItem={onSelectMapItem}
+          sigintTraces={sigintTraces}
         />
       )}
 

@@ -1,4 +1,5 @@
 import { Aircraft, GeoPosition } from "@/types";
+import { withCircuitBreaker } from "./circuit-breaker";
 
 const OPENSKY_BASE = "https://opensky-network.org/api";
 const TOKEN_URL = "https://auth.opensky-network.org/auth/realms/opensky-network/protocol/openid-connect/token";
@@ -57,11 +58,13 @@ async function getAccessToken(): Promise<string | null> {
       client_secret: clientSecret,
     });
 
-    const res = await fetch(TOKEN_URL, {
+    const res = await withCircuitBreaker("opensky-token", () =>
+      fetch(TOKEN_URL, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: body.toString(),
-    });
+    })
+    );
 
     if (!res.ok) {
       console.error(`OpenSky token error: ${res.status} ${res.statusText}`);
@@ -108,7 +111,9 @@ export async function fetchAircraftFrance(): Promise<Aircraft[]> {
       headers["Authorization"] = `Bearer ${token}`;
     }
 
-    const res = await fetch(url, { cache: "no-store", headers });
+    const res = await withCircuitBreaker("opensky-states", () =>
+      fetch(url, { cache: "no-store", headers })
+    );
 
     if (res.status === 429) {
       const backoff = token ? 15_000 : RATE_LIMIT_BACKOFF_MS;

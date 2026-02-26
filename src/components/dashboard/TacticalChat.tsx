@@ -45,7 +45,7 @@ export default function TacticalChat({ operatorName }: TacticalChatProps) {
 
   useEffect(() => {
     fetchMessages();
-    const interval = setInterval(fetchMessages, 3000);
+    const interval = setInterval(fetchMessages, 15000);
     return () => clearInterval(interval);
   }, [fetchMessages]);
 

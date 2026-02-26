@@ -1,3 +1,5 @@
+import { withCircuitBreaker } from "./circuit-breaker";
+
 const MISTRAL_API = "https://api.mistral.ai/v1/chat/completions";
 const MODEL = "mistral-large-latest";
 
@@ -32,19 +34,21 @@ export async function queryMistral(userPrompt: string): Promise<string> {
     { role: "user", content: userPrompt },
   ];
 
-  const res = await fetch(MISTRAL_API, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: MODEL,
-      messages,
-      temperature: 0.3,
-      max_tokens: 2048,
-    }),
-  });
+  const res = await withCircuitBreaker("mistral", () =>
+    fetch(MISTRAL_API, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: MODEL,
+        messages,
+        temperature: 0.3,
+        max_tokens: 2048,
+      }),
+    })
+  );
 
   if (!res.ok) {
     const err = await res.text().catch(() => "");
@@ -94,21 +98,23 @@ export async function executeCommand(
     conversationStore.set(conversationId, history);
   }
 
-  const res = await fetch(MISTRAL_API, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: MODEL,
-      messages: history,
-      tools: ARGOS_TOOLS as MistralTool[],
-      tool_choice: "auto",
-      temperature: 0.2,
-      max_tokens: 2048,
-    }),
-  });
+  const res = await withCircuitBreaker("mistral", () =>
+    fetch(MISTRAL_API, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: MODEL,
+        messages: history,
+        tools: ARGOS_TOOLS as MistralTool[],
+        tool_choice: "auto",
+        temperature: 0.2,
+        max_tokens: 2048,
+      }),
+    })
+  );
 
   if (!res.ok) {
     const err = await res.text().catch(() => "");

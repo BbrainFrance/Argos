@@ -8,13 +8,26 @@ import StatsPanel from "@/components/dashboard/StatsPanel";
 import AlertsPanel from "@/components/dashboard/AlertsPanel";
 import AnalysisPanel from "@/components/dashboard/AnalysisPanel";
 import EntityDetail from "@/components/dashboard/EntityDetail";
+import MapItemDetail from "@/components/dashboard/MapItemDetail";
+import type { MapItem } from "@/components/dashboard/MapItemDetail";
 import EntityList from "@/components/dashboard/EntityList";
 import FilterBar from "@/components/dashboard/FilterBar";
 import AIPanel from "@/components/dashboard/AIPanel";
 import CommandCenter from "@/components/dashboard/CommandCenter";
 import Timeline from "@/components/dashboard/Timeline";
-import { Aircraft, Vessel, Entity, MapViewState, DashboardStats, Alert, FilterState, AnalysisResult, ZoneOfInterest, OperationalMarker, MarkerAffiliation, MarkerCategory, MissionRoute, EntityLink, RelationType, SatellitePosition, CellTower } from "@/types";
+import { Aircraft, Vessel, Entity, MapViewState, DashboardStats, Alert, FilterState, AnalysisResult, ZoneOfInterest, OperationalMarker, MarkerAffiliation, MarkerCategory, MissionRoute, EntityLink, RelationType, SatellitePosition, CellTower, ConflictEvent, FireHotspot, NaturalDisaster, CyberThreat, InternetOutage, SubmarineCable, Pipeline, MilitaryBase, NuclearFacility, IntelFeedItem } from "@/types";
 import TacticalChat from "@/components/dashboard/TacticalChat";
+import WorldMonitorPanel from "@/components/dashboard/WorldMonitorPanel";
+import IntelFeedPanel from "@/components/dashboard/IntelFeedPanel";
+import InstabilityPanel from "@/components/dashboard/InstabilityPanel";
+import BriefingPanel from "@/components/dashboard/BriefingPanel";
+import AuditPanel from "@/components/dashboard/AuditPanel";
+import PhotoUploadPanel from "@/components/dashboard/PhotoUploadPanel";
+import SIGINTPanel from "@/components/dashboard/SIGINTPanel";
+import type { SIGINTTrace } from "@/components/dashboard/SIGINTPanel";
+import ClassificationBanner, { ClassificationFooter } from "@/components/dashboard/ClassificationBanner";
+import type { ClassificationLevel } from "@/lib/classification";
+import type { CountryInstabilityScore } from "@/lib/country-instability";
 import { mergeAircraftWithHistory } from "@/lib/opensky";
 import { generateAlerts } from "@/lib/alerts";
 import { runAnalysis } from "@/lib/analysis";
@@ -24,8 +37,8 @@ import type { ParsedAction } from "@/lib/mistral-tools";
 import { checkGeofencing } from "@/lib/geofencing";
 import { generateReport } from "@/lib/pdf-export";
 
-const REFRESH_INTERVAL = 8_000;
-const INTERPOLATION_FPS = 4;
+const REFRESH_INTERVAL = 15_000;
+const INTERPOLATION_FPS = 2;
 
 const FALLBACK_ZONES: ZoneOfInterest[] = [
   {
@@ -106,7 +119,11 @@ export default function ArgosPage() {
   const [pendingPolygon, setPendingPolygon] = useState<[number, number][] | null>(null);
   const [newZoneName, setNewZoneName] = useState("");
   const [newZoneType, setNewZoneType] = useState<"surveillance" | "exclusion" | "alert">("surveillance");
-  const [rightPanel, setRightPanel] = useState<"dashboard" | "detail">("dashboard");
+  const [rightPanel, setRightPanel] = useState<"dashboard" | "detail" | "sigint" | "geoint">("dashboard");
+  const [rightPanelWidth, setRightPanelWidth] = useState(420);
+  const [selectedMapItem, setSelectedMapItem] = useState<MapItem | null>(null);
+  const [sigintTraces, setSigintTraces] = useState<SIGINTTrace[]>([]);
+  const isResizingRef = useRef(false);
 
   const [satellitePositions, setSatellitePositions] = useState<SatellitePosition[]>([]);
   const [cellTowers, setCellTowers] = useState<CellTower[]>([]);
@@ -118,6 +135,27 @@ export default function ArgosPage() {
   const [gibsProduct, setGibsProduct] = useState("MODIS_Terra_CorrectedReflectance_TrueColor");
   const [gibsDaysAgo, setGibsDaysAgo] = useState(3);
   const [viewState, setViewState] = useState<MapViewState>({ mode: "2d", center: [46.6, 2.3], zoom: 6 });
+
+  // Phase 3 — World Monitor data
+  const [conflictEvents, setConflictEvents] = useState<ConflictEvent[]>([]);
+  const [fireHotspots, setFireHotspots] = useState<FireHotspot[]>([]);
+  const [naturalDisasters, setNaturalDisasters] = useState<NaturalDisaster[]>([]);
+  const [cyberThreats, setCyberThreats] = useState<CyberThreat[]>([]);
+  const [internetOutages, setInternetOutages] = useState<InternetOutage[]>([]);
+  const [submarineCables, setSubmarineCables] = useState<SubmarineCable[]>([]);
+  const [pipelines, setPipelines] = useState<Pipeline[]>([]);
+  const [militaryBases, setMilitaryBases] = useState<MilitaryBase[]>([]);
+  const [nuclearFacilities, setNuclearFacilities] = useState<NuclearFacility[]>([]);
+  const [intelFeedItems, setIntelFeedItems] = useState<IntelFeedItem[]>([]);
+
+  // Phase 4 — Intelligence IA
+  const [instabilityScores, setInstabilityScores] = useState<CountryInstabilityScore[]>([]);
+  const [briefingText, setBriefingText] = useState<string | null>(null);
+  const [briefingProvider, setBriefingProvider] = useState<string | null>(null);
+  const [briefingLoading, setBriefingLoading] = useState(false);
+
+  const [classificationLevel, setClassificationLevel] = useState<ClassificationLevel>("DR");
+  const [showAuditPanel, setShowAuditPanel] = useState(false);
 
   const [filters, setFilters] = useState<FilterState>({
     search: "",
@@ -284,16 +322,149 @@ export default function ArgosPage() {
     return () => clearInterval(interval);
   }, [activeLayers.satellites]);
 
-  // Cell tower fetch on layer activation — uses viewport bounds
-  useEffect(() => {
-    if (!activeLayers.cellTowers) { setCellTowers([]); return; }
-    const b = mapBoundsRef.current;
+  // Cell tower fetch — reload on viewport change (debounced)
+  const cellTowerTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const fetchCellTowersForBounds = useCallback((b: { latMin: number; latMax: number; lonMin: number; lonMax: number }) => {
+    if (!activeLayers.cellTowers) return;
     const qs = `latMin=${b.latMin.toFixed(2)}&latMax=${b.latMax.toFixed(2)}&lonMin=${b.lonMin.toFixed(2)}&lonMax=${b.lonMax.toFixed(2)}&limit=500`;
     fetch(`/api/cell-towers?${qs}`)
       .then((r) => r.ok ? r.json() : null)
       .then((data) => { if (data?.towers) setCellTowers(data.towers); })
       .catch(() => {});
   }, [activeLayers.cellTowers]);
+
+  useEffect(() => {
+    if (!activeLayers.cellTowers) { setCellTowers([]); return; }
+    fetchCellTowersForBounds(mapBoundsRef.current);
+  }, [activeLayers.cellTowers, fetchCellTowersForBounds]);
+
+  // Phase 3 — World Monitor layer fetchers
+  useEffect(() => {
+    if (!activeLayers.conflicts) { setConflictEvents([]); return; }
+    fetch("/api/conflicts?limit=500&days=30")
+      .then(async (r) => { const d = await r.json(); if (!r.ok) { console.error("Conflits ACLED:", d.error); return; } if (d?.events) setConflictEvents(d.events); })
+      .catch((e) => console.error("Conflits ACLED fetch:", e));
+  }, [activeLayers.conflicts]);
+
+  useEffect(() => {
+    if (!activeLayers.fires) { setFireHotspots([]); return; }
+    fetch("/api/fires?days=1")
+      .then(async (r) => { const d = await r.json(); if (!r.ok) { console.error("Feux FIRMS:", d.error); return; } if (d?.fires) setFireHotspots(d.fires); })
+      .catch((e) => console.error("Feux FIRMS fetch:", e));
+  }, [activeLayers.fires]);
+
+  useEffect(() => {
+    if (!activeLayers.disasters) { setNaturalDisasters([]); return; }
+    fetch("/api/disasters")
+      .then(async (r) => { const d = await r.json(); if (!r.ok) { console.error("Catastrophes:", d.error); return; } if (d?.disasters) setNaturalDisasters(d.disasters); })
+      .catch((e) => console.error("Catastrophes fetch:", e));
+  }, [activeLayers.disasters]);
+
+  useEffect(() => {
+    if (!activeLayers.cyberThreats) { setCyberThreats([]); return; }
+    fetch("/api/cyber-threats")
+      .then(async (r) => { const d = await r.json(); if (!r.ok) { console.error("Cybermenaces:", d.error); return; } if (d?.threats) setCyberThreats(d.threats); })
+      .catch((e) => console.error("Cybermenaces fetch:", e));
+  }, [activeLayers.cyberThreats]);
+
+  useEffect(() => {
+    if (!activeLayers.internetOutages) { setInternetOutages([]); return; }
+    fetch("/api/internet-outages")
+      .then(async (r) => { const d = await r.json(); if (!r.ok) { console.error("Pannes internet:", d.error); return; } if (d?.outages) setInternetOutages(d.outages); })
+      .catch((e) => console.error("Pannes internet fetch:", e));
+  }, [activeLayers.internetOutages]);
+
+  useEffect(() => {
+    if (!activeLayers.submarineCables) { setSubmarineCables([]); return; }
+    fetch("/api/submarine-cables")
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => { if (d?.cables) setSubmarineCables(d.cables); })
+      .catch(() => {});
+  }, [activeLayers.submarineCables]);
+
+  useEffect(() => {
+    if (!activeLayers.pipelines) { setPipelines([]); return; }
+    fetch("/api/pipelines")
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => { if (d?.pipelines) setPipelines(d.pipelines); })
+      .catch(() => {});
+  }, [activeLayers.pipelines]);
+
+  useEffect(() => {
+    if (!activeLayers.militaryBases) { setMilitaryBases([]); return; }
+    fetch("/api/military-bases")
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => { if (d?.bases) setMilitaryBases(d.bases); })
+      .catch(() => {});
+  }, [activeLayers.militaryBases]);
+
+  useEffect(() => {
+    if (!activeLayers.nuclearFacilities) { setNuclearFacilities([]); return; }
+    fetch("/api/nuclear-facilities")
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => { if (d?.facilities) setNuclearFacilities(d.facilities); })
+      .catch(() => {});
+  }, [activeLayers.nuclearFacilities]);
+
+  useEffect(() => {
+    if (!activeLayers.intelFeeds) { setIntelFeedItems([]); return; }
+    fetch("/api/intel-feeds")
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => { if (d?.items) setIntelFeedItems(d.items); })
+      .catch(() => {});
+  }, [activeLayers.intelFeeds]);
+
+  // Phase 4 — CII auto-compute when world monitor data changes
+  useEffect(() => {
+    if (conflictEvents.length === 0 && naturalDisasters.length === 0 && internetOutages.length === 0) {
+      setInstabilityScores([]);
+      return;
+    }
+    fetch("/api/instability-index", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ conflicts: conflictEvents, disasters: naturalDisasters, cyberThreats, outages: internetOutages }),
+    })
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => { if (d?.index) setInstabilityScores(d.index); })
+      .catch(() => {});
+  }, [conflictEvents, naturalDisasters, cyberThreats, internetOutages]);
+
+  const handleRequestBriefing = useCallback(async () => {
+    setBriefingLoading(true);
+    try {
+      const conflictSummary = Object.entries(
+        conflictEvents.reduce<Record<string, { count: number; fatalities: number }>>((acc, e) => {
+          if (!acc[e.country]) acc[e.country] = { count: 0, fatalities: 0 };
+          acc[e.country].count++;
+          acc[e.country].fatalities += e.fatalities;
+          return acc;
+        }, {})
+      ).map(([country, v]) => ({ country, count: v.count, fatalities: v.fatalities }));
+
+      const res = await fetch("/api/briefing", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          conflicts: conflictSummary,
+          disasters: naturalDisasters.map((d) => ({ title: d.title, severity: d.severity })),
+          fires: fireHotspots.length,
+          outages: internetOutages.map((o) => ({ country: o.country, severity: o.severity })),
+          cyberThreats: cyberThreats.length,
+          instabilityIndex: instabilityScores.slice(0, 10).map((s) => ({ country: s.country, score: s.score, level: s.level })),
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setBriefingText(data.briefing);
+        setBriefingProvider(data.provider);
+      }
+    } catch {
+      setBriefingText("[ERREUR] Impossible de generer le briefing.");
+    } finally {
+      setBriefingLoading(false);
+    }
+  }, [conflictEvents, naturalDisasters, fireHotspots, internetOutages, cyberThreats, instabilityScores]);
 
   useEffect(() => {
     if (timelineActive || loading) return;
@@ -409,6 +580,7 @@ export default function ArgosPage() {
     }
 
     setSelectedEntityId(entity.id);
+    setSelectedMapItem(null);
     setRightPanel("detail");
 
     if (entity.type === "aircraft" || entity.type === "vessel") {
@@ -440,6 +612,12 @@ export default function ArgosPage() {
       } catch { /* non-blocking */ }
     }
   }, [linkMode, linkSource]);
+
+  const handleSelectMapItem = useCallback((item: MapItem) => {
+    setSelectedMapItem(item);
+    setSelectedEntityId(null);
+    setRightPanel("detail");
+  }, []);
 
   const handleTrack = useCallback((id: string) => {
     const ac = entityMapRef.current.get(id);
@@ -491,6 +669,29 @@ export default function ArgosPage() {
     setSelectedEntityId(entityId);
     setRightPanel("detail");
   }, []);
+
+  const handlePanelResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    isResizingRef.current = true;
+    const startX = e.clientX;
+    const startW = rightPanelWidth;
+    const onMove = (ev: MouseEvent) => {
+      if (!isResizingRef.current) return;
+      const delta = startX - ev.clientX;
+      setRightPanelWidth(Math.max(320, Math.min(800, startW + delta)));
+    };
+    const onUp = () => {
+      isResizingRef.current = false;
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    };
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  }, [rightPanelWidth]);
 
   const handleZoneDrawn = useCallback((polygon: [number, number][]) => {
     setPendingPolygon(polygon);
@@ -633,7 +834,20 @@ export default function ArgosPage() {
   const unackAlerts = alerts.filter((a) => !a.acknowledged);
 
   return (
-    <div className="h-screen w-screen flex overflow-hidden bg-argos-bg">
+    <div className="h-screen w-screen flex flex-col overflow-hidden bg-argos-bg">
+      <ClassificationBanner
+        level={classificationLevel}
+        onLevelChange={(level) => {
+          setClassificationLevel(level);
+          fetch("/api/audit", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "CHANGE_CLASSIFICATION", details: { from: classificationLevel, to: level } }),
+          }).catch(() => {});
+        }}
+        editable
+      />
+      <div className="flex-1 flex overflow-hidden">
       <Sidebar
         activeLayers={activeLayers}
         onToggleLayer={(id) => setActiveLayers((p) => ({ ...p, [id]: !p[id] }))}
@@ -681,8 +895,20 @@ export default function ArgosPage() {
             markers: operationalMarkers,
             entities,
             zones,
+            aiBrief: briefingText ?? undefined,
+            classification: classificationLevel,
           });
+          fetch("/api/audit", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "EXPORT_PDF", details: { classification: classificationLevel } }),
+          }).catch(() => {});
         }}
+        onToggleAudit={() => setShowAuditPanel((p) => !p)}
+        onOpenSIGINT={() => setRightPanel((p) => p === "sigint" ? "dashboard" : "sigint")}
+        onOpenGeoINT={() => setRightPanel((p) => p === "geoint" ? "dashboard" : "geoint")}
+        sigintActive={rightPanel === "sigint"}
+        geointActive={rightPanel === "geoint"}
         viewMode={viewState.mode}
       />
 
@@ -771,7 +997,24 @@ export default function ArgosPage() {
                   }
                 }}
                 onZoneDrawn={handleZoneDrawn}
-                onBoundsChange={(bounds) => { mapBoundsRef.current = bounds; }}
+                onBoundsChange={(bounds) => {
+                  mapBoundsRef.current = bounds;
+                  if (activeLayers.cellTowers) {
+                    if (cellTowerTimerRef.current) clearTimeout(cellTowerTimerRef.current);
+                    cellTowerTimerRef.current = setTimeout(() => fetchCellTowersForBounds(bounds), 800);
+                  }
+                }}
+                conflictEvents={conflictEvents}
+                fireHotspots={fireHotspots}
+                naturalDisasters={naturalDisasters}
+                cyberThreats={cyberThreats}
+                internetOutages={internetOutages}
+                submarineCables={submarineCables}
+                pipelines={pipelines}
+                militaryBases={militaryBases}
+                nuclearFacilities={nuclearFacilities}
+                onSelectMapItem={handleSelectMapItem}
+                sigintTraces={sigintTraces}
                 />
 
                 {drawMode && (
@@ -1161,7 +1404,11 @@ export default function ArgosPage() {
           </div>
 
           {/* Right panel */}
-          <div className="w-80 flex-shrink-0 bg-argos-surface/30 border-l border-argos-border/30 flex flex-col min-h-0">
+          <div className="flex-shrink-0 bg-argos-surface/30 border-l border-argos-border/30 flex flex-col min-h-0 relative" style={{ width: rightPanelWidth }}>
+            <div
+              className="absolute left-0 top-0 bottom-0 w-1.5 cursor-col-resize z-50 hover:bg-argos-accent/30 active:bg-argos-accent/50 transition-colors"
+              onMouseDown={handlePanelResizeStart}
+            />
             {/* Panel tabs */}
             <div className="flex border-b border-argos-border/30">
               <button
@@ -1172,7 +1419,7 @@ export default function ArgosPage() {
                     : "text-argos-text-dim/50 hover:text-argos-text-dim"
                 }`}
               >
-                Tableau de bord
+                Dashboard
               </button>
               <button
                 onClick={() => setRightPanel("detail")}
@@ -1182,12 +1429,32 @@ export default function ArgosPage() {
                     : "text-argos-text-dim/50 hover:text-argos-text-dim"
                 }`}
               >
-                Detail {selectedEntity ? "●" : ""}
+                Detail {(selectedEntity || selectedMapItem) ? "●" : ""}
+              </button>
+              <button
+                onClick={() => setRightPanel("sigint")}
+                className={`flex-1 py-2 text-[9px] font-mono uppercase tracking-widest transition-all ${
+                  rightPanel === "sigint"
+                    ? "text-red-400 border-b border-red-400"
+                    : "text-argos-text-dim/50 hover:text-argos-text-dim"
+                }`}
+              >
+                SIGINT
+              </button>
+              <button
+                onClick={() => setRightPanel("geoint")}
+                className={`flex-1 py-2 text-[9px] font-mono uppercase tracking-widest transition-all ${
+                  rightPanel === "geoint"
+                    ? "text-purple-400 border-b border-purple-400"
+                    : "text-argos-text-dim/50 hover:text-argos-text-dim"
+                }`}
+              >
+                GeoINT
               </button>
             </div>
 
             <div className="flex-1 overflow-y-auto p-3 space-y-4">
-              {rightPanel === "dashboard" ? (
+              {rightPanel === "dashboard" && (
                 <>
                   <StatsPanel stats={stats} />
                   <AlertsPanel
@@ -1213,6 +1480,20 @@ export default function ArgosPage() {
                     analyses={analysisResults}
                     selectedEntity={selectedEntity}
                   />
+                  <WorldMonitorPanel
+                    conflicts={conflictEvents}
+                    fires={fireHotspots}
+                    disasters={naturalDisasters}
+                    outages={internetOutages}
+                  />
+                  <InstabilityPanel scores={instabilityScores} />
+                  <BriefingPanel
+                    onRequestBriefing={handleRequestBriefing}
+                    briefing={briefingText}
+                    provider={briefingProvider}
+                    loading={briefingLoading}
+                  />
+                  <IntelFeedPanel items={intelFeedItems} />
                   <TacticalChat operatorName="OPERATOR" />
                   <FilterBar
                     filters={filters}
@@ -1226,7 +1507,9 @@ export default function ArgosPage() {
                     onSelect={handleSelectEntity}
                   />
                 </>
-              ) : (
+              )}
+
+              {rightPanel === "detail" && (
                 <>
                   <EntityDetail
                     entity={selectedEntity}
@@ -1234,7 +1517,11 @@ export default function ArgosPage() {
                     onTrack={handleTrack}
                     onFlag={handleFlag}
                   />
-                  {!selectedEntity && (
+                  <MapItemDetail
+                    item={selectedMapItem}
+                    onClose={() => { setSelectedMapItem(null); setRightPanel("dashboard"); }}
+                  />
+                  {!selectedEntity && !selectedMapItem && (
                     <div className="text-center py-8">
                       <p className="text-[10px] font-mono text-argos-text-dim/50">
                         Selectionnez une entite sur la carte
@@ -1242,6 +1529,80 @@ export default function ArgosPage() {
                     </div>
                   )}
                 </>
+              )}
+
+              {rightPanel === "sigint" && (
+                <SIGINTPanel
+                  traces={sigintTraces}
+                  onAddTrace={(trace) => setSigintTraces((p) => [...p, trace])}
+                  onRemoveTrace={(id) => {
+                    setSigintTraces((p) => p.filter((t) => t.id !== id));
+                    setOperationalMarkers((p) => p.filter((m) => !m.id.startsWith(`sigint-pos-${id}`)));
+                  }}
+                  onAddManualPosition={(traceId, pos) => {
+                    setSigintTraces((prev) =>
+                      prev.map((t) =>
+                        t.id === traceId ? { ...t, positions: [...t.positions, pos] } : t
+                      )
+                    );
+                    const trace = sigintTraces.find((t) => t.id === traceId);
+                    const posIdx = trace ? trace.positions.length : 0;
+                    const marker: OperationalMarker = {
+                      id: `sigint-pos-${traceId}-${posIdx}`,
+                      affiliation: "unknown" as MarkerAffiliation,
+                      category: "observation" as MarkerCategory,
+                      label: `📱 ${trace?.label ?? "SIGINT"} #${posIdx + 1}`,
+                      position: { lat: pos.lat, lng: pos.lng, timestamp: pos.timestamp },
+                      notes: [
+                        pos.cellId ? `Cell: ${pos.cellId}` : "",
+                        pos.operator ? `Op: ${pos.operator}` : "",
+                        new Date(pos.timestamp).toLocaleString("fr-FR"),
+                      ].filter(Boolean).join(" | "),
+                      createdBy: "SIGINT",
+                      createdAt: new Date(),
+                    };
+                    setOperationalMarkers((p) => [...p, marker]);
+                  }}
+                  onFocusTrace={(trace) => {
+                    if (trace.positions.length > 0) {
+                      const last = trace.positions[trace.positions.length - 1];
+                      setViewState((v) => ({ ...v, latitude: last.lat, longitude: last.lng, zoom: 12 }));
+                    }
+                  }}
+                />
+              )}
+
+              {rightPanel === "geoint" && (
+                <PhotoUploadPanel
+                  onGeolocated={(result) => {
+                    const marker: OperationalMarker = {
+                      id: `photo-${Date.now()}`,
+                      affiliation: "unknown" as MarkerAffiliation,
+                      category: "observation" as MarkerCategory,
+                      label: `📸 ${result.fileName}`,
+                      position: { lat: result.lat, lng: result.lng, timestamp: Date.now() },
+                      notes: result.method === "exif"
+                        ? `GPS EXIF — ${result.details.exifCamera ?? ""} ${result.details.exifDate ?? ""}`
+                        : `IA Mistral Pixtral — ${result.details.aiDescription ?? ""}`,
+                      createdBy: "GEOINT",
+                      createdAt: new Date(),
+                    };
+                    setOperationalMarkers((p) => [...p, marker]);
+                    fetch("/api/ops-markers", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        affiliation: marker.affiliation,
+                        category: marker.category,
+                        label: marker.label,
+                        lat: result.lat,
+                        lng: result.lng,
+                        notes: marker.notes,
+                        createdBy: "GEOINT",
+                      }),
+                    }).catch(() => {});
+                  }}
+                />
               )}
             </div>
           </div>
@@ -1253,6 +1614,21 @@ export default function ArgosPage() {
           onToggle={() => setTimelineActive((p) => !p)}
         />
       </div>
+      </div>
+
+      {showAuditPanel && (
+        <div className="absolute bottom-8 right-4 w-[420px] h-[320px] bg-[#0d1117]/95 border border-white/10 rounded-lg shadow-2xl z-50 flex flex-col overflow-hidden backdrop-blur-sm">
+          <div className="flex items-center justify-between px-2 py-1 border-b border-white/5">
+            <span className="text-[8px] font-mono text-argos-accent tracking-widest">JOURNAL D&apos;AUDIT</span>
+            <button onClick={() => setShowAuditPanel(false)} className="text-argos-text-dim/40 hover:text-white text-[10px]">X</button>
+          </div>
+          <div className="flex-1 overflow-hidden">
+            <AuditPanel />
+          </div>
+        </div>
+      )}
+
+      <ClassificationFooter level={classificationLevel} />
     </div>
   );
 }

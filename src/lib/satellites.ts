@@ -1,5 +1,6 @@
 import * as satellite from "satellite.js";
 import type { SatellitePosition, SatelliteGroup } from "@/types";
+import { withCircuitBreaker } from "./circuit-breaker";
 
 interface TLECacheEntry {
   records: satellite.SatRec[];
@@ -50,7 +51,9 @@ async function fetchTLEs(group: SatelliteGroup): Promise<TLECacheEntry> {
   if (cached && Date.now() - cached.fetchedAt < TLE_CACHE_TTL) return cached;
 
   const url = CONSTELLATION_URLS[group];
-  const res = await fetch(url, { next: { revalidate: 21600 } });
+  const res = await withCircuitBreaker(`celestrak:${group}`, () =>
+    fetch(url, { next: { revalidate: 21600 } })
+  );
   if (!res.ok) throw new Error(`CelesTrak fetch failed: ${res.status}`);
 
   const text = await res.text();

@@ -1,0 +1,17 @@
+[package]
+name = "argos"
+version = "0.1.0"
+description = "ARGOS - Plateforme de Renseignement Souveraine"
+authors = ["ARGOS Team"]
+license = "Proprietary"
+repository = ""
+edition = "2021"
+
+[build-dependencies]
+tauri-build = { version = "1", features = [] }
+
+[dependencies]
+tauri = { version = "1", features = ["shell-open-api", "fs-read-file", "fs-write-file", "path-all", "os-all", "clipboard-all", "notification-all"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+keyring = "3"

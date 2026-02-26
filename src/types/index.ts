@@ -131,7 +131,7 @@ export interface DataSnapshot {
   entities: Entity[];
 }
 
-export type DataSource = "opensky" | "ais" | "osm" | "sentinel" | "manual";
+export type DataSource = "opensky" | "ais" | "osm" | "sentinel" | "manual" | "acled" | "firms" | "gdacs" | "cloudflare" | "feodo" | "urlhaus" | "abuseipdb" | "rss";
 
 // ─── OPERATIONAL MARKERS ─────────────────────────────────────
 
@@ -232,4 +232,166 @@ export interface AnalysisResult {
   entities: string[];
   confidence: number;
   timestamp: Date;
+}
+
+// ─── PHASE 3 — NOUVELLES COUCHES DE DONNÉES ────────────────
+
+// ACLED — Conflits armés, protestations
+export interface ConflictEvent {
+  id: string;
+  eventDate: string;
+  eventType: "battles" | "explosions" | "protests" | "riots" | "violence_against_civilians" | "strategic_developments";
+  subEventType: string;
+  actor1: string;
+  actor2: string | null;
+  country: string;
+  region: string;
+  lat: number;
+  lng: number;
+  fatalities: number;
+  notes: string;
+  source: string;
+  sourceScale: string;
+  timestamp: number;
+}
+
+// Cyber menaces — IOCs
+export type IOCType = "ip" | "domain" | "url" | "hash";
+export type ThreatCategory = "botnet" | "malware" | "phishing" | "c2" | "ransomware" | "exploit" | "scanner";
+
+export interface CyberThreat {
+  id: string;
+  iocType: IOCType;
+  iocValue: string;
+  threatCategory: ThreatCategory;
+  confidence: number;
+  source: "feodo_tracker" | "urlhaus" | "abuseipdb" | "manual";
+  firstSeen: string;
+  lastSeen: string;
+  lat: number | null;
+  lng: number | null;
+  country: string | null;
+  tags: string[];
+  reportCount: number;
+}
+
+// Câbles sous-marins
+export interface SubmarineCable {
+  id: string;
+  name: string;
+  owners: string[];
+  lengthKm: number;
+  rfsDate: string | null;
+  status: "active" | "planned" | "decommissioned" | "fault";
+  coordinates: [number, number][];
+  landingPoints: { name: string; country: string; lat: number; lng: number }[];
+  capacityTbps: number | null;
+}
+
+// Pipelines pétrole/gaz
+export interface Pipeline {
+  id: string;
+  name: string;
+  type: "oil" | "gas" | "lng" | "products";
+  operator: string | null;
+  status: "active" | "planned" | "decommissioned";
+  coordinates: [number, number][];
+  capacityMbpd: number | null;
+  countries: string[];
+}
+
+// Bases militaires
+export interface MilitaryBase {
+  id: string;
+  name: string;
+  country: string;
+  operator: string;
+  type: "air_base" | "naval_base" | "army_base" | "joint" | "missile" | "radar" | "logistics" | "training" | "intelligence";
+  lat: number;
+  lng: number;
+  status: "active" | "standby" | "closed";
+  branch: string | null;
+  notes: string | null;
+}
+
+// Installations nucléaires
+export interface NuclearFacility {
+  id: string;
+  name: string;
+  country: string;
+  type: "power_plant" | "research_reactor" | "enrichment" | "reprocessing" | "waste_storage" | "military";
+  lat: number;
+  lng: number;
+  status: "operational" | "under_construction" | "decommissioning" | "shutdown";
+  capacityMw: number | null;
+  operator: string | null;
+  reactorCount: number | null;
+}
+
+// NASA FIRMS — Feux par satellite
+export interface FireHotspot {
+  id: string;
+  lat: number;
+  lng: number;
+  brightness: number;
+  scan: number;
+  track: number;
+  acqDate: string;
+  acqTime: string;
+  satellite: "MODIS" | "VIIRS_SNPP" | "VIIRS_NOAA20" | "VIIRS_NOAA21";
+  confidence: "low" | "nominal" | "high";
+  frp: number;
+  country: string | null;
+}
+
+// GDACS — Catastrophes naturelles
+export interface NaturalDisaster {
+  id: string;
+  eventType: "earthquake" | "flood" | "cyclone" | "volcano" | "drought" | "wildfire" | "tsunami";
+  title: string;
+  description: string;
+  lat: number;
+  lng: number;
+  severity: "green" | "orange" | "red";
+  alertLevel: number;
+  country: string;
+  fromDate: string;
+  toDate: string | null;
+  population: number | null;
+  source: string;
+  url: string | null;
+}
+
+// Pannes internet
+export interface InternetOutage {
+  id: string;
+  country: string;
+  region: string | null;
+  asn: number | null;
+  asName: string | null;
+  lat: number;
+  lng: number;
+  type: "country" | "asn" | "region";
+  severity: "minor" | "moderate" | "major";
+  startTime: string;
+  endTime: string | null;
+  scoreDropPct: number;
+  source: "cloudflare_radar" | "ioda";
+}
+
+// RSS — Flux géopolitiques / défense / renseignement
+export interface IntelFeedItem {
+  id: string;
+  feedId: string;
+  feedName: string;
+  title: string;
+  link: string;
+  pubDate: string;
+  summary: string;
+  categories: string[];
+  country: string | null;
+  lat: number | null;
+  lng: number | null;
+  sentiment: "positive" | "neutral" | "negative" | null;
+  relevanceScore: number;
 }
