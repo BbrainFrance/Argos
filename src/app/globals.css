@@ -86,6 +86,24 @@ body {
   border: none !important;
 }
 
+.leaflet-crosshair-mode,
+.leaflet-crosshair-mode .leaflet-grab,
+.leaflet-crosshair-mode .leaflet-interactive,
+.leaflet-crosshair-mode .leaflet-marker-icon,
+.leaflet-crosshair-mode .leaflet-marker-shadow,
+.leaflet-crosshair-mode .leaflet-tile-pane,
+.leaflet-crosshair-mode .leaflet-overlay-pane,
+.leaflet-crosshair-mode .leaflet-overlay-pane * {
+  cursor: crosshair !important;
+}
+
+.leaflet-crosshair-mode .leaflet-marker-pane,
+.leaflet-crosshair-mode .leaflet-marker-pane *,
+.leaflet-crosshair-mode .leaflet-overlay-pane,
+.leaflet-crosshair-mode .leaflet-overlay-pane * {
+  pointer-events: none !important;
+}
+
 .gibs-slider {
   -webkit-appearance: none;
   appearance: none;

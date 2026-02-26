@@ -276,7 +276,9 @@ export default function MapLibreGlobe({
       container: containerRef.current,
       style: GLOBE_STYLE,
       center: [2.3, 46.6],
-      zoom: 4,
+      zoom: 3,
+      minZoom: 0.5,
+      maxZoom: 19,
       attributionControl: false,
     });
 
@@ -286,17 +288,17 @@ export default function MapLibreGlobe({
       try {
         map.setProjection({ type: "globe" });
         map.setSky({
-          "sky-color": "#040a15",
-          "sky-horizon-blend": 0.5,
-          "horizon-color": "#0d1b2a",
-          "horizon-fog-blend": 0.7,
-          "fog-color": "#020810",
-          "fog-ground-blend": 0.9,
+          "sky-color": "#000005",
+          "sky-horizon-blend": 0.1,
+          "horizon-color": "#000810",
+          "horizon-fog-blend": 0.05,
+          "fog-color": "#000005",
+          "fog-ground-blend": 0.95,
         });
         map.setLight({
           anchor: "viewport",
           color: "#ffffff",
-          intensity: 0.4,
+          intensity: 0.5,
           position: [1.5, 90, 80],
         });
       } catch {
@@ -351,8 +353,8 @@ export default function MapLibreGlobe({
         source: "sats",
         paint: {
           "circle-color": ["get", "color"],
-          "circle-radius": 6,
-          "circle-opacity": 0.2,
+          "circle-radius": ["interpolate", ["linear"], ["zoom"], 0, 8, 3, 6, 6, 4],
+          "circle-opacity": 0.25,
           "circle-blur": 1,
         },
       });
@@ -362,8 +364,8 @@ export default function MapLibreGlobe({
         source: "sats",
         paint: {
           "circle-color": ["get", "color"],
-          "circle-radius": 3,
-          "circle-opacity": 0.8,
+          "circle-radius": ["interpolate", ["linear"], ["zoom"], 0, 4, 3, 3, 6, 2],
+          "circle-opacity": 0.9,
         },
       });
       map.addLayer({
@@ -458,6 +460,26 @@ export default function MapLibreGlobe({
       popup.remove();
     });
 
+    map.on("mouseenter", "sats-circle", (e) => {
+      map.getCanvas().style.cursor = "pointer";
+      if (!e.features?.length) return;
+      const props = e.features[0].properties;
+      const coords = (e.features[0].geometry as GeoJSON.Point).coordinates.slice() as [number, number];
+      popup
+        .setLngLat(coords)
+        .setHTML(
+          `<div class="argos-tt">
+            <strong style="color:${props.color}">\u{1F6F0} ${props.name}</strong><br/>
+            <span class="dim">${String(props.group).toUpperCase()}</span>
+          </div>`
+        )
+        .addTo(map);
+    });
+    map.on("mouseleave", "sats-circle", () => {
+      map.getCanvas().style.cursor = "";
+      popup.remove();
+    });
+
     map.on("click", "entities-circle", (e) => {
       if (!e.features?.length) return;
       const ent = entityMapRef.current.get(e.features[0].properties.id as string);
@@ -530,6 +552,66 @@ export default function MapLibreGlobe({
   return (
     <>
       <style>{`
+        .argos-globe-wrapper {
+          position: relative;
+          width: 100%;
+          height: 100%;
+          background: #000005;
+          overflow: hidden;
+        }
+        .argos-starfield {
+          position: absolute;
+          inset: 0;
+          pointer-events: none;
+          z-index: 0;
+        }
+        .argos-starfield .star-layer {
+          position: absolute;
+          inset: 0;
+          background-repeat: repeat;
+        }
+        .argos-starfield .star-layer-1 {
+          background-image:
+            radial-gradient(1px 1px at 50px 30px, #ffffff88, transparent),
+            radial-gradient(1px 1px at 150px 80px, #ffffffaa, transparent),
+            radial-gradient(1px 1px at 280px 150px, #ffffff66, transparent),
+            radial-gradient(1px 1px at 400px 50px, #ffffffcc, transparent),
+            radial-gradient(1px 1px at 80px 200px, #ffffff55, transparent),
+            radial-gradient(1px 1px at 320px 250px, #ffffff77, transparent),
+            radial-gradient(1px 1px at 500px 180px, #ffffff99, transparent),
+            radial-gradient(1px 1px at 220px 320px, #ffffffbb, transparent),
+            radial-gradient(1px 1px at 600px 100px, #ffffff44, transparent),
+            radial-gradient(1px 1px at 450px 300px, #ffffffdd, transparent);
+          background-size: 650px 380px;
+          animation: starTwinkle1 8s ease-in-out infinite;
+        }
+        .argos-starfield .star-layer-2 {
+          background-image:
+            radial-gradient(1.5px 1.5px at 120px 60px, #88ccffaa, transparent),
+            radial-gradient(0.8px 0.8px at 350px 120px, #ffffff55, transparent),
+            radial-gradient(1px 1px at 200px 250px, #ffddaa66, transparent),
+            radial-gradient(0.8px 0.8px at 480px 200px, #ffffff77, transparent),
+            radial-gradient(1.2px 1.2px at 70px 320px, #aaddff88, transparent),
+            radial-gradient(0.5px 0.5px at 550px 280px, #ffffff44, transparent),
+            radial-gradient(1px 1px at 300px 50px, #ffffff99, transparent),
+            radial-gradient(0.8px 0.8px at 420px 350px, #ffccbb55, transparent);
+          background-size: 600px 400px;
+          animation: starTwinkle2 12s ease-in-out infinite;
+        }
+        @keyframes starTwinkle1 {
+          0%, 100% { opacity: 0.7; }
+          50% { opacity: 1; }
+        }
+        @keyframes starTwinkle2 {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.5; }
+        }
+        .argos-globe-map {
+          position: relative;
+          z-index: 1;
+          width: 100%;
+          height: 100%;
+        }
         .argos-globe-popup .maplibregl-popup-content {
           background: #1a2332ee;
           border: 1px solid #1e3a5f;
@@ -555,8 +637,17 @@ export default function MapLibreGlobe({
         .maplibregl-ctrl-group button {
           filter: invert(1);
         }
+        .maplibregl-canvas {
+          background: transparent !important;
+        }
       `}</style>
-      <div ref={containerRef} className="w-full h-full" />
+      <div className="argos-globe-wrapper">
+        <div className="argos-starfield">
+          <div className="star-layer star-layer-1" />
+          <div className="star-layer star-layer-2" />
+        </div>
+        <div ref={containerRef} className="argos-globe-map" />
+      </div>
     </>
   );
 }

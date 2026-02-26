@@ -451,43 +451,33 @@ export default function LeafletMap({
 
   // Disable entity interaction when in placement/mission modes
   useEffect(() => {
-    const panes = mapRef.current?.getPane("markerPane");
-    const overlayPane = mapRef.current?.getPane("overlayPane");
+    const map = mapRef.current;
+    if (!map) return;
+    const container = map.getContainer();
     const interactionBlocked = placeMarkerMode || missionPlanMode;
 
-    if (panes) panes.style.pointerEvents = interactionBlocked ? "none" : "auto";
-    if (overlayPane) overlayPane.style.pointerEvents = interactionBlocked ? "none" : "auto";
+    if (interactionBlocked) {
+      container.classList.add("leaflet-crosshair-mode");
+    } else {
+      container.classList.remove("leaflet-crosshair-mode");
+    }
+
+    if (!interactionBlocked) return;
+
+    const handler = (e: L.LeafletMouseEvent) => {
+      if (placeMarkerMode) {
+        onMapClickRef.current?.({ lat: e.latlng.lat, lng: e.latlng.lng });
+      } else if (missionPlanMode) {
+        onMissionWaypointAddRef.current?.({ lat: e.latlng.lat, lng: e.latlng.lng });
+      }
+    };
+    map.on("click", handler);
+
+    return () => {
+      map.off("click", handler);
+      container.classList.remove("leaflet-crosshair-mode");
+    };
   }, [placeMarkerMode, missionPlanMode]);
-
-  // Mission plan mode
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map || !missionPlanMode) return;
-    map.getContainer().style.cursor = "crosshair";
-    const handler = (e: L.LeafletMouseEvent) => {
-      onMissionWaypointAddRef.current?.({ lat: e.latlng.lat, lng: e.latlng.lng });
-    };
-    map.on("click", handler);
-    return () => {
-      map.off("click", handler);
-      map.getContainer().style.cursor = "";
-    };
-  }, [missionPlanMode]);
-
-  // Place marker mode
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map || !placeMarkerMode) return;
-    map.getContainer().style.cursor = "crosshair";
-    const handler = (e: L.LeafletMouseEvent) => {
-      onMapClickRef.current?.({ lat: e.latlng.lat, lng: e.latlng.lng });
-    };
-    map.on("click", handler);
-    return () => {
-      map.off("click", handler);
-      map.getContainer().style.cursor = "";
-    };
-  }, [placeMarkerMode]);
 
   // Measure mode
   useEffect(() => {

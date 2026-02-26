@@ -2,8 +2,24 @@ import { NextResponse } from "next/server";
 
 const OPENCELLID_KEY = process.env.OPENCELLID_API_KEY;
 
+interface CellRaw {
+  cellid?: number;
+  cell?: number;
+  lat: number;
+  lon: number;
+  mcc: number;
+  net?: number;
+  mnc?: number;
+  area?: number;
+  lac?: number;
+  radio?: string;
+  range?: number;
+  averageSignalStrength?: number;
+}
+
 export async function GET(request: Request) {
   if (!OPENCELLID_KEY) {
+    console.warn("CellTower: OPENCELLID_API_KEY not set");
     return NextResponse.json({ towers: [], error: "OPENCELLID_API_KEY not configured" });
   }
 
@@ -16,30 +32,33 @@ export async function GET(request: Request) {
 
   try {
     const url = `https://opencellid.org/cell/getInArea?key=${OPENCELLID_KEY}&BBOX=${latMin},${lonMin},${latMax},${lonMax}&format=json&limit=${limit}`;
-    const res = await fetch(url, { next: { revalidate: 3600 } });
+    const res = await fetch(url, { cache: "no-store" });
 
     if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      console.error(`CellTower: OpenCellID API error ${res.status}: ${text.slice(0, 200)}`);
       return NextResponse.json({ towers: [], error: `OpenCellID API error: ${res.status}` });
     }
 
     const data = await res.json();
-    const cells = data.cells || [];
+    const cells: CellRaw[] = data.cells || data.cell || data.results || [];
+    console.log(`CellTower: API returned ${cells.length} cells (keys: ${Object.keys(data).join(",")})`);
 
-    const towers = cells.map((c: { cellid: number; lat: number; lon: number; mcc: number; net: number; area: number; radio: string; range: number; }) => ({
-      id: `cell-${c.cellid}`,
+    const towers = cells.map((c) => ({
+      id: `cell-${c.cellid ?? c.cell ?? Math.random().toString(36).slice(2)}`,
       lat: c.lat,
       lng: c.lon,
       mcc: c.mcc,
-      mnc: c.net,
-      lac: c.area,
-      cellId: c.cellid,
+      mnc: c.net ?? c.mnc ?? 0,
+      lac: c.area ?? c.lac ?? 0,
+      cellId: c.cellid ?? c.cell ?? 0,
       radio: c.radio || "LTE",
       range: c.range || 1000,
     }));
 
     return NextResponse.json({ towers, count: towers.length });
   } catch (err) {
-    console.error("Cell tower API error:", err);
+    console.error("CellTower: fetch error:", err);
     return NextResponse.json({ towers: [], error: "Failed to fetch cell towers" });
   }
 }
