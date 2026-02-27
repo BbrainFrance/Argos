@@ -305,26 +305,44 @@ export default function ThreeGlobe({
       timeline: false, animation: false, homeButton: false, geocoder: false,
       sceneModePicker: false, baseLayerPicker: false, navigationHelpButton: false,
       fullscreenButton: false, infoBox: false, selectionIndicator: false,
-      shadows: false, skyAtmosphere: undefined, requestRenderMode: false,
-      maximumRenderTimeChange: Infinity,
+      shadows: false,
+      skyAtmosphere: undefined,
+      requestRenderMode: true,
+      maximumRenderTimeChange: 0.1,
+      msaaSamples: 1,
+      useBrowserRecommendedResolution: true,
+      contextOptions: {
+        webgl: { antialias: false, powerPreference: "high-performance" },
+      },
     });
 
     viewer.scene.globe.show = false;
     viewer.scene.backgroundColor = Color.fromCssColorString("#000005");
-    viewer.scene.screenSpaceCameraController.minimumZoomDistance = 10;
-    viewer.scene.screenSpaceCameraController.maximumZoomDistance = 30000000;
-    viewer.scene.screenSpaceCameraController.enableZoom = true;
-    viewer.scene.screenSpaceCameraController.enableRotate = true;
-    viewer.scene.screenSpaceCameraController.enableTilt = true;
-    viewer.scene.screenSpaceCameraController.enableTranslate = true;
-    viewer.scene.screenSpaceCameraController.enableLook = true;
+    viewer.scene.fog.enabled = false;
+    (viewer.scene as unknown as Record<string, boolean>).fxaa = false;
+
+    const ssc = viewer.scene.screenSpaceCameraController;
+    ssc.minimumZoomDistance = 5;
+    ssc.maximumZoomDistance = 50000000;
+    ssc.enableZoom = true;
+    ssc.enableRotate = true;
+    ssc.enableTilt = true;
+    ssc.enableTranslate = true;
+    ssc.enableLook = true;
 
     if (apiKey) {
-      createGooglePhotorealistic3DTileset({ key: apiKey }).then((tileset) => {
-        viewer.scene.primitives.add(tileset);
+      createGooglePhotorealistic3DTileset({ key: apiKey }, {
+        maximumScreenSpaceError: 24,
+        maximumMemoryUsage: 512,
+        skipLevelOfDetail: true,
+      } as Record<string, unknown>).then((tileset) => {
+        if (!viewer.isDestroyed()) {
+          viewer.scene.primitives.add(tileset);
+          viewer.scene.requestRender();
+        }
       }).catch((err) => {
         console.warn("Google 3D Tiles failed:", err);
-        viewer.scene.globe.show = true;
+        if (!viewer.isDestroyed()) viewer.scene.globe.show = true;
       });
     } else {
       viewer.scene.globe.show = true;
@@ -390,7 +408,7 @@ export default function ThreeGlobe({
           pixelSize: isSelected ? 10 : 6, color,
           outlineColor: Color.BLACK, outlineWidth: 1,
           scaleByDistance: new NearFarScalar(1000, 2, 8000000, 0.5),
-          heightReference: e.type === "vessel" ? HeightReference.CLAMP_TO_GROUND : HeightReference.NONE,
+          heightReference: HeightReference.NONE,
         },
         label: {
           text: label, font: "10px monospace", fillColor: color,
@@ -427,7 +445,7 @@ export default function ThreeGlobe({
           point: {
             pixelSize: inf.metadata.importance === "critical" ? 8 : 5, color: c,
             outlineColor: Color.BLACK, outlineWidth: 1,
-            heightReference: HeightReference.CLAMP_TO_GROUND,
+            heightReference: HeightReference.NONE,
             scaleByDistance: new NearFarScalar(1000, 2, 5000000, 0.5),
           },
           label: {
@@ -450,7 +468,7 @@ export default function ThreeGlobe({
           hierarchy: new PolygonHierarchy(zone.polygon.map(([lat, lng]) => Cartesian3.fromDegrees(lng, lat, 0))),
           material: new ColorMaterialProperty(c.withAlpha(0.1)),
           outline: true, outlineColor: c.withAlpha(0.6),
-          heightReference: HeightReference.CLAMP_TO_GROUND,
+          heightReference: HeightReference.NONE,
         },
       });
     }
@@ -469,24 +487,22 @@ export default function ThreeGlobe({
       }
     }
 
-    // CCTV camera points
     if (showCCTV) {
       for (const cam of CCTV_CAMERAS) {
-        const c = Color.CYAN;
         viewer.entities.add({
-          position: Cartesian3.fromDegrees(cam.lng, cam.lat, 15),
+          position: Cartesian3.fromDegrees(cam.lng, cam.lat, 30),
           point: {
-            pixelSize: 7, color: c, outlineColor: Color.BLACK, outlineWidth: 1,
-            heightReference: HeightReference.RELATIVE_TO_GROUND,
-            scaleByDistance: new NearFarScalar(100, 2, 50000, 0),
+            pixelSize: 8, color: Color.CYAN, outlineColor: Color.BLACK, outlineWidth: 1,
+            heightReference: HeightReference.NONE,
+            scaleByDistance: new NearFarScalar(500, 3, 100000, 0.5),
           },
           label: {
-            text: `📹 ${cam.name}`, font: "8px monospace", fillColor: Color.CYAN,
+            text: cam.name, font: "9px monospace", fillColor: Color.CYAN,
             outlineColor: Color.BLACK, outlineWidth: 2,
             style: LabelStyle.FILL_AND_OUTLINE,
             verticalOrigin: VerticalOrigin.BOTTOM,
             pixelOffset: new Cartesian2(10, -6),
-            scaleByDistance: new NearFarScalar(100, 1, 10000, 0),
+            scaleByDistance: new NearFarScalar(500, 1, 30000, 0),
           },
         });
       }
@@ -530,20 +546,21 @@ export default function ThreeGlobe({
   return (
     <GlobeErrorBoundary>
       <div className="relative w-full h-full overflow-hidden" style={{ background: "#000005" }}>
-        {/* ─── Vignette lens effect ─── */}
-        <div className="absolute inset-0 pointer-events-none z-30" style={{
-          background: "radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,0.7) 85%, rgba(0,0,0,0.95) 100%)",
-        }} />
+        {/* ─── Cesium canvas (base layer, receives all mouse/wheel events) ─── */}
+        <div ref={containerRef} className="absolute inset-0" />
 
-        {/* ─── Visual filter applied to canvas ─── */}
-        <div
-          ref={containerRef}
-          className="absolute inset-0 z-10"
-          style={{
-            filter: FILTER_CONFIG[activeFilter].css || undefined,
-            transition: "filter 0.5s ease",
-          }}
-        />
+        {/* ─── CSS filter overlay (visual only, no events) ─── */}
+        {activeFilter !== "normal" && (
+          <div className="absolute inset-0 pointer-events-none" style={{
+            filter: FILTER_CONFIG[activeFilter].css,
+            mixBlendMode: "multiply",
+          }} />
+        )}
+
+        {/* ─── Vignette lens effect ─── */}
+        <div className="absolute inset-0 pointer-events-none" style={{
+          background: "radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,0.6) 85%, rgba(0,0,0,0.9) 100%)",
+        }} />
 
         {crtOverlay}
         {nvgOverlay}
@@ -551,7 +568,7 @@ export default function ThreeGlobe({
 
         {/* ═══ PANOPTIC HEADER BAR ═══ */}
         <div className="absolute top-0 left-0 right-0 z-40 pointer-events-none">
-          <div className="flex items-center gap-4 px-4 py-1.5 font-mono text-[9px] text-cyan-400/70 bg-black/40 backdrop-blur-sm border-b border-cyan-900/30">
+          <div className="flex items-center gap-4 px-4 py-1.5 font-mono text-[9px] text-cyan-400/70 bg-black/40  border-b border-cyan-900/30">
             <span className="text-cyan-300/90 tracking-wider">PANOPTIC</span>
             <span>VIS:{entities.filter(e => e.position).length}</span>
             <span>SRC:{panopticSrc}</span>
@@ -576,12 +593,12 @@ export default function ThreeGlobe({
         <div className="absolute top-40 left-4 z-50" style={{ pointerEvents: "auto" }}>
           <button
             onClick={() => setShowDataLayers(!showDataLayers)}
-            className="font-mono text-[9px] text-cyan-400/70 bg-black/60 border border-cyan-900/40 px-3 py-1.5 hover:bg-cyan-900/20 backdrop-blur-sm tracking-wider cursor-pointer"
+            className="font-mono text-[9px] text-cyan-400/70 bg-black/60 border border-cyan-900/40 px-3 py-1.5 hover:bg-cyan-900/20  tracking-wider cursor-pointer"
           >
             DATA LAYERS {showDataLayers ? "▴" : "▾"}
           </button>
           {showDataLayers && (
-            <div className="mt-1 bg-black/90 border border-cyan-900/40 backdrop-blur-sm p-3 w-60 space-y-2">
+            <div className="mt-1 bg-black/90 border border-cyan-900/40  p-3 w-60 space-y-2">
               {/* Live Flights */}
               <div className="flex items-center justify-between py-1">
                 <div className="flex items-center gap-2">
@@ -667,7 +684,7 @@ export default function ThreeGlobe({
 
         {/* ═══ CCTV PANEL (when camera selected) ═══ */}
         {showCCTV && selectedCCTV && (
-          <div className="absolute bottom-52 left-4 z-50 bg-black/90 border border-cyan-900/40 backdrop-blur-sm p-2 w-64" style={{ pointerEvents: "auto" }}>
+          <div className="absolute bottom-52 left-4 z-50 bg-black/90 border border-cyan-900/40  p-2 w-64" style={{ pointerEvents: "auto" }}>
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
                 <button className="text-[8px] font-mono px-2 py-0.5 bg-cyan-500/30 border border-cyan-400/60 text-cyan-300">SCAN ON</button>
@@ -704,7 +721,7 @@ export default function ThreeGlobe({
 
         {/* ═══ CCTV camera list toggle ═══ */}
         {showCCTV && !selectedCCTV && visibleCCTVs.length > 0 && (
-          <div className="absolute bottom-52 left-4 z-50 bg-black/90 border border-cyan-900/40 backdrop-blur-sm p-2 w-56" style={{ pointerEvents: "auto" }}>
+          <div className="absolute bottom-52 left-4 z-50 bg-black/90 border border-cyan-900/40  p-2 w-56" style={{ pointerEvents: "auto" }}>
             <p className="text-[9px] font-mono text-cyan-400/70 mb-2 tracking-wider">CCTV MESH — {activeCity.toUpperCase()}</p>
             {visibleCCTVs.map(cam => (
               <button
@@ -760,7 +777,7 @@ export default function ThreeGlobe({
             <button
               key={poi.name}
               onClick={() => flyToPOI(poi)}
-              className={`text-[9px] font-mono px-3 py-1 border backdrop-blur-sm transition-all ${i === 0
+              className={`text-[9px] font-mono px-3 py-1 border  transition-all ${i === 0
                 ? "bg-cyan-500/20 border-cyan-400/50 text-cyan-300"
                 : "bg-black/50 border-cyan-900/30 text-cyan-500/60 hover:border-cyan-500/40 hover:text-cyan-300"
                 }`}
@@ -788,7 +805,7 @@ export default function ThreeGlobe({
         </div>
 
         {/* ═══ VISUAL FILTER BAR (bottom) ═══ */}
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-0.5 bg-black/70 border border-cyan-900/40 backdrop-blur-sm p-1 rounded-sm" style={{ pointerEvents: "auto" }}>
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-0.5 bg-black/70 border border-cyan-900/40  p-1 rounded-sm" style={{ pointerEvents: "auto" }}>
           {(Object.entries(FILTER_CONFIG) as [VisualFilter, typeof FILTER_CONFIG[VisualFilter]][]).map(([key, cfg]) => (
             <button
               key={key}
