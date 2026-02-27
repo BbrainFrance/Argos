@@ -311,9 +311,13 @@ export default function ThreeGlobe({
 
     viewer.scene.globe.show = false;
     viewer.scene.backgroundColor = Color.fromCssColorString("#000005");
-    viewer.scene.screenSpaceCameraController.minimumZoomDistance = 50;
+    viewer.scene.screenSpaceCameraController.minimumZoomDistance = 10;
     viewer.scene.screenSpaceCameraController.maximumZoomDistance = 30000000;
+    viewer.scene.screenSpaceCameraController.enableZoom = true;
+    viewer.scene.screenSpaceCameraController.enableRotate = true;
     viewer.scene.screenSpaceCameraController.enableTilt = true;
+    viewer.scene.screenSpaceCameraController.enableTranslate = true;
+    viewer.scene.screenSpaceCameraController.enableLook = true;
 
     if (apiKey) {
       createGooglePhotorealistic3DTileset({ key: apiKey }).then((tileset) => {
@@ -534,8 +538,8 @@ export default function ThreeGlobe({
         {/* ─── Visual filter applied to canvas ─── */}
         <div
           ref={containerRef}
+          className="absolute inset-0 z-10"
           style={{
-            width: "100%", height: "100%",
             filter: FILTER_CONFIG[activeFilter].css || undefined,
             transition: "filter 0.5s ease",
           }}
@@ -569,16 +573,17 @@ export default function ThreeGlobe({
         </div>
 
         {/* ═══ DATA LAYERS PANEL (left sidebar) ═══ */}
-        <div className="absolute top-40 left-4 z-40">
+        <div className="absolute top-40 left-4 z-50" style={{ pointerEvents: "auto" }}>
           <button
             onClick={() => setShowDataLayers(!showDataLayers)}
-            className="font-mono text-[9px] text-cyan-400/70 bg-black/60 border border-cyan-900/40 px-3 py-1.5 hover:bg-cyan-900/20 backdrop-blur-sm tracking-wider"
+            className="font-mono text-[9px] text-cyan-400/70 bg-black/60 border border-cyan-900/40 px-3 py-1.5 hover:bg-cyan-900/20 backdrop-blur-sm tracking-wider cursor-pointer"
           >
-            DATA LAYERS ▾
+            DATA LAYERS {showDataLayers ? "▴" : "▾"}
           </button>
           {showDataLayers && (
-            <div className="mt-1 bg-black/80 border border-cyan-900/40 backdrop-blur-sm p-3 w-56 space-y-3">
-              <div className="flex items-center justify-between">
+            <div className="mt-1 bg-black/90 border border-cyan-900/40 backdrop-blur-sm p-3 w-60 space-y-2">
+              {/* Live Flights */}
+              <div className="flex items-center justify-between py-1">
                 <div className="flex items-center gap-2">
                   <span className="text-cyan-400">✈</span>
                   <div>
@@ -586,10 +591,14 @@ export default function ThreeGlobe({
                     <p className="text-[7px] font-mono text-cyan-600/50">OpenSky Network</p>
                   </div>
                 </div>
-                <span className="text-[9px] font-mono text-cyan-400/80">{entities.filter(e => e.type === "aircraft").length}</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[9px] font-mono text-cyan-400/80">{entities.filter(e => e.type === "aircraft").length}</span>
+                  <span className="text-[7px] font-mono px-1.5 py-0.5 bg-cyan-500/30 border border-cyan-400/60 text-cyan-300">ON</span>
+                </div>
               </div>
 
-              <div className="flex items-center justify-between">
+              {/* Earthquakes */}
+              <div className="flex items-center justify-between py-1 border-t border-cyan-900/20">
                 <div className="flex items-center gap-2">
                   <span className="text-amber-400">⚡</span>
                   <div>
@@ -597,10 +606,11 @@ export default function ThreeGlobe({
                     <p className="text-[7px] font-mono text-cyan-600/50">USGS / GDELT</p>
                   </div>
                 </div>
-                <span className="text-[9px] font-mono text-cyan-400/80">—</span>
+                <span className="text-[9px] font-mono text-cyan-600/50">—</span>
               </div>
 
-              <div className="flex items-center justify-between">
+              {/* Satellites */}
+              <div className="flex items-center justify-between py-1 border-t border-cyan-900/20">
                 <div className="flex items-center gap-2">
                   <span className="text-purple-400">🛰</span>
                   <div>
@@ -611,7 +621,8 @@ export default function ThreeGlobe({
                 <span className="text-[9px] font-mono text-cyan-400/80">{satellites.length}</span>
               </div>
 
-              <div className="flex items-center justify-between">
+              {/* Street Traffic */}
+              <div className="flex items-center justify-between py-1 border-t border-cyan-900/20">
                 <div className="flex items-center gap-2">
                   <span className="text-green-400">🚗</span>
                   <div>
@@ -619,10 +630,11 @@ export default function ThreeGlobe({
                     <p className="text-[7px] font-mono text-cyan-600/50">Google Maps Traffic</p>
                   </div>
                 </div>
-                <span className="text-[9px] font-mono text-cyan-400/80">—</span>
+                <span className="text-[9px] font-mono text-cyan-600/50">—</span>
               </div>
 
-              <div className="flex items-center justify-between">
+              {/* Weather Radar */}
+              <div className="flex items-center justify-between py-1 border-t border-cyan-900/20">
                 <div className="flex items-center gap-2">
                   <span className="text-blue-400">🌧</span>
                   <div>
@@ -630,34 +642,32 @@ export default function ThreeGlobe({
                     <p className="text-[7px] font-mono text-cyan-600/50">OpenWeatherMap</p>
                   </div>
                 </div>
-                <span className="text-[9px] font-mono text-cyan-400/80">—</span>
+                <span className="text-[9px] font-mono text-cyan-600/50">—</span>
               </div>
 
-              <div className="flex items-center justify-between">
+              {/* CCTV Mesh - fully clickable row */}
+              <button
+                onClick={() => setShowCCTV(!showCCTV)}
+                className="w-full flex items-center justify-between py-1.5 px-1 border-t border-cyan-900/20 hover:bg-cyan-900/20 transition-colors cursor-pointer"
+              >
                 <div className="flex items-center gap-2">
                   <span className="text-cyan-400">📹</span>
-                  <div>
+                  <div className="text-left">
                     <p className="text-[10px] font-mono text-cyan-300/90 font-bold">CCTV Mesh</p>
-                    <p className="text-[7px] font-mono text-cyan-600/50">Public cameras</p>
+                    <p className="text-[7px] font-mono text-cyan-600/50">{visibleCCTVs.length} cameras — {activeCity}</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[9px] font-mono text-cyan-400/80">{visibleCCTVs.length}</span>
-                  <button
-                    onClick={() => setShowCCTV(!showCCTV)}
-                    className={`text-[7px] font-mono px-1.5 py-0.5 border ${showCCTV ? "bg-cyan-500/30 border-cyan-400/60 text-cyan-300" : "border-cyan-900/40 text-cyan-600/50"}`}
-                  >
-                    {showCCTV ? "ON" : "OFF"}
-                  </button>
-                </div>
-              </div>
+                <span className={`text-[8px] font-mono px-2 py-0.5 border ${showCCTV ? "bg-cyan-500/30 border-cyan-400/60 text-cyan-300" : "border-cyan-900/40 text-cyan-600/50 hover:border-cyan-500/40"}`}>
+                  {showCCTV ? "ON" : "OFF"}
+                </span>
+              </button>
             </div>
           )}
         </div>
 
         {/* ═══ CCTV PANEL (when camera selected) ═══ */}
         {showCCTV && selectedCCTV && (
-          <div className="absolute bottom-52 left-4 z-40 bg-black/80 border border-cyan-900/40 backdrop-blur-sm p-2 w-64">
+          <div className="absolute bottom-52 left-4 z-50 bg-black/90 border border-cyan-900/40 backdrop-blur-sm p-2 w-64" style={{ pointerEvents: "auto" }}>
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
                 <button className="text-[8px] font-mono px-2 py-0.5 bg-cyan-500/30 border border-cyan-400/60 text-cyan-300">SCAN ON</button>
@@ -694,7 +704,7 @@ export default function ThreeGlobe({
 
         {/* ═══ CCTV camera list toggle ═══ */}
         {showCCTV && !selectedCCTV && visibleCCTVs.length > 0 && (
-          <div className="absolute bottom-52 left-4 z-40 bg-black/80 border border-cyan-900/40 backdrop-blur-sm p-2 w-56">
+          <div className="absolute bottom-52 left-4 z-50 bg-black/90 border border-cyan-900/40 backdrop-blur-sm p-2 w-56" style={{ pointerEvents: "auto" }}>
             <p className="text-[9px] font-mono text-cyan-400/70 mb-2 tracking-wider">CCTV MESH — {activeCity.toUpperCase()}</p>
             {visibleCCTVs.map(cam => (
               <button
@@ -713,12 +723,12 @@ export default function ThreeGlobe({
         )}
 
         {/* ═══ RIGHT SIDE HUD ═══ */}
-        <div className="absolute top-10 right-4 z-40 pointer-events-none font-mono text-right space-y-2">
+        <div className="absolute top-10 right-4 z-50 pointer-events-none font-mono text-right space-y-2">
           {/* REC indicator */}
-          <div className="flex items-center justify-end gap-2 pointer-events-auto">
+          <div className="flex items-center justify-end gap-2" style={{ pointerEvents: "auto" }}>
             <button
               onClick={() => setIsRecording(!isRecording)}
-              className={`flex items-center gap-1.5 px-2 py-0.5 text-[9px] border ${isRecording ? "border-red-500/60 text-red-400 bg-red-900/20" : "border-cyan-900/40 text-cyan-600/50"}`}
+              className={`flex items-center gap-1.5 px-2 py-0.5 text-[9px] border cursor-pointer ${isRecording ? "border-red-500/60 text-red-400 bg-red-900/20" : "border-cyan-900/40 text-cyan-600/50"}`}
             >
               <span className={`w-1.5 h-1.5 rounded-full ${isRecording ? "bg-red-500 animate-pulse" : "bg-cyan-800"}`} />
               REC {isRecording ? recTime : "—"}
@@ -745,7 +755,7 @@ export default function ThreeGlobe({
         </div>
 
         {/* ═══ POI TAGS BAR ═══ */}
-        <div className="absolute bottom-32 left-1/2 -translate-x-1/2 z-40 flex items-center gap-1.5">
+        <div className="absolute bottom-32 left-1/2 -translate-x-1/2 z-50 flex items-center gap-1.5" style={{ pointerEvents: "auto" }}>
           {activePois.map((poi, i) => (
             <button
               key={poi.name}
@@ -762,7 +772,7 @@ export default function ThreeGlobe({
         </div>
 
         {/* ═══ CITY QUICK-SELECT BAR ═══ */}
-        <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-40 flex items-center gap-1">
+        <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-50 flex items-center gap-1" style={{ pointerEvents: "auto" }}>
           {CITY_PRESETS.map(city => (
             <button
               key={city.name}
@@ -778,7 +788,7 @@ export default function ThreeGlobe({
         </div>
 
         {/* ═══ VISUAL FILTER BAR (bottom) ═══ */}
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-40 flex items-center gap-0.5 bg-black/70 border border-cyan-900/40 backdrop-blur-sm p-1 rounded-sm">
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-0.5 bg-black/70 border border-cyan-900/40 backdrop-blur-sm p-1 rounded-sm" style={{ pointerEvents: "auto" }}>
           {(Object.entries(FILTER_CONFIG) as [VisualFilter, typeof FILTER_CONFIG[VisualFilter]][]).map(([key, cfg]) => (
             <button
               key={key}
