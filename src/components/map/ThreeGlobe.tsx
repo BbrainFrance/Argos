@@ -1,10 +1,28 @@
 "use client";
 
-import { useEffect, useRef, useCallback, useMemo, useState, Component, type ReactNode } from "react";
-import * as THREE from "three";
+import { useEffect, useRef, useState, Component, type ReactNode } from "react";
 import { Entity, Aircraft, Vessel, Infrastructure, ZoneOfInterest, SatellitePosition } from "@/types";
 import { INFRA_ICONS } from "@/lib/infrastructure";
-import GlobeComponent from "react-globe.gl";
+import {
+  Viewer,
+  Cartesian2,
+  Cartesian3,
+  Color,
+  Ion,
+  ScreenSpaceEventType,
+  ScreenSpaceEventHandler,
+  defined,
+  Math as CesiumMath,
+  LabelStyle,
+  VerticalOrigin,
+  HorizontalOrigin,
+  PolygonHierarchy,
+  ColorMaterialProperty,
+  NearFarScalar,
+  HeightReference,
+  createGooglePhotorealistic3DTileset,
+} from "cesium";
+import "cesium/Build/Cesium/Widgets/widgets.css";
 
 class GlobeErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean; error: string }> {
   state = { hasError: false, error: "" };
@@ -43,70 +61,24 @@ interface ThreeGlobeProps {
   showSatellites?: boolean;
 }
 
-const EARTH_RADIUS_KM = 6371;
-const GLOBE_RADIUS = 100;
-
-const SAT_GROUP_COLORS: Record<string, string> = {
-  gps: "#f59e0b",
-  galileo: "#3b82f6",
-  glonass: "#ef4444",
-  iridium: "#06b6d4",
-  starlink: "#a855f7",
-  military: "#dc2626",
-  "french-mil": "#2563eb",
-};
-
-function polar2Cartesian(lat: number, lng: number, relAlt: number) {
-  const phi = (90 - lat) * Math.PI / 180;
-  const theta = (90 - lng) * Math.PI / 180;
-  const r = GLOBE_RADIUS * (1 + relAlt);
-  return {
-    x: r * Math.sin(phi) * Math.cos(theta),
-    y: r * Math.cos(phi),
-    z: r * Math.sin(phi) * Math.sin(theta),
-  };
-}
-
-function getEntityColor(entity: Entity, selectedId: string | null): string {
+function getEntityColor(entity: Entity, selectedId: string | null): [number, number, number, number] {
   const isSelected = entity.id === selectedId;
   if (entity.type === "aircraft") {
     const ac = entity as Aircraft;
-    if (ac.metadata.squawk === "7700" || ac.metadata.squawk === "7600" || ac.metadata.squawk === "7500") return "#ef4444";
-    if (isSelected) return "#10b981";
-    if (ac.tracked) return "#f59e0b";
-    if (ac.flagged) return "#ef4444";
-    if (ac.metadata.onGround) return "#475569";
-    return "#00d4ff";
+    if (ac.metadata.squawk === "7700" || ac.metadata.squawk === "7600" || ac.metadata.squawk === "7500") return [1, 0.2, 0.2, 1];
+    if (isSelected) return [0.06, 0.73, 0.51, 1];
+    if (ac.tracked) return [0.96, 0.62, 0.04, 1];
+    if (ac.flagged) return [0.94, 0.27, 0.27, 1];
+    if (ac.metadata.onGround) return [0.28, 0.33, 0.41, 0.6];
+    return [0, 0.83, 1, 1];
   }
   if (entity.type === "vessel") {
-    if (isSelected) return "#22d3ee";
-    if ((entity as Vessel).tracked) return "#f59e0b";
-    if ((entity as Vessel).flagged) return "#ef4444";
-    return "#10b981";
+    if (isSelected) return [0.13, 0.83, 0.88, 1];
+    if ((entity as Vessel).tracked) return [0.96, 0.62, 0.04, 1];
+    if ((entity as Vessel).flagged) return [0.94, 0.27, 0.27, 1];
+    return [0.06, 0.73, 0.51, 1];
   }
-  return "#666";
-}
-
-interface GlobePointData {
-  id: string;
-  lat: number;
-  lng: number;
-  alt: number;
-  color: string;
-  size: number;
-  label: string;
-  tooltipHtml: string;
-  entity?: Entity;
-}
-
-interface SatCustomData {
-  lat: number;
-  lng: number;
-  alt: number;
-  color: string;
-  size: number;
-  tooltipHtml: string;
-  group: string;
+  return [0.4, 0.4, 0.4, 1];
 }
 
 export default function ThreeGlobe({
@@ -120,300 +92,225 @@ export default function ThreeGlobe({
   satellites = [],
   showSatellites = false,
 }: ThreeGlobeProps) {
-  const wrapperRef = useRef<HTMLDivElement>(null);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const globeRef = useRef<any>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const viewerRef = useRef<Viewer | null>(null);
+  const entityMapRef = useRef<Map<string, Entity>>(new Map());
   const onSelectRef = useRef(onSelectEntity);
   onSelectRef.current = onSelectEntity;
-  const initDone = useRef(false);
-  const [dims, setDims] = useState({ w: 1200, h: 800 });
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    const el = wrapperRef.current;
-    if (!el) return;
-    const ro = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        const { width, height } = entry.contentRect;
-        if (width > 0 && height > 0) setDims({ w: Math.round(width), h: Math.round(height) });
-      }
+    if (!containerRef.current || viewerRef.current) return;
+
+    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+
+    Ion.defaultAccessToken = "";
+
+    (window as unknown as Record<string, unknown>).CESIUM_BASE_URL = "/cesiumStatic";
+
+    const viewer = new Viewer(containerRef.current, {
+      timeline: false,
+      animation: false,
+      homeButton: false,
+      geocoder: false,
+      sceneModePicker: false,
+      baseLayerPicker: false,
+      navigationHelpButton: false,
+      fullscreenButton: false,
+      infoBox: false,
+      selectionIndicator: false,
+      shadows: false,
+      skyAtmosphere: undefined,
+      requestRenderMode: false,
+      maximumRenderTimeChange: Infinity,
     });
-    ro.observe(el);
-    setDims({ w: el.clientWidth || 1200, h: el.clientHeight || 800 });
-    return () => ro.disconnect();
-  }, []);
 
-  const entityPoints: GlobePointData[] = useMemo(() => {
-    return entities
-      .filter((e) => e.position && (e.type === "aircraft" || e.type === "vessel"))
-      .map((e) => {
-        const color = getEntityColor(e, selectedEntityId);
-        const isSelected = e.id === selectedEntityId;
-        let tooltip = "";
-        let size = 0.3;
+    viewer.scene.globe.show = false;
+    viewer.scene.backgroundColor = Color.fromCssColorString("#000005");
+    viewer.scene.screenSpaceCameraController.minimumZoomDistance = 50;
+    viewer.scene.screenSpaceCameraController.maximumZoomDistance = 30000000;
+    viewer.scene.screenSpaceCameraController.enableTilt = true;
 
-        if (e.type === "aircraft") {
-          const ac = e as Aircraft;
-          const spd = ac.metadata.velocity ? (ac.metadata.velocity * 3.6).toFixed(0) : "N/A";
-          size = isSelected ? 0.6 : ac.metadata.onGround ? 0.15 : 0.35;
-          tooltip = `<div class="argos-globe-tt">
-            <strong style="color:${color}">${ac.label}</strong><br/>
-            <span class="dim">${ac.metadata.originCountry}</span><br/>
-            Alt: ${ac.metadata.baroAltitude?.toFixed(0) ?? "N/A"} m | Vit: ${spd} km/h
-          </div>`;
-        } else if (e.type === "vessel") {
-          const vs = e as Vessel;
-          const spd = vs.metadata.speed != null ? vs.metadata.speed.toFixed(1) : "N/A";
-          size = isSelected ? 0.55 : 0.3;
-          tooltip = `<div class="argos-globe-tt">
-            <strong style="color:${color}">${vs.label}</strong><br/>
-            <span class="dim">${vs.metadata.shipType ?? "Navire"}</span><br/>
-            Vit: ${spd} kts
-          </div>`;
-        }
-
-        return {
-          id: e.id,
-          lat: e.position!.lat,
-          lng: e.position!.lng,
-          alt: 0.001,
-          color,
-          size,
-          label: e.label,
-          tooltipHtml: tooltip,
-          entity: e,
-        };
+    if (apiKey) {
+      createGooglePhotorealistic3DTileset({ key: apiKey }).then((tileset) => {
+        viewer.scene.primitives.add(tileset);
+      }).catch((err) => {
+        console.warn("Google 3D Tiles failed, falling back to default globe:", err);
+        viewer.scene.globe.show = true;
       });
-  }, [entities, selectedEntityId]);
-
-  const infraPoints: GlobePointData[] = useMemo(() => {
-    if (!showInfrastructure) return [];
-    return infrastructure
-      .filter((i) => i.position)
-      .map((i) => {
-        const cfg = INFRA_ICONS[i.metadata.category] ?? { icon: "\u{1F4CD}", color: "#666" };
-        return {
-          id: i.id,
-          lat: i.position!.lat,
-          lng: i.position!.lng,
-          alt: 0.002,
-          color: cfg.color,
-          size: i.metadata.importance === "critical" ? 0.3 : 0.2,
-          label: i.metadata.name,
-          tooltipHtml: `<div class="argos-globe-tt">
-            <span>${cfg.icon}</span> <strong style="color:${cfg.color}">${i.metadata.name}</strong><br/>
-            ${i.metadata.category.replace("_", " ").toUpperCase()}
-          </div>`,
-          entity: i as unknown as Entity,
-        };
-      });
-  }, [infrastructure, showInfrastructure]);
-
-  const surfacePoints = useMemo(
-    () => [...entityPoints, ...infraPoints],
-    [entityPoints, infraPoints]
-  );
-
-  const satCustomData: SatCustomData[] = useMemo(() => {
-    if (!showSatellites) return [];
-    return satellites.map((s) => {
-      const color = SAT_GROUP_COLORS[s.group] ?? "#f59e0b";
-      const altFraction = s.alt / EARTH_RADIUS_KM;
-      const velKmh = (s.velocity * 3.6).toFixed(0);
-      return {
-        lat: s.lat,
-        lng: s.lng,
-        alt: altFraction,
-        color,
-        size: s.group === "starlink" ? 0.3 : 0.5,
-        group: s.group,
-        tooltipHtml: `<div class="argos-globe-tt">
-          <strong style="color:${color}">${s.name}</strong><br/>
-          <span class="dim">${s.group.toUpperCase()}</span><br/>
-          Alt: ${Math.round(s.alt)} km | Vit: ${velKmh} km/h
-        </div>`,
-      };
-    });
-  }, [satellites, showSatellites]);
-
-  const trailPaths = useMemo(() => {
-    if (!showTrails) return [];
-    return entities
-      .filter((e) => e.position && e.trail.length > 1 && (e.tracked || e.id === selectedEntityId))
-      .map((e) => {
-        const color = getEntityColor(e, selectedEntityId);
-        return {
-          coords: e.trail.map((p) => ({ lat: p.lat, lng: p.lng })),
-          color,
-        };
-      });
-  }, [entities, selectedEntityId, showTrails]);
-
-  const zonePolygons = useMemo(() => {
-    return zones
-      .filter((z) => z.active && z.polygon.length >= 3)
-      .map((z) => ({
-        type: "Feature" as const,
-        geometry: {
-          type: "Polygon" as const,
-          coordinates: [[
-            ...z.polygon.map(([lat, lng]) => [lng, lat]),
-            [z.polygon[0][1], z.polygon[0][0]],
-          ]],
-        },
-        properties: {
-          color: z.color,
-          label: z.name,
-        },
-      }));
-  }, [zones]);
-
-  const handlePointClick = useCallback(
-    (point: object) => {
-      const p = point as GlobePointData;
-      if (p?.entity) {
-        onSelectRef.current(p.entity);
-      }
-    },
-    []
-  );
-
-  const createSatObject = useCallback((d: object) => {
-    const sat = d as SatCustomData;
-    const geo = new THREE.SphereGeometry(sat.size, 8, 6);
-    const mat = new THREE.MeshBasicMaterial({
-      color: new THREE.Color(sat.color),
-      transparent: true,
-      opacity: 0.9,
-    });
-    const mesh = new THREE.Mesh(geo, mat);
-
-    const glowGeo = new THREE.SphereGeometry(sat.size * 2.5, 8, 6);
-    const glowMat = new THREE.MeshBasicMaterial({
-      color: new THREE.Color(sat.color),
-      transparent: true,
-      opacity: 0.15,
-    });
-    const glow = new THREE.Mesh(glowGeo, glowMat);
-
-    const group = new THREE.Group();
-    group.add(mesh);
-    group.add(glow);
-    return group;
-  }, []);
-
-  const updateSatObject = useCallback((obj: object, d: object) => {
-    const sat = d as SatCustomData;
-    const pos = polar2Cartesian(sat.lat, sat.lng, sat.alt);
-    const group = obj as THREE.Group;
-    group.position.set(pos.x, pos.y, pos.z);
-  }, []);
-
-  useEffect(() => {
-    if (!globeRef.current || initDone.current) return;
-    initDone.current = true;
-    try {
-      const globe = globeRef.current;
-      globe.pointOfView({ lat: 46.6, lng: 2.3, altitude: 2.5 });
-      const controls = globe.controls();
-      if (controls) {
-        controls.autoRotate = false;
-        controls.enableDamping = true;
-        controls.dampingFactor = 0.1;
-        controls.minDistance = 100.01;
-        controls.maxDistance = 500;
-        controls.zoomSpeed = 2;
-      }
-      const renderer = globe.renderer?.();
-      if (renderer) {
-        renderer.capabilities.maxTextureSize = Math.min(renderer.capabilities.maxTextureSize || 8192, 8192);
-      }
-    } catch (e) {
-      console.warn("Globe init warning:", e);
+    } else {
+      viewer.scene.globe.show = true;
     }
-  });
+
+    viewer.camera.flyTo({
+      destination: Cartesian3.fromDegrees(2.3, 46.6, 3000000),
+      orientation: {
+        heading: CesiumMath.toRadians(0),
+        pitch: CesiumMath.toRadians(-90),
+        roll: 0,
+      },
+      duration: 0,
+    });
+
+    const handler = new ScreenSpaceEventHandler(viewer.scene.canvas);
+    handler.setInputAction((movement: { position: Cartesian2 }) => {
+      const pickedObject = viewer.scene.pick(movement.position);
+      if (defined(pickedObject) && pickedObject.id && pickedObject.id._argosId) {
+        const entity = entityMapRef.current.get(pickedObject.id._argosId);
+        if (entity) onSelectRef.current(entity);
+      }
+    }, ScreenSpaceEventType.LEFT_CLICK);
+
+    viewerRef.current = viewer;
+    setReady(true);
+
+    return () => {
+      handler.destroy();
+      if (!viewer.isDestroyed()) viewer.destroy();
+      viewerRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    const viewer = viewerRef.current;
+    if (!viewer || viewer.isDestroyed() || !ready) return;
+
+    viewer.entities.removeAll();
+    entityMapRef.current.clear();
+
+    const visibleEntities = entities.filter(
+      (e) => e.position && (e.type === "aircraft" || e.type === "vessel")
+    );
+
+    for (const e of visibleEntities) {
+      const [r, g, b, a] = getEntityColor(e, selectedEntityId);
+      const color = new Color(r, g, b, a);
+      const isSelected = e.id === selectedEntityId;
+      const pos = e.position!;
+
+      let alt = 0;
+      let label = e.label;
+      if (e.type === "aircraft") {
+        const ac = e as Aircraft;
+        alt = ac.metadata.baroAltitude ?? 0;
+        label = ac.label || ac.metadata.callsign || ac.metadata.icao24;
+      }
+
+      const cesiumEntity = viewer.entities.add({
+        position: Cartesian3.fromDegrees(pos.lng, pos.lat, alt),
+        point: {
+          pixelSize: isSelected ? 10 : 6,
+          color,
+          outlineColor: Color.BLACK,
+          outlineWidth: 1,
+          scaleByDistance: new NearFarScalar(1000, 2, 8000000, 0.5),
+          heightReference: e.type === "vessel" ? HeightReference.CLAMP_TO_GROUND : HeightReference.NONE,
+        },
+        label: {
+          text: label,
+          font: "10px monospace",
+          fillColor: color,
+          outlineColor: Color.BLACK,
+          outlineWidth: 2,
+          style: LabelStyle.FILL_AND_OUTLINE,
+          verticalOrigin: VerticalOrigin.BOTTOM,
+          horizontalOrigin: HorizontalOrigin.LEFT,
+            pixelOffset: new Cartesian2(8, -4),
+            scaleByDistance: new NearFarScalar(1000, 1, 5000000, 0),
+            show: isSelected,
+        },
+      });
+
+      (cesiumEntity as unknown as Record<string, unknown>)._argosId = e.id;
+      entityMapRef.current.set(e.id, e);
+
+      if (showTrails && e.trail.length > 1 && (e.tracked || isSelected)) {
+        const positions = e.trail.map((t) =>
+          Cartesian3.fromDegrees(t.lng, t.lat, e.type === "aircraft" ? (alt || 1000) : 0)
+        );
+        viewer.entities.add({
+          polyline: {
+            positions,
+            width: 1.5,
+            material: new ColorMaterialProperty(color.withAlpha(0.5)),
+            clampToGround: e.type === "vessel",
+          },
+        });
+      }
+    }
+
+    if (showInfrastructure) {
+      for (const inf of infrastructure) {
+        if (!inf.position) continue;
+        const cfg = INFRA_ICONS[inf.metadata.category] ?? { icon: "📍", color: "#666" };
+        const c = Color.fromCssColorString(cfg.color);
+        viewer.entities.add({
+          position: Cartesian3.fromDegrees(inf.position.lng, inf.position.lat, 0),
+          point: {
+            pixelSize: inf.metadata.importance === "critical" ? 8 : 5,
+            color: c,
+            outlineColor: Color.BLACK,
+            outlineWidth: 1,
+            heightReference: HeightReference.CLAMP_TO_GROUND,
+            scaleByDistance: new NearFarScalar(1000, 2, 5000000, 0.5),
+          },
+          label: {
+            text: inf.metadata.name,
+            font: "9px monospace",
+            fillColor: c,
+            outlineColor: Color.BLACK,
+            outlineWidth: 2,
+            style: LabelStyle.FILL_AND_OUTLINE,
+            verticalOrigin: VerticalOrigin.BOTTOM,
+            pixelOffset: new Cartesian2(8, -4),
+            scaleByDistance: new NearFarScalar(500, 1, 2000000, 0),
+          },
+        });
+      }
+    }
+
+    for (const zone of zones) {
+      if (!zone.active || zone.polygon.length < 3) continue;
+      const c = Color.fromCssColorString(zone.color);
+      const positions = zone.polygon.map(([lat, lng]) => Cartesian3.fromDegrees(lng, lat, 0));
+      viewer.entities.add({
+        polygon: {
+          hierarchy: new PolygonHierarchy(positions),
+          material: new ColorMaterialProperty(c.withAlpha(0.1)),
+          outline: true,
+          outlineColor: c.withAlpha(0.6),
+          heightReference: HeightReference.CLAMP_TO_GROUND,
+        },
+      });
+    }
+
+    if (showSatellites && satellites.length > 0) {
+      const SAT_COLORS: Record<string, string> = {
+        gps: "#f59e0b", galileo: "#3b82f6", glonass: "#ef4444",
+        iridium: "#06b6d4", starlink: "#a855f7", military: "#dc2626",
+        "french-mil": "#2563eb",
+      };
+      for (const sat of satellites) {
+        const c = Color.fromCssColorString(SAT_COLORS[sat.group] ?? "#f59e0b");
+        viewer.entities.add({
+          position: Cartesian3.fromDegrees(sat.lng, sat.lat, sat.alt * 1000),
+          point: {
+            pixelSize: sat.group === "starlink" ? 3 : 5,
+            color: c,
+            scaleByDistance: new NearFarScalar(100000, 1, 20000000, 0.3),
+          },
+        });
+      }
+    }
+  }, [entities, infrastructure, zones, selectedEntityId, showTrails, showInfrastructure, satellites, showSatellites, ready]);
 
   return (
     <GlobeErrorBoundary>
+      <div ref={containerRef} style={{ width: "100%", height: "100%", background: "#000005" }} />
       <style>{`
-        .argos-globe-tt {
-          font-family: 'JetBrains Mono', monospace;
-          font-size: 10px;
-          color: #e2e8f0;
-          padding: 6px 10px;
-          background: #1a2332ee;
-          border: 1px solid #1e3a5f;
-          border-radius: 4px;
-          line-height: 1.5;
-          backdrop-filter: blur(8px);
-          pointer-events: none;
-        }
-        .argos-globe-tt .dim { color: #64748b; }
-        .argos-globe-tt strong { font-weight: 600; }
-        .scene-tooltip {
-          font-family: 'JetBrains Mono', monospace !important;
-          pointer-events: none !important;
-        }
+        .cesium-viewer .cesium-widget-credits { display: none !important; }
+        .cesium-viewer { font-family: 'JetBrains Mono', monospace; }
       `}</style>
-      <div ref={wrapperRef} style={{ width: "100%", height: "100%", background: "#000005" }}>
-        <GlobeComponent
-          ref={globeRef}
-          rendererConfig={{ antialias: true, alpha: false, powerPreference: "high-performance" }}
-          globeImageUrl="//unpkg.com/three-globe/example/img/earth-blue-marble.jpg"
-          bumpImageUrl="//unpkg.com/three-globe/example/img/earth-topology.png"
-          backgroundImageUrl="//unpkg.com/three-globe/example/img/night-sky.png"
-          atmosphereColor="#0891b2"
-          atmosphereAltitude={0.15}
-          width={dims.w}
-          height={dims.h}
-
-          pointsData={surfacePoints}
-          pointLat="lat"
-          pointLng="lng"
-          pointAltitude="alt"
-          pointColor="color"
-          pointRadius="size"
-          pointsMerge={false}
-          pointLabel="tooltipHtml"
-          onPointClick={handlePointClick}
-
-          customLayerData={satCustomData}
-          customThreeObject={createSatObject}
-          customThreeObjectUpdate={updateSatObject}
-          customLayerLabel={(d: object) => (d as SatCustomData).tooltipHtml}
-
-          pathsData={trailPaths}
-          pathPoints="coords"
-          pathPointLat="lat"
-          pathPointLng="lng"
-          pathColor="color"
-          pathStroke={1.5}
-          pathDashLength={0.01}
-          pathDashGap={0.01}
-          pathDashAnimateTime={3000}
-
-          polygonsData={zonePolygons}
-          polygonCapColor={(d: object) => {
-            const f = d as { properties?: { color?: string } };
-            const c = f.properties?.color ?? "#00d4ff";
-            return c + "18";
-          }}
-          polygonSideColor={(d: object) => {
-            const f = d as { properties?: { color?: string } };
-            const c = f.properties?.color ?? "#00d4ff";
-            return c + "30";
-          }}
-          polygonStrokeColor={(d: object) => {
-            const f = d as { properties?: { color?: string } };
-            return f.properties?.color ?? "#00d4ff";
-          }}
-          polygonLabel={(d: object) => {
-            const f = d as { properties?: { label?: string; color?: string } };
-            const label = f.properties?.label ?? "";
-            const color = f.properties?.color ?? "#00d4ff";
-            return `<div class="argos-globe-tt"><strong style="color:${color}">${label}</strong></div>`;
-          }}
-        />
-      </div>
     </GlobeErrorBoundary>
   );
 }
