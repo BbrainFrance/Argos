@@ -684,7 +684,7 @@ export default function ThreeGlobe({
 
         {/* ═══ CCTV PANEL ═══ */}
         {showCCTV && (
-          <div className="absolute top-40 right-4 z-50 bg-black/90 border border-cyan-900/40 p-3 w-64" style={{ pointerEvents: "auto" }}>
+          <div className={`absolute top-40 right-4 z-50 bg-black/95 border border-cyan-900/40 p-3 ${selectedCCTV ? "w-80" : "w-64"}`} style={{ pointerEvents: "auto", maxHeight: "calc(100vh - 200px)", overflowY: "auto" }}>
             <div className="flex items-center justify-between mb-3">
               <p className="text-[10px] font-mono text-cyan-300 tracking-wider">📹 CCTV — {activeCity.toUpperCase()}</p>
               <button onClick={() => { setShowCCTV(false); setSelectedCCTV(null); }} className="text-cyan-600/50 hover:text-cyan-300 text-xs cursor-pointer">✕</button>
@@ -698,7 +698,7 @@ export default function ThreeGlobe({
                   <button
                     key={cam.id}
                     onClick={() => {
-                      setSelectedCCTV(cam);
+                      setSelectedCCTV(prev => prev?.id === cam.id ? null : cam);
                       const v = viewerRef.current;
                       if (v && !v.isDestroyed()) {
                         v.camera.flyTo({
@@ -714,10 +714,10 @@ export default function ThreeGlobe({
                         : "border-transparent hover:bg-cyan-900/20"
                     }`}
                   >
-                    <span className={`w-2 h-2 rounded-full ${selectedCCTV?.id === cam.id ? "bg-cyan-300" : "bg-cyan-700"}`} />
-                    <div>
-                      <p className="text-[9px] font-mono text-cyan-300/90">{cam.name}</p>
-                      <p className="text-[7px] font-mono text-cyan-600/40">HDG {cam.hdg}° | FOV {cam.fov}°</p>
+                    <span className={`w-2 h-2 rounded-full ${selectedCCTV?.id === cam.id ? "bg-cyan-300 animate-pulse" : cam.url ? "bg-green-600" : "bg-cyan-700"}`} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[9px] font-mono text-cyan-300/90 truncate">{cam.name}</p>
+                      <p className="text-[7px] font-mono text-cyan-600/40">HDG {cam.hdg}° | FOV {cam.fov}°{cam.url ? " | LIVE" : ""}</p>
                     </div>
                   </button>
                 ))}
@@ -725,28 +725,68 @@ export default function ThreeGlobe({
             )}
 
             {selectedCCTV && (
-              <div className="mt-3 pt-3 border-t border-cyan-900/30 space-y-2">
-                <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[8px] font-mono">
-                  <p className="text-cyan-600/50">POSITION</p>
-                  <p className="text-cyan-400/80">{selectedCCTV.lat.toFixed(4)}, {selectedCCTV.lng.toFixed(4)}</p>
-                  <p className="text-cyan-600/50">HEADING</p>
-                  <p className="text-cyan-400/80">{selectedCCTV.hdg}°</p>
-                  <p className="text-cyan-600/50">FOV</p>
-                  <p className="text-cyan-400/80">{selectedCCTV.fov}°</p>
-                  <p className="text-cyan-600/50">COVERAGE</p>
-                  <p className="text-cyan-400/80">~0.01 km²</p>
-                  <p className="text-cyan-600/50">OVERLAP</p>
-                  <p className="text-cyan-400/80">{visibleCCTVs.length} cams</p>
+              <div className="mt-3 pt-3 border-t border-cyan-400/30 space-y-3">
+                <div className="bg-cyan-900/20 border border-cyan-800/30 p-2">
+                  <p className="text-[10px] font-mono text-cyan-200 mb-2 tracking-wider">{selectedCCTV.name}</p>
+                  <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[8px] font-mono">
+                    <p className="text-cyan-500/70">ID</p>
+                    <p className="text-cyan-300/90">{selectedCCTV.id}</p>
+                    <p className="text-cyan-500/70">POSITION</p>
+                    <p className="text-cyan-300/90">{selectedCCTV.lat.toFixed(4)}, {selectedCCTV.lng.toFixed(4)}</p>
+                    <p className="text-cyan-500/70">HEADING</p>
+                    <p className="text-cyan-300/90">{selectedCCTV.hdg}°</p>
+                    <p className="text-cyan-500/70">FOV</p>
+                    <p className="text-cyan-300/90">{selectedCCTV.fov}°</p>
+                    <p className="text-cyan-500/70">STATUS</p>
+                    <p className={`${selectedCCTV.url ? "text-green-400" : "text-yellow-500"}`}>{selectedCCTV.url ? "● EN LIGNE" : "○ HORS LIGNE"}</p>
+                    <p className="text-cyan-500/70">VILLE</p>
+                    <p className="text-cyan-300/90">{selectedCCTV.city}</p>
+                    <p className="text-cyan-500/70">RESEAU</p>
+                    <p className="text-cyan-300/90">{visibleCCTVs.length} cameras</p>
+                  </div>
                 </div>
+
                 {selectedCCTV.url && (
-                  <a
-                    href={selectedCCTV.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block text-center text-[9px] font-mono px-3 py-1.5 bg-cyan-500/20 border border-cyan-400/50 text-cyan-300 hover:bg-cyan-500/30 cursor-pointer"
-                  >
-                    OUVRIR FLUX PUBLIC ↗
-                  </a>
+                  <>
+                    <div className="border border-cyan-800/30 bg-black">
+                      <div className="flex items-center justify-between px-2 py-1 border-b border-cyan-900/30 bg-cyan-900/10">
+                        <p className="text-[7px] font-mono text-cyan-400/70">FLUX EN DIRECT</p>
+                        <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                      </div>
+                      <div className="relative w-full" style={{ paddingBottom: "56.25%" }}>
+                        {selectedCCTV.url.includes("youtube.com") ? (
+                          <iframe
+                            src={selectedCCTV.url.replace("watch?v=", "embed/") + "?autoplay=1&mute=1"}
+                            className="absolute inset-0 w-full h-full"
+                            allow="autoplay; encrypted-media"
+                            allowFullScreen
+                            title={selectedCCTV.name}
+                          />
+                        ) : (
+                          <iframe
+                            src={selectedCCTV.url}
+                            className="absolute inset-0 w-full h-full"
+                            title={selectedCCTV.name}
+                            sandbox="allow-scripts allow-same-origin"
+                          />
+                        )}
+                      </div>
+                    </div>
+                    <a
+                      href={selectedCCTV.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block text-center text-[8px] font-mono px-3 py-1 border border-cyan-900/40 text-cyan-500/70 hover:text-cyan-300 hover:border-cyan-500/40 cursor-pointer"
+                    >
+                      OUVRIR DANS UN NOUVEL ONGLET ↗
+                    </a>
+                  </>
+                )}
+                {!selectedCCTV.url && (
+                  <div className="text-center py-3 border border-dashed border-cyan-900/30">
+                    <p className="text-[8px] font-mono text-cyan-600/40">AUCUN FLUX PUBLIC DISPONIBLE</p>
+                    <p className="text-[7px] font-mono text-cyan-600/30 mt-1">Camera reference uniquement</p>
+                  </div>
                 )}
               </div>
             )}
