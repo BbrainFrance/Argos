@@ -358,7 +358,7 @@ export default function ThreeGlobe({
         <GlobeComponent
           ref={globeRef}
           rendererConfig={{ antialias: true, alpha: false, powerPreference: "high-performance" }}
-          globeImageUrl="//eoimages.gsfc.nasa.gov/images/imagerecords/57000/57752/land_shallow_topo_2048.jpg"
+          globeImageUrl="//unpkg.com/three-globe/example/img/earth-blue-marble.jpg"
           bumpImageUrl="//unpkg.com/three-globe/example/img/earth-topology.png"
           backgroundImageUrl="//unpkg.com/three-globe/example/img/night-sky.png"
           atmosphereColor="#0891b2"
