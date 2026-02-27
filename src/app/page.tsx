@@ -94,9 +94,9 @@ export default function ArgosPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [zones, setZones] = useState<ZoneOfInterest[]>(FALLBACK_ZONES);
-  const [activeLayers, setActiveLayers] = useState<Record<string, boolean>>({ air: true, maritime: true });
+  const [activeLayers, setActiveLayers] = useState<Record<string, boolean>>({});
   const [showTrails, setShowTrails] = useState(true);
-  const [showInfra, setShowInfra] = useState(true);
+  const [showInfra, setShowInfra] = useState(false);
   const [drawMode, setDrawMode] = useState(false);
   const [measureMode, setMeasureMode] = useState(false);
   const [placeMarkerMode, setPlaceMarkerMode] = useState(false);
@@ -169,15 +169,20 @@ export default function ArgosPage() {
     infrastructureCategories: [],
   });
 
+  const activeLayersRef = useRef(activeLayers);
+  activeLayersRef.current = activeLayers;
+
   const fetchData = useCallback(async () => {
+    const layers = activeLayersRef.current;
+    if (!layers.air && !layers.maritime) { setRefreshing(false); return; }
     setRefreshing(true);
     try {
       const b = mapBoundsRef.current;
       const pad = 2;
       const qs = `latMin=${b.latMin - pad}&latMax=${b.latMax + pad}&lonMin=${b.lonMin - pad}&lonMax=${b.lonMax + pad}`;
       const [aircraftRes, vesselRes] = await Promise.allSettled([
-        fetch(`/api/aircraft?${qs}`).then((r) => r.ok ? r.json() : null),
-        fetch(`/api/vessels?${qs}`).then((r) => r.ok ? r.json() : null),
+        layers.air ? fetch(`/api/aircraft?${qs}`).then((r) => r.ok ? r.json() : null) : Promise.resolve(null),
+        layers.maritime ? fetch(`/api/vessels?${qs}`).then((r) => r.ok ? r.json() : null) : Promise.resolve(null),
       ]);
 
       const aircraftData = aircraftRes.status === "fulfilled" ? aircraftRes.value : null;
