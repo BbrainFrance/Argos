@@ -664,7 +664,7 @@ export default function ThreeGlobe({
 
               {/* CCTV Mesh - fully clickable row */}
               <button
-                onClick={() => setShowCCTV(!showCCTV)}
+                onClick={() => { setShowCCTV(!showCCTV); if (!showCCTV) setShowDataLayers(false); }}
                 className="w-full flex items-center justify-between py-1.5 px-1 border-t border-cyan-900/20 hover:bg-cyan-900/20 transition-colors cursor-pointer"
               >
                 <div className="flex items-center gap-2">
@@ -682,60 +682,74 @@ export default function ThreeGlobe({
           )}
         </div>
 
-        {/* ═══ CCTV PANEL (when camera selected) ═══ */}
-        {showCCTV && selectedCCTV && (
-          <div className="absolute bottom-52 left-4 z-50 bg-black/90 border border-cyan-900/40  p-2 w-64" style={{ pointerEvents: "auto" }}>
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2">
-                <button className="text-[8px] font-mono px-2 py-0.5 bg-cyan-500/30 border border-cyan-400/60 text-cyan-300">SCAN ON</button>
-                <button className="text-[8px] font-mono px-2 py-0.5 bg-cyan-500/30 border border-cyan-400/60 text-cyan-300">COVERAGE ON</button>
-              </div>
+        {/* ═══ CCTV PANEL ═══ */}
+        {showCCTV && (
+          <div className="absolute top-40 right-4 z-50 bg-black/90 border border-cyan-900/40 p-3 w-64" style={{ pointerEvents: "auto" }}>
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-[10px] font-mono text-cyan-300 tracking-wider">📹 CCTV — {activeCity.toUpperCase()}</p>
+              <button onClick={() => { setShowCCTV(false); setSelectedCCTV(null); }} className="text-cyan-600/50 hover:text-cyan-300 text-xs cursor-pointer">✕</button>
             </div>
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-[8px] font-mono text-cyan-400/60">FEED:</span>
-              <span className="text-[9px] font-mono text-cyan-300">{selectedCCTV.city} - {selectedCCTV.name}</span>
-            </div>
-            <div className="flex items-center gap-2 mb-2">
-              <button className="text-[8px] font-mono px-2 py-0.5 bg-cyan-500/20 border border-cyan-900/40 text-cyan-400">PROJECTION ON</button>
-              <button className="text-[8px] font-mono px-2 py-0.5 border border-cyan-900/40 text-cyan-600/50">AUTO CAL</button>
-              <button className="text-[8px] font-mono px-2 py-0.5 border border-cyan-900/40 text-cyan-600/50">ALIGN - DRAPE</button>
-            </div>
-            {/* Camera position dots */}
-            <div className="my-2 h-20 relative bg-black/40 border border-cyan-900/20">
-              {visibleCCTVs.map((cam, i) => (
-                <div
-                  key={cam.id}
-                  className={`absolute w-2 h-2 rounded-full cursor-pointer ${cam.id === selectedCCTV.id ? "bg-cyan-300 ring-1 ring-cyan-400" : "bg-cyan-600"}`}
-                  style={{ left: `${(i * 25 + 15)}%`, top: `${30 + (i % 3) * 20}%` }}
-                  onClick={() => setSelectedCCTV(cam)}
-                />
-              ))}
-            </div>
-            <div className="text-[7px] font-mono text-cyan-500/50 space-y-0.5">
-              <p>HDG: {selectedCCTV.hdg}° | FOV: {selectedCCTV.fov}°</p>
-              <p>COVERAGE: 0.01km² | OVERLAP: {visibleCCTVs.length} cams</p>
-            </div>
-            <button onClick={() => setSelectedCCTV(null)} className="absolute top-1 right-1 text-cyan-600/50 hover:text-cyan-300 text-xs">✕</button>
-          </div>
-        )}
 
-        {/* ═══ CCTV camera list toggle ═══ */}
-        {showCCTV && !selectedCCTV && visibleCCTVs.length > 0 && (
-          <div className="absolute bottom-52 left-4 z-50 bg-black/90 border border-cyan-900/40  p-2 w-56" style={{ pointerEvents: "auto" }}>
-            <p className="text-[9px] font-mono text-cyan-400/70 mb-2 tracking-wider">CCTV MESH — {activeCity.toUpperCase()}</p>
-            {visibleCCTVs.map(cam => (
-              <button
-                key={cam.id}
-                onClick={() => setSelectedCCTV(cam)}
-                className="w-full text-left px-2 py-1 hover:bg-cyan-900/20 flex items-center gap-2"
-              >
-                <span className="text-cyan-400 text-[10px]">📹</span>
-                <div>
-                  <p className="text-[9px] font-mono text-cyan-300/80">{cam.name}</p>
-                  <p className="text-[7px] font-mono text-cyan-600/40">HDG {cam.hdg}° | FOV {cam.fov}°</p>
+            {visibleCCTVs.length === 0 ? (
+              <p className="text-[8px] font-mono text-cyan-600/40">Aucune camera disponible pour cette ville</p>
+            ) : (
+              <div className="space-y-1">
+                {visibleCCTVs.map(cam => (
+                  <button
+                    key={cam.id}
+                    onClick={() => {
+                      setSelectedCCTV(cam);
+                      const v = viewerRef.current;
+                      if (v && !v.isDestroyed()) {
+                        v.camera.flyTo({
+                          destination: Cartesian3.fromDegrees(cam.lng, cam.lat, 300),
+                          orientation: { heading: CesiumMath.toRadians(cam.hdg), pitch: CesiumMath.toRadians(-40), roll: 0 },
+                          duration: 1.5,
+                        });
+                      }
+                    }}
+                    className={`w-full text-left px-2 py-1.5 flex items-center gap-2 cursor-pointer border ${
+                      selectedCCTV?.id === cam.id
+                        ? "bg-cyan-500/20 border-cyan-400/50"
+                        : "border-transparent hover:bg-cyan-900/20"
+                    }`}
+                  >
+                    <span className={`w-2 h-2 rounded-full ${selectedCCTV?.id === cam.id ? "bg-cyan-300" : "bg-cyan-700"}`} />
+                    <div>
+                      <p className="text-[9px] font-mono text-cyan-300/90">{cam.name}</p>
+                      <p className="text-[7px] font-mono text-cyan-600/40">HDG {cam.hdg}° | FOV {cam.fov}°</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {selectedCCTV && (
+              <div className="mt-3 pt-3 border-t border-cyan-900/30 space-y-2">
+                <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[8px] font-mono">
+                  <p className="text-cyan-600/50">POSITION</p>
+                  <p className="text-cyan-400/80">{selectedCCTV.lat.toFixed(4)}, {selectedCCTV.lng.toFixed(4)}</p>
+                  <p className="text-cyan-600/50">HEADING</p>
+                  <p className="text-cyan-400/80">{selectedCCTV.hdg}°</p>
+                  <p className="text-cyan-600/50">FOV</p>
+                  <p className="text-cyan-400/80">{selectedCCTV.fov}°</p>
+                  <p className="text-cyan-600/50">COVERAGE</p>
+                  <p className="text-cyan-400/80">~0.01 km²</p>
+                  <p className="text-cyan-600/50">OVERLAP</p>
+                  <p className="text-cyan-400/80">{visibleCCTVs.length} cams</p>
                 </div>
-              </button>
-            ))}
+                {selectedCCTV.url && (
+                  <a
+                    href={selectedCCTV.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block text-center text-[9px] font-mono px-3 py-1.5 bg-cyan-500/20 border border-cyan-400/50 text-cyan-300 hover:bg-cyan-500/30 cursor-pointer"
+                  >
+                    OUVRIR FLUX PUBLIC ↗
+                  </a>
+                )}
+              </div>
+            )}
           </div>
         )}
 
