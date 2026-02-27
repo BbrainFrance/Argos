@@ -174,7 +174,7 @@ export default function ArgosPage() {
 
   const fetchData = useCallback(async () => {
     const layers = activeLayersRef.current;
-    if (!layers.air && !layers.maritime) { setRefreshing(false); return; }
+    if (!layers.air && !layers.maritime) { setRefreshing(false); setLoading(false); return; }
     setRefreshing(true);
     try {
       const b = mapBoundsRef.current;
