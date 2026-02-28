@@ -562,7 +562,7 @@ async function checkBruteForce(baseUrl: string): Promise<VulnCheck[]> {
   const parsedBase = new URL(baseUrl);
   const hostParts = parsedBase.hostname.split(".");
   const rootDomain = hostParts.length >= 2 ? hostParts.slice(-2).join(".") : parsedBase.hostname;
-  const originsToTest = [baseUrl];
+  const originsToTest = [parsedBase.origin];
   if (!parsedBase.hostname.startsWith("www.")) {
     originsToTest.push(`${parsedBase.protocol}//www.${parsedBase.hostname}`);
   }
@@ -605,6 +605,12 @@ async function checkBruteForce(baseUrl: string): Promise<VulnCheck[]> {
       return res;
     }
     return null;
+  }
+
+  // If the user provided a specific path in the target URL, try it first
+  const userPath = new URL(baseUrl).pathname;
+  if (userPath && userPath !== "/" && !loginPaths.includes(userPath)) {
+    loginPaths.unshift(userPath);
   }
 
   for (const origin of originsToTest) {
@@ -772,6 +778,353 @@ async function checkBruteForce(baseUrl: string): Promise<VulnCheck[]> {
     }
   } catch { /* could not check login page */ }
 
+  return vulns;
+}
+
+async function checkSQLInjection(baseUrl: string): Promise<VulnCheck[]> {
+  const vulns: VulnCheck[] = [];
+  const payloads = [
+    { param: "id", value: "1' OR '1'='1", name: "Boolean-based blind" },
+    { param: "id", value: "1 UNION SELECT null,null,null--", name: "UNION-based" },
+    { param: "search", value: "' OR 1=1--", name: "Search injection" },
+    { param: "q", value: "1' AND SLEEP(5)--", name: "Time-based blind" },
+    { param: "page", value: "1; DROP TABLE x--", name: "Stacked queries" },
+  ];
+  const sqlErrors = [
+    /sql syntax/i, /mysql_fetch/i, /ORA-\d{5}/i, /PG::Error/i,
+    /SQLite3/i, /microsoft ole db/i, /unclosed quotation/i,
+    /PostgreSQL.*ERROR/i, /Warning.*mysql_/i, /pg_query/i,
+    /Syntax error.*SQL/i, /SQLSTATE/i,
+  ];
+  for (const payload of payloads) {
+    try {
+      const testUrl = new URL(baseUrl);
+      testUrl.searchParams.set(payload.param, payload.value);
+      const t0 = Date.now();
+      const res = await fetch(testUrl.toString(), {
+        redirect: "follow",
+        headers: { "User-Agent": "ARGOS-SecurityAudit/1.0" },
+        signal: AbortSignal.timeout(10000),
+      });
+      const elapsed = Date.now() - t0;
+      const body = await res.text();
+      if (sqlErrors.some(re => re.test(body))) {
+        vulns.push({
+          id: `vuln-sqli-${payload.param}-${payload.name.replace(/\s/g, "")}`,
+          title: `Injection SQL detectee (${payload.name})`,
+          severity: "critical",
+          category: "Injection",
+          description: `Le parametre "${payload.param}" est vulnerable a l'injection SQL (${payload.name}). Le serveur retourne un message d'erreur SQL.`,
+          remediation: "Utiliser des requetes preparees (prepared statements). Ne jamais concatener les entrees utilisateur dans les requetes SQL.",
+          affectedComponent: `Parametre: ${payload.param}`,
+          cvss: 9.8,
+          cve: "CWE-89",
+        });
+        break;
+      }
+      if (payload.name.includes("Time-based") && elapsed > 5000) {
+        vulns.push({
+          id: `vuln-sqli-time-${payload.param}`,
+          title: `Injection SQL time-based suspecte`,
+          severity: "high",
+          category: "Injection",
+          description: `Le parametre "${payload.param}" montre un delai suspect (${elapsed}ms) avec un payload SLEEP.`,
+          remediation: "Utiliser des requetes preparees. Verifier tous les parametres d'entree.",
+          affectedComponent: `Parametre: ${payload.param}`,
+          cvss: 9.0,
+        });
+      }
+    } catch { /* skip */ }
+  }
+  return vulns;
+}
+
+async function checkSSRF(baseUrl: string): Promise<VulnCheck[]> {
+  const vulns: VulnCheck[] = [];
+  const ssrfPayloads = [
+    { param: "url", value: "http://127.0.0.1", name: "localhost" },
+    { param: "url", value: "http://169.254.169.254/latest/meta-data/", name: "AWS metadata" },
+    { param: "redirect", value: "http://127.0.0.1:22", name: "internal SSH" },
+    { param: "callback", value: "http://[::1]", name: "IPv6 localhost" },
+  ];
+  const proxyEndpoints = ["/api/proxy", "/api/fetch", "/api/image", "/api/preview", "/api/webhook"];
+  for (const payload of ssrfPayloads) {
+    try {
+      const url = new URL(baseUrl);
+      url.searchParams.set(payload.param, payload.value);
+      const res = await fetch(url.toString(), {
+        redirect: "manual",
+        headers: { "User-Agent": "ARGOS-SecurityAudit/1.0" },
+        signal: AbortSignal.timeout(5000),
+      });
+      const body = await res.text();
+      if (body.includes("ami-id") || body.includes("instance-id") || body.includes("SSH-") || body.includes("root:x:0")) {
+        vulns.push({
+          id: `vuln-ssrf-${payload.name.replace(/\s/g, "-")}`,
+          title: `SSRF detectee — acces a ${payload.name}`,
+          severity: "critical",
+          category: "SSRF",
+          description: `Le serveur a renvoye du contenu interne via ${payload.value}. Un attaquant peut acceder aux ressources internes.`,
+          remediation: "Valider les URLs. Bloquer les IP privees (127.0.0.0/8, 10.0.0.0/8, 169.254.0.0/16, 172.16.0.0/12). Utiliser une allowlist.",
+          affectedComponent: `Parametre: ${payload.param}`,
+          cvss: 9.1,
+          cve: "CWE-918",
+        });
+      }
+    } catch { /* skip */ }
+    for (const ep of proxyEndpoints) {
+      try {
+        const res = await fetch(`${baseUrl}${ep}?${payload.param}=${encodeURIComponent(payload.value)}`, {
+          redirect: "manual", headers: { "User-Agent": "ARGOS-SecurityAudit/1.0" }, signal: AbortSignal.timeout(3000),
+        });
+        if (res.status === 200) {
+          const body = await res.text();
+          if (body.includes("ami-id") || body.includes("instance-id") || body.includes("root:x:0")) {
+            vulns.push({
+              id: `vuln-ssrf-proxy-${payload.name.replace(/\s/g, "-")}`,
+              title: `SSRF via endpoint proxy — ${ep}`,
+              severity: "critical",
+              category: "SSRF",
+              description: `L'endpoint ${ep} permet d'acceder aux ressources internes (${payload.name}).`,
+              remediation: "Supprimer ou securiser les endpoints de proxy. Valider strictement les URLs.",
+              affectedComponent: ep,
+              cvss: 9.1,
+            });
+          }
+        }
+      } catch { /* skip */ }
+    }
+  }
+  return vulns;
+}
+
+async function checkDirectoryTraversal(baseUrl: string): Promise<VulnCheck[]> {
+  const vulns: VulnCheck[] = [];
+  const payloads = [
+    { path: "/../../../etc/passwd", sig: /root:x:0|daemon:x:/, name: "/etc/passwd" },
+    { path: "/....//....//....//etc/passwd", sig: /root:x:0/, name: "bypass filter" },
+    { path: "/../../../windows/win.ini", sig: /\[extensions\]|\[fonts\]/, name: "win.ini" },
+    { path: "/?file=../../etc/passwd", sig: /root:x:0/, name: "param file" },
+    { path: "/?path=../../etc/passwd", sig: /root:x:0/, name: "param path" },
+    { path: "/?template=../../etc/passwd", sig: /root:x:0/, name: "param template" },
+  ];
+  for (const p of payloads) {
+    try {
+      const res = await fetch(`${baseUrl}${p.path}`, {
+        redirect: "follow", headers: { "User-Agent": "ARGOS-SecurityAudit/1.0" }, signal: AbortSignal.timeout(5000),
+      });
+      if (res.status === 200) {
+        const body = await res.text();
+        if (p.sig.test(body)) {
+          vulns.push({
+            id: `vuln-lfi-${p.name.replace(/[^a-z0-9]/gi, "")}`,
+            title: `Directory Traversal / LFI detecte (${p.name})`,
+            severity: "critical",
+            category: "Traversal",
+            description: `Le serveur est vulnerable au directory traversal. Le fichier ${p.name} est accessible.`,
+            remediation: "Valider et assainir tous les chemins. Utiliser des chemins absolus. Ne jamais concatener les entrees utilisateur dans les chemins fichiers.",
+            affectedComponent: "Gestion de fichiers",
+            cvss: 9.3,
+            cve: "CWE-22",
+          });
+          break;
+        }
+      }
+    } catch { /* skip */ }
+  }
+  return vulns;
+}
+
+async function checkOpenRedirect(baseUrl: string): Promise<VulnCheck[]> {
+  const vulns: VulnCheck[] = [];
+  const evilUrl = "https://evil-argos-test.example.com";
+  const params = ["redirect", "next", "url", "return", "returnTo", "return_to", "redir", "destination", "continue"];
+  for (const param of params) {
+    try {
+      const res = await fetch(`${baseUrl}?${param}=${encodeURIComponent(evilUrl)}`, {
+        redirect: "manual", headers: { "User-Agent": "ARGOS-SecurityAudit/1.0" }, signal: AbortSignal.timeout(5000),
+      });
+      if (res.status >= 300 && res.status < 400) {
+        const location = res.headers.get("location") || "";
+        if (location.includes("evil-argos-test.example.com")) {
+          vulns.push({
+            id: `vuln-open-redirect-${param}`,
+            title: `Open Redirect via parametre "${param}"`,
+            severity: "medium",
+            category: "Redirection",
+            description: `Le parametre "${param}" permet de rediriger vers un domaine externe. Exploitable pour le phishing.`,
+            remediation: "Valider les URLs de redirection contre une allowlist. Ne jamais rediriger vers des URLs fournies sans validation.",
+            affectedComponent: `Parametre: ${param}`,
+            cvss: 6.1,
+            cve: "CWE-601",
+          });
+        }
+      }
+    } catch { /* skip */ }
+  }
+  return vulns;
+}
+
+async function checkSubdomainEnum(hostname: string): Promise<VulnCheck[]> {
+  const vulns: VulnCheck[] = [];
+  try {
+    const res = await fetch(`https://crt.sh/?q=%.${hostname}&output=json`, {
+      headers: { "User-Agent": "ARGOS-SecurityAudit/1.0" },
+      signal: AbortSignal.timeout(10000),
+    });
+    if (res.ok) {
+      const certs = await res.json() as Array<{ name_value: string }>;
+      const subdomains = new Set<string>();
+      for (const cert of certs) {
+        for (const name of (cert.name_value || "").split("\n")) {
+          const clean = name.trim().replace(/^\*\./, "");
+          if (clean && clean.endsWith(hostname) && clean !== hostname) subdomains.add(clean);
+        }
+      }
+      if (subdomains.size > 0) {
+        const subList = [...subdomains].slice(0, 50);
+        vulns.push({
+          id: "vuln-subdomain-enum",
+          title: `${subdomains.size} sous-domaine(s) via Certificate Transparency`,
+          severity: "info",
+          category: "Reconnaissance",
+          description: `Sous-domaines exposes dans les logs CT: ${subList.join(", ")}${subdomains.size > 50 ? ` (+${subdomains.size - 50})` : ""}`,
+          remediation: "S'assurer qu'aucun sous-domaine de staging/dev n'expose des services non securises.",
+          affectedComponent: "Infrastructure DNS",
+        });
+        const suspectPrefixes = ["dev", "staging", "test", "admin", "internal", "preprod", "beta", "debug"];
+        const liveDevSubs: string[] = [];
+        for (const sub of subList.slice(0, 20)) {
+          const prefix = sub.replace(`.${hostname}`, "");
+          if (suspectPrefixes.some(p => prefix.includes(p))) {
+            try {
+              const r = await fetch(`https://${sub}`, { redirect: "manual", signal: AbortSignal.timeout(3000), headers: { "User-Agent": "ARGOS-SecurityAudit/1.0" } });
+              if (r.status < 500) liveDevSubs.push(sub);
+            } catch { /* not reachable */ }
+          }
+        }
+        if (liveDevSubs.length > 0) {
+          vulns.push({
+            id: "vuln-dev-subdomains",
+            title: `${liveDevSubs.length} sous-domaine(s) dev/staging accessibles`,
+            severity: "high",
+            category: "Reconnaissance",
+            description: `Environnements de dev/staging accessibles publiquement: ${liveDevSubs.join(", ")}. Peuvent contenir des donnees de test ou fonctionnalites non securisees.`,
+            remediation: "Restreindre l'acces aux environnements de dev/staging par VPN ou IP whitelist.",
+            affectedComponent: "Sous-domaines",
+            cvss: 7.0,
+          });
+        }
+      }
+    }
+  } catch { /* crt.sh unreachable */ }
+  return vulns;
+}
+
+function analyzeEmailSecurity(dnsRecords: DnsRecord[]): VulnCheck[] {
+  const vulns: VulnCheck[] = [];
+  const spf = dnsRecords.find(r => r.type === "SPF");
+  if (spf) {
+    if (spf.value.includes("+all")) {
+      vulns.push({ id: "vuln-spf-permissive", title: "SPF trop permissif (+all)", severity: "critical", category: "Email Security",
+        description: "+all autorise n'importe quel serveur a envoyer des emails au nom du domaine.", remediation: "Changer +all en ~all ou -all.", affectedComponent: "DNS SPF", cvss: 8.0 });
+    } else if (spf.value.includes("?all")) {
+      vulns.push({ id: "vuln-spf-neutral", title: "SPF neutre (?all)", severity: "high", category: "Email Security",
+        description: "?all n'offre aucune protection contre le spoofing.", remediation: "Changer ?all en ~all ou -all.", affectedComponent: "DNS SPF", cvss: 7.0 });
+    }
+  }
+  const dmarc = dnsRecords.find(r => r.type === "DMARC");
+  if (dmarc) {
+    if (dmarc.value.includes("p=none")) {
+      vulns.push({ id: "vuln-dmarc-none", title: "DMARC en mode 'none'", severity: "medium", category: "Email Security",
+        description: "p=none ne rejette pas les emails echouant SPF/DKIM.", remediation: "Passer a p=quarantine puis p=reject.", affectedComponent: "DNS DMARC", cvss: 5.0 });
+    }
+    if (!dmarc.value.includes("rua=")) {
+      vulns.push({ id: "vuln-dmarc-no-rua", title: "DMARC sans rapports (rua)", severity: "low", category: "Email Security",
+        description: "Aucune adresse rua configuree. Pas de rapports sur les tentatives d'usurpation.", remediation: "Ajouter rua=mailto:dmarc@domaine.tld.", affectedComponent: "DNS DMARC" });
+    }
+  }
+  if (!dnsRecords.some(r => r.type === "DKIM")) {
+    vulns.push({ id: "vuln-no-dkim", title: "Aucun DKIM detecte", severity: "medium", category: "Email Security",
+      description: "DKIM signe cryptographiquement les emails pour prouver leur authenticite.", remediation: "Configurer DKIM avec votre fournisseur email.", affectedComponent: "DNS DKIM" });
+  }
+  return vulns;
+}
+
+async function checkTLSDowngrade(hostname: string): Promise<VulnCheck[]> {
+  const vulns: VulnCheck[] = [];
+  const versions: Array<{ min: string; max: string; label: string; sev: "critical" | "high" }> = [
+    { min: "TLSv1", max: "TLSv1", label: "TLS 1.0", sev: "critical" },
+    { min: "TLSv1.1", max: "TLSv1.1", label: "TLS 1.1", sev: "high" },
+  ];
+  for (const v of versions) {
+    try {
+      const accepted = await new Promise<boolean>((resolve) => {
+        const socket = tls.connect({
+          host: hostname, port: 443, servername: hostname,
+          minVersion: v.min as tls.SecureVersion, maxVersion: v.max as tls.SecureVersion,
+          rejectUnauthorized: false, timeout: 5000,
+        }, () => { socket.destroy(); resolve(true); });
+        socket.on("error", () => { socket.destroy(); resolve(false); });
+        socket.on("timeout", () => { socket.destroy(); resolve(false); });
+      });
+      if (accepted) {
+        vulns.push({
+          id: `vuln-tls-downgrade-${v.label.replace(/\s/g, "")}`,
+          title: `Downgrade ${v.label} accepte`,
+          severity: v.sev,
+          category: "Chiffrement",
+          description: `Le serveur accepte ${v.label}, protocole obsolete et vulnerable (POODLE, BEAST). Un attaquant MITM peut forcer un downgrade.`,
+          remediation: `Desactiver ${v.label}. Supporter uniquement TLS 1.2+.`,
+          affectedComponent: "Configuration TLS",
+          cvss: v.sev === "critical" ? 9.1 : 7.5,
+        });
+      }
+    } catch { /* version not supported — good */ }
+  }
+  return vulns;
+}
+
+async function checkSessionSecurity(url: string): Promise<VulnCheck[]> {
+  const vulns: VulnCheck[] = [];
+  try {
+    const res1 = await fetch(url, { headers: { "User-Agent": "ARGOS-SecurityAudit/1.0" }, signal: AbortSignal.timeout(5000) });
+    const cookies1 = res1.headers.getSetCookie?.() || [];
+    const sessionCookies = cookies1.filter(c => /session|sid|token|jwt/i.test(c.split("=")[0]));
+    if (sessionCookies.length > 0) {
+      for (const sc of sessionCookies) {
+        const val = sc.split("=")[1]?.split(";")[0] || "";
+        if (/^eyJ[a-zA-Z0-9_-]+\.eyJ[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+$/.test(val)) {
+          try {
+            const headerB64 = val.split(".")[0];
+            const header = JSON.parse(Buffer.from(headerB64, "base64url").toString());
+            if (header.alg === "none" || header.alg === "None") {
+              vulns.push({ id: "vuln-jwt-alg-none", title: "JWT avec algorithme 'none'", severity: "critical", category: "Session",
+                description: "Le JWT utilise alg:none, permettant de forger des tokens sans signature.", remediation: "Rejeter explicitement alg:none. Forcer un algorithme specifique (RS256, ES256).",
+                affectedComponent: "JWT", cvss: 9.8, cve: "CWE-345" });
+            }
+            if (header.alg === "HS256") {
+              vulns.push({ id: "vuln-jwt-hs256", title: "JWT avec HMAC symetrique (HS256)", severity: "low", category: "Session",
+                description: "HS256 utilise une cle symetrique partagee. Si elle est faible, les tokens peuvent etre forges.", remediation: "Preferer RS256/ES256 (asymetrique). S'assurer que la cle HMAC fait au moins 256 bits.",
+                affectedComponent: "JWT" });
+            }
+          } catch { /* not valid base64 */ }
+        }
+      }
+    }
+  } catch { /* skip */ }
+  try {
+    const origin = new URL(url).origin;
+    const sessionRes = await fetch(`${origin}/api/auth/session`, { headers: { "User-Agent": "ARGOS-SecurityAudit/1.0" }, signal: AbortSignal.timeout(5000) });
+    if (sessionRes.ok) {
+      const body = await sessionRes.text();
+      if (/password|secret_key|private_key|api_secret/i.test(body) && !body.includes("<!DOCTYPE")) {
+        vulns.push({ id: "vuln-session-leak", title: "Endpoint de session expose des secrets", severity: "high", category: "Session",
+          description: "/api/auth/session retourne des informations sensibles.", remediation: "Filtrer les champs sensibles cote serveur.",
+          affectedComponent: "/api/auth/session", cvss: 7.5 });
+      }
+    }
+  } catch { /* skip */ }
   return vulns;
 }
 
@@ -972,10 +1325,26 @@ export async function POST(req: NextRequest) {
     const [appVulns, adminVulns, bruteForceVulns] = await Promise.all([
       checkVulnerabilities(url, html, respHeaders),
       checkAdminPaths(parsedUrl.origin),
-      checkBruteForce(parsedUrl.origin),
+      checkBruteForce(url),
     ]);
 
-    const vulnerabilities: VulnCheck[] = [...appVulns, ...adminVulns, ...bruteForceVulns];
+    const [sqliVulns, ssrfVulns, traversalVulns, redirectVulns, subdomainVulns, tlsDowngradeVulns, sessionVulns] = await Promise.all([
+      checkSQLInjection(parsedUrl.origin),
+      checkSSRF(parsedUrl.origin),
+      checkDirectoryTraversal(parsedUrl.origin),
+      checkOpenRedirect(parsedUrl.origin),
+      checkSubdomainEnum(hostname),
+      parsedUrl.protocol === "https:" ? checkTLSDowngrade(hostname) : Promise.resolve([]),
+      checkSessionSecurity(url),
+    ]);
+
+    const emailVulns = analyzeEmailSecurity(dnsRecords);
+
+    const vulnerabilities: VulnCheck[] = [
+      ...appVulns, ...adminVulns, ...bruteForceVulns,
+      ...sqliVulns, ...ssrfVulns, ...traversalVulns, ...redirectVulns,
+      ...subdomainVulns, ...tlsDowngradeVulns, ...sessionVulns, ...emailVulns,
+    ];
 
     // Port-based vulns — filter out Cloudflare proxy ports
     const dangerousPorts = ports.filter(p => {

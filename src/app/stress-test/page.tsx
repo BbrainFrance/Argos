@@ -3,7 +3,7 @@
 import { useState, useCallback, useRef } from "react";
 import Link from "next/link";
 
-type Phase = "idle" | "bruteforce" | "flood" | "ramp" | "done" | "error";
+type Phase = "idle" | "bruteforce" | "flood" | "ramp" | "slowloris" | "done" | "error";
 
 interface PhaseStats {
   sent: number;
@@ -36,12 +36,20 @@ interface RampStep {
   stats: PhaseStats;
 }
 
+interface SlowlorisResult {
+  totalConnections: number;
+  keptAlive: number;
+  serverCrashed: boolean;
+  avgHoldTime: number;
+}
+
 interface StressReport {
   target: string;
   duration: number;
   bruteForce: BruteForceResult;
   flood: FloodResult[];
   ramp: RampStep[];
+  slowloris: SlowlorisResult | null;
   breakpointReqPerSec: number | null;
   resilienceScore: number;
   recommendations: string[];
@@ -105,7 +113,7 @@ export default function StressTestPage() {
   const [progress, setProgress] = useState<Record<string, number>>({});
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [report, setReport] = useState<StressReport | null>(null);
-  const [activeTab, setActiveTab] = useState<"live" | "bruteforce" | "flood" | "ramp" | "report">("live");
+  const [activeTab, setActiveTab] = useState<"live" | "bruteforce" | "flood" | "ramp" | "slowloris" | "report">("live");
   const abortRef = useRef<AbortController | null>(null);
   const logEndRef = useRef<HTMLDivElement>(null);
 
@@ -215,6 +223,14 @@ export default function StressTestPage() {
       "",
       "───── MONTEE EN CHARGE ─────",
       ...report.ramp.map(r => `${r.reqPerSec} req/s: avg ${r.stats.avgMs}ms, ${r.stats.errors + r.stats.timeouts} erreurs`),
+      "",
+      "───── SLOWLORIS ─────",
+      ...(report.slowloris ? [
+        `Connexions: ${report.slowloris.totalConnections}`,
+        `Keep-alive envoyes: ${report.slowloris.keptAlive}`,
+        `Duree moyenne: ${report.slowloris.avgHoldTime}ms`,
+        `Serveur: ${report.slowloris.serverCrashed ? "DEGRADE" : "OK"}`,
+      ] : ["Non execute"]),
       "",
       "───── RECOMMANDATIONS ─────",
       ...report.recommendations.map((r, i) => `${i + 1}. ${r}`),
@@ -358,10 +374,10 @@ export default function StressTestPage() {
             {/* Phase progress */}
             {isRunning && (
               <div className="space-y-2 pt-2 border-t border-argos-border/20">
-                {(["bruteforce", "flood", "ramp"] as const).map(p => (
+                {(["bruteforce", "flood", "ramp", "slowloris"] as const).map(p => (
                   <div key={p} className="space-y-1">
                     <div className="flex justify-between text-[8px] font-mono">
-                      <span className={phase === p ? "text-red-400" : "text-argos-text-dim"}>{p === "bruteforce" ? "BRUTE FORCE" : p === "flood" ? "FLOOD" : "MONTEE EN CHARGE"}</span>
+                      <span className={phase === p ? "text-red-400" : "text-argos-text-dim"}>{p === "bruteforce" ? "BRUTE FORCE" : p === "flood" ? "FLOOD" : p === "slowloris" ? "SLOWLORIS" : "MONTEE EN CHARGE"}</span>
                       <span>{progress[p] ?? 0}%</span>
                     </div>
                     <div className="w-full h-1 bg-argos-panel rounded-full overflow-hidden">
@@ -442,6 +458,7 @@ export default function StressTestPage() {
                     { id: "bruteforce" as const, label: "BRUTE FORCE", icon: "🔐" },
                     { id: "flood" as const, label: "FLOOD", icon: "🌊" },
                     { id: "ramp" as const, label: "MONTEE EN CHARGE", icon: "📈" },
+                    { id: "slowloris" as const, label: "SLOWLORIS", icon: "🐌" },
                     { id: "report" as const, label: "RAPPORT", icon: "📄" },
                   ] : []),
                 ]).map(tab => (
@@ -619,6 +636,52 @@ export default function StressTestPage() {
                         </div>
                       ))}
                     </div>
+                  </div>
+                )}
+
+                {/* Slowloris tab */}
+                {activeTab === "slowloris" && report && (
+                  <div className="space-y-4">
+                    <h3 className="text-sm font-bold text-purple-400 mb-2">Phase 4 — Slowloris (connexions lentes)</h3>
+                    <p className="text-[9px] text-argos-text-dim leading-relaxed">
+                      Le test Slowloris ouvre des connexions HTTP partielles vers le serveur et les maintient ouvertes le plus longtemps possible,
+                      sans jamais terminer la requete. L&apos;objectif est d&apos;epuiser le pool de connexions du serveur.
+                    </p>
+                    {report.slowloris ? (
+                      <div className="space-y-3">
+                        <div className="grid grid-cols-4 gap-3">
+                          <div className="bg-argos-surface border border-argos-border/20 rounded-lg p-3 text-center">
+                            <p className="text-lg font-bold text-purple-400">{report.slowloris.totalConnections}</p>
+                            <p className="text-[8px] text-argos-text-dim">CONNEXIONS</p>
+                          </div>
+                          <div className="bg-argos-surface border border-argos-border/20 rounded-lg p-3 text-center">
+                            <p className="text-lg font-bold text-purple-400">{report.slowloris.keptAlive}</p>
+                            <p className="text-[8px] text-argos-text-dim">KEEP-ALIVE</p>
+                          </div>
+                          <div className="bg-argos-surface border border-argos-border/20 rounded-lg p-3 text-center">
+                            <p className="text-lg font-bold text-purple-400">{report.slowloris.avgHoldTime}ms</p>
+                            <p className="text-[8px] text-argos-text-dim">DUREE MOY.</p>
+                          </div>
+                          <div className={`bg-argos-surface border rounded-lg p-3 text-center ${report.slowloris.serverCrashed ? "border-red-500/30" : "border-green-500/30"}`}>
+                            <p className={`text-lg font-bold ${report.slowloris.serverCrashed ? "text-red-400" : "text-green-400"}`}>
+                              {report.slowloris.serverCrashed ? "DEGRADE" : "OK"}
+                            </p>
+                            <p className="text-[8px] text-argos-text-dim">SERVEUR</p>
+                          </div>
+                        </div>
+                        <div className={`p-3 rounded border ${report.slowloris.serverCrashed ? "border-red-500/30 bg-red-500/5" : "border-green-500/30 bg-green-500/5"}`}>
+                          <p className={`text-[10px] font-bold ${report.slowloris.serverCrashed ? "text-red-400" : "text-green-400"}`}>
+                            {report.slowloris.serverCrashed
+                              ? `Le serveur a montre des signes de degradation apres ${report.slowloris.totalConnections} connexions lentes. Vulnerable au Slowloris.`
+                              : `Le serveur a resiste a ${report.slowloris.totalConnections} connexions lentes sans degradation. Protection anti-Slowloris en place.`}
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="bg-argos-surface border border-argos-border/20 rounded-lg p-6 text-center">
+                        <p className="text-argos-text-dim text-sm">Test Slowloris non execute</p>
+                      </div>
+                    )}
                   </div>
                 )}
 

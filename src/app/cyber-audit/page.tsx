@@ -113,7 +113,7 @@ export default function CyberAuditPage() {
   const [progress, setProgress] = useState(0);
   const [result, setResult] = useState<ScanResult | null>(null);
   const [expandedVuln, setExpandedVuln] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"overview" | "vulns" | "headers" | "ports" | "dns" | "tls" | "cookies" | "compliance" | "auth">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "vulns" | "headers" | "ports" | "dns" | "tls" | "cookies" | "compliance" | "auth" | "injections" | "email" | "subdomains">("overview");
   const [history, setHistory] = useState<ScanResult[]>([]);
 
   const startScan = useCallback(async () => {
@@ -445,10 +445,13 @@ export default function CyberAuditPage() {
                 {([
                   { id: "overview", label: "VUE GENERALE", icon: "📊" },
                   { id: "vulns", label: `VULNS (${result.vulnerabilities.length})`, icon: "⚠️" },
+                  { id: "injections", label: "INJECTIONS", icon: "💉" },
                   { id: "headers", label: "HEADERS", icon: "🌐" },
                   { id: "ports", label: `PORTS (${result.ports.length})`, icon: "🔌" },
                   { id: "tls", label: "TLS/SSL", icon: "🔒" },
                   { id: "dns", label: `DNS (${result.dnsRecords.length})`, icon: "📡" },
+                  { id: "email", label: "EMAIL", icon: "📧" },
+                  { id: "subdomains", label: "SUBDOMAINS", icon: "🔎" },
                   { id: "cookies", label: `COOKIES (${result.cookies.length})`, icon: "🍪" },
                   { id: "auth", label: "AUTH / BRUTE FORCE", icon: "🔐" },
                   { id: "compliance", label: "CONFORMITE", icon: "📋" },
@@ -775,6 +778,167 @@ export default function CyberAuditPage() {
                     ))}
                   </div>
                 )}
+
+                {activeTab === "injections" && (() => {
+                  const injectionCats = ["Injection", "SSRF", "Traversal", "Redirection", "CSRF", "Session"];
+                  const injVulns = result.vulnerabilities.filter(v => injectionCats.includes(v.category));
+                  return (
+                    <div className="space-y-4">
+                      <div className="bg-argos-surface border border-argos-border/20 rounded-lg p-4">
+                        <div className="flex items-center gap-3 mb-4">
+                          <span className="text-2xl">💉</span>
+                          <div>
+                            <p className="text-sm font-bold">Tests d&apos;injection et vulns applicatives</p>
+                            <p className="text-[9px] text-argos-text-dim mt-0.5">{injVulns.length} resultat(s) — SQL Injection, XSS, SSRF, Directory Traversal, Open Redirect, CSRF, Session</p>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-3 gap-2 text-[9px]">
+                          {injectionCats.map(cat => {
+                            const count = injVulns.filter(v => v.category === cat).length;
+                            const hasCrit = injVulns.some(v => v.category === cat && (v.severity === "critical" || v.severity === "high"));
+                            return (
+                              <div key={cat} className={`px-2 py-1.5 rounded border text-center ${hasCrit ? "border-red-500/30 bg-red-500/5 text-red-400" : count > 0 ? "border-yellow-500/30 bg-yellow-500/5 text-yellow-400" : "border-green-500/30 bg-green-500/5 text-green-400"}`}>
+                                <span className="font-bold">{count}</span> {cat}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                      {injVulns.length === 0 ? (
+                        <div className="bg-argos-surface border border-green-500/20 rounded-lg p-6 text-center">
+                          <span className="text-2xl">✅</span>
+                          <p className="text-green-400 text-sm mt-2 font-bold">Aucune injection detectee</p>
+                          <p className="text-[9px] text-argos-text-dim mt-1">Les tests SQL Injection, XSS, SSRF, Directory Traversal et Open Redirect n&apos;ont pas revele de vulnerabilite.</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          {injVulns.map(v => (
+                            <div key={v.id} className={`border rounded-lg ${SEVERITY_COLORS[v.severity]}`}>
+                              <button onClick={() => setExpandedVuln(expandedVuln === v.id ? null : v.id)} className="w-full text-left p-4 flex items-center gap-3 cursor-pointer">
+                                <span className={`text-[8px] font-bold px-2 py-1 rounded ${SEVERITY_BADGE[v.severity]}`}>{v.severity.toUpperCase()}</span>
+                                <span className="flex-1 text-[11px] font-medium">{v.title}</span>
+                                <span className="text-[9px] text-argos-text-dim">{v.category}</span>
+                                {v.cvss && <span className="text-[8px] bg-argos-panel px-1.5 py-0.5 rounded">CVSS {v.cvss}</span>}
+                                <span className="text-argos-text-dim text-xs">{expandedVuln === v.id ? "▲" : "▼"}</span>
+                              </button>
+                              {expandedVuln === v.id && (
+                                <div className="px-4 pb-4 pt-0 border-t border-argos-border/10 space-y-3">
+                                  <p className="text-[10px] text-argos-text-dim leading-relaxed pt-3">{v.description}</p>
+                                  <div className="bg-green-500/5 border border-green-500/20 rounded p-3">
+                                    <p className="text-[8px] text-green-400 uppercase tracking-wider mb-1">Remediation</p>
+                                    <p className="text-[10px] text-green-300/80 leading-relaxed">{v.remediation}</p>
+                                  </div>
+                                  <div className="flex gap-4 text-[9px] text-argos-text-dim">
+                                    <span>Composant: {v.affectedComponent}</span>
+                                    {v.cve && <span>{v.cve}</span>}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                {activeTab === "email" && (() => {
+                  const emailVulns = result.vulnerabilities.filter(v => v.category === "Email Security" || v.category === "DNS/Email");
+                  const hasSPF = result.dnsRecords.some(r => r.type === "SPF");
+                  const hasDMARC = result.dnsRecords.some(r => r.type === "DMARC");
+                  const hasDKIM = result.dnsRecords.some(r => r.type === "DKIM");
+                  return (
+                    <div className="space-y-4">
+                      <div className="bg-argos-surface border border-argos-border/20 rounded-lg p-4">
+                        <div className="flex items-center gap-3 mb-4">
+                          <span className="text-2xl">📧</span>
+                          <div>
+                            <p className="text-sm font-bold">Securite Email — Anti-spoofing</p>
+                            <p className="text-[9px] text-argos-text-dim mt-0.5">Analyse SPF, DKIM, DMARC — protection contre l&apos;usurpation d&apos;email</p>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-3 gap-3">
+                          <div className={`p-3 rounded border text-center ${hasSPF ? "border-green-500/30 bg-green-500/5" : "border-red-500/30 bg-red-500/5"}`}>
+                            <p className={`text-lg font-bold ${hasSPF ? "text-green-400" : "text-red-400"}`}>{hasSPF ? "✓" : "✗"}</p>
+                            <p className="text-[9px] font-bold">SPF</p>
+                          </div>
+                          <div className={`p-3 rounded border text-center ${hasDKIM ? "border-green-500/30 bg-green-500/5" : "border-yellow-500/30 bg-yellow-500/5"}`}>
+                            <p className={`text-lg font-bold ${hasDKIM ? "text-green-400" : "text-yellow-400"}`}>{hasDKIM ? "✓" : "?"}</p>
+                            <p className="text-[9px] font-bold">DKIM</p>
+                          </div>
+                          <div className={`p-3 rounded border text-center ${hasDMARC ? "border-green-500/30 bg-green-500/5" : "border-red-500/30 bg-red-500/5"}`}>
+                            <p className={`text-lg font-bold ${hasDMARC ? "text-green-400" : "text-red-400"}`}>{hasDMARC ? "✓" : "✗"}</p>
+                            <p className="text-[9px] font-bold">DMARC</p>
+                          </div>
+                        </div>
+                      </div>
+                      {result.dnsRecords.filter(r => ["SPF", "DMARC", "DKIM"].includes(r.type)).map((r, i) => (
+                        <div key={i} className="bg-argos-surface border border-argos-border/20 rounded-lg p-3">
+                          <span className="text-[9px] font-bold px-2 py-0.5 rounded bg-green-500/10 text-green-400 border border-green-500/20">{r.type}</span>
+                          <p className="text-[10px] text-argos-text-dim mt-2 break-all font-mono">{r.value}</p>
+                        </div>
+                      ))}
+                      {emailVulns.length > 0 && (
+                        <div className="space-y-2">
+                          <p className="text-[9px] text-argos-text-dim tracking-wider uppercase">Problemes detectes</p>
+                          {emailVulns.map(v => (
+                            <div key={v.id} className={`border rounded-lg p-3 ${SEVERITY_COLORS[v.severity]}`}>
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded ${SEVERITY_BADGE[v.severity]}`}>{v.severity.toUpperCase()}</span>
+                                <span className="text-[10px] font-bold">{v.title}</span>
+                              </div>
+                              <p className="text-[9px] text-argos-text-dim">{v.description}</p>
+                              <p className="text-[9px] text-green-400/80 mt-1">→ {v.remediation}</p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                {activeTab === "subdomains" && (() => {
+                  const subVulns = result.vulnerabilities.filter(v => v.category === "Reconnaissance");
+                  const enumResult = subVulns.find(v => v.id === "vuln-subdomain-enum");
+                  const devSubs = subVulns.find(v => v.id === "vuln-dev-subdomains");
+                  return (
+                    <div className="space-y-4">
+                      <div className="bg-argos-surface border border-argos-border/20 rounded-lg p-4">
+                        <div className="flex items-center gap-3 mb-3">
+                          <span className="text-2xl">🔎</span>
+                          <div>
+                            <p className="text-sm font-bold">Enumeration de sous-domaines</p>
+                            <p className="text-[9px] text-argos-text-dim mt-0.5">Via Certificate Transparency (crt.sh) — detection de sous-domaines de dev/staging exposes</p>
+                          </div>
+                        </div>
+                      </div>
+                      {enumResult ? (
+                        <div className="bg-argos-surface border border-argos-border/20 rounded-lg p-4">
+                          <p className="text-[10px] font-bold mb-2">{enumResult.title}</p>
+                          <div className="flex flex-wrap gap-1 max-h-48 overflow-y-auto">
+                            {enumResult.description.replace(/^.*?:\s*/, "").split(", ").map((sub, i) => (
+                              <span key={i} className="text-[9px] bg-argos-accent/10 text-argos-accent px-2 py-0.5 rounded">{sub}</span>
+                            ))}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="bg-argos-surface border border-argos-border/20 rounded-lg p-6 text-center">
+                          <p className="text-argos-text-dim text-sm">Aucun sous-domaine detecte ou service crt.sh indisponible</p>
+                        </div>
+                      )}
+                      {devSubs && (
+                        <div className="bg-argos-surface border border-red-500/20 rounded-lg p-4">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className={`text-[8px] font-bold px-2 py-1 rounded ${SEVERITY_BADGE[devSubs.severity]}`}>{devSubs.severity.toUpperCase()}</span>
+                            <span className="text-[11px] font-bold text-red-400">{devSubs.title}</span>
+                          </div>
+                          <p className="text-[10px] text-argos-text-dim">{devSubs.description}</p>
+                          <p className="text-[9px] text-green-400/80 mt-2">→ {devSubs.remediation}</p>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 {activeTab === "auth" && (() => {
                   const authVulns = result.vulnerabilities.filter(v => v.category === "Authentification");
