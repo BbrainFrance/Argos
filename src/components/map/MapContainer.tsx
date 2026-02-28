@@ -119,6 +119,7 @@ export default function MapContainer({
           cyberThreats={cyberThreats}
           userLocation={userLocation}
           geoRadius={geoRadius}
+          onSelectMapItem={onSelectMapItem}
         />
       ) : (
         <DeckGLMap

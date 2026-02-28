@@ -206,6 +206,7 @@ interface ThreeGlobeProps {
   cyberThreats?: CyberThreat[];
   userLocation?: { lat: number; lng: number } | null;
   geoRadius?: number;
+  onSelectMapItem?: (item: import("@/components/dashboard/MapItemDetail").MapItem) => void;
 }
 
 function getEntityColor(entity: Entity, selectedId: string | null): [number, number, number, number] {
@@ -247,12 +248,16 @@ export default function ThreeGlobe({
   cyberThreats = [],
   userLocation,
   geoRadius = 20,
+  onSelectMapItem,
 }: ThreeGlobeProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<Viewer | null>(null);
   const entityMapRef = useRef<Map<string, Entity>>(new Map());
+  const eventMapRef = useRef<Map<string, { type: string; data: unknown }>>(new Map());
   const onSelectRef = useRef(onSelectEntity);
   onSelectRef.current = onSelectEntity;
+  const onSelectMapItemRef = useRef(onSelectMapItem);
+  onSelectMapItemRef.current = onSelectMapItem;
   const [ready, setReady] = useState(false);
 
   // ─── overlay state ───
@@ -392,9 +397,19 @@ export default function ThreeGlobe({
     const handler = new ScreenSpaceEventHandler(viewer.scene.canvas);
     handler.setInputAction((movement: { position: Cartesian2 }) => {
       const picked = viewer.scene.pick(movement.position);
-      if (defined(picked) && picked.id && picked.id._argosId) {
-        const entity = entityMapRef.current.get(picked.id._argosId);
-        if (entity) onSelectRef.current(entity);
+      if (defined(picked) && picked.id) {
+        const id = picked.id._argosId;
+        if (id) {
+          const entity = entityMapRef.current.get(id);
+          if (entity) { onSelectRef.current(entity); return; }
+        }
+        const eventId = picked.id._argosEventId;
+        if (eventId) {
+          const ev = eventMapRef.current.get(eventId);
+          if (ev && onSelectMapItemRef.current) {
+            onSelectMapItemRef.current({ type: ev.type, data: ev.data } as import("@/components/dashboard/MapItemDetail").MapItem);
+          }
+        }
       }
     }, ScreenSpaceEventType.LEFT_CLICK);
 
@@ -423,6 +438,7 @@ export default function ThreeGlobe({
 
     viewer.entities.removeAll();
     entityMapRef.current.clear();
+    eventMapRef.current.clear();
 
     for (const e of entities.filter(e => e.position && (e.type === "aircraft" || e.type === "vessel"))) {
       const [r, g, b, a] = getEntityColor(e, selectedEntityId);
@@ -545,7 +561,9 @@ export default function ThreeGlobe({
 
     for (const ev of conflictEvents) {
       const isExplosion = ev.eventType === "battles" || ev.eventType === "explosions";
-      viewer.entities.add({
+      const icons: Record<string, string> = { battles: "⚔️", explosions: "💥", protests: "✊", riots: "🔥", violence_against_civilians: "🎯", strategic_developments: "📡" };
+      const evId = `conflict-${ev.lat}-${ev.lng}-${ev.eventType}`;
+      const cesiumEv = viewer.entities.add({
         position: Cartesian3.fromDegrees(ev.lng, ev.lat, 50),
         point: {
           pixelSize: isExplosion ? 8 : 6,
@@ -555,7 +573,7 @@ export default function ThreeGlobe({
           scaleByDistance: new NearFarScalar(1000, 2, 500000, 0.5),
         },
         label: {
-          text: `💥 ${ev.actor1}${ev.fatalities > 0 ? ` (${ev.fatalities})` : ""}`,
+          text: `${icons[ev.eventType] || "💥"} ${ev.actor1}${ev.fatalities > 0 ? ` (${ev.fatalities})` : ""}`,
           font: "9px monospace",
           fillColor: Color.fromCssColorString("#ff6666"),
           outlineColor: Color.BLACK, outlineWidth: 2,
@@ -565,10 +583,13 @@ export default function ThreeGlobe({
           scaleByDistance: new NearFarScalar(1000, 1, 200000, 0),
         },
       });
+      (cesiumEv as unknown as Record<string, unknown>)._argosEventId = evId;
+      eventMapRef.current.set(evId, { type: "conflict", data: ev });
     }
 
     for (const f of fireHotspots) {
-      viewer.entities.add({
+      const fId = `fire-${f.lat}-${f.lng}`;
+      const cesiumF = viewer.entities.add({
         position: Cartesian3.fromDegrees(f.lng, f.lat, 30),
         point: {
           pixelSize: Math.min(4 + f.frp / 10, 12),
@@ -578,12 +599,15 @@ export default function ThreeGlobe({
           scaleByDistance: new NearFarScalar(1000, 2, 500000, 0.3),
         },
       });
+      (cesiumF as unknown as Record<string, unknown>)._argosEventId = fId;
+      eventMapRef.current.set(fId, { type: "fire", data: f });
     }
 
     for (const d of naturalDisasters) {
       const icons: Record<string, string> = { earthquake: "🌍", flood: "🌊", cyclone: "🌀", volcano: "🌋", wildfire: "🔥", tsunami: "🌊", drought: "☀" };
       const colors: Record<string, string> = { red: "#ff0000", orange: "#ff8800", green: "#00cc66" };
-      viewer.entities.add({
+      const dId = `disaster-${d.lat}-${d.lng}-${d.eventType}`;
+      const cesiumD = viewer.entities.add({
         position: Cartesian3.fromDegrees(d.lng, d.lat, 80),
         point: {
           pixelSize: 10,
@@ -603,11 +627,14 @@ export default function ThreeGlobe({
           scaleByDistance: new NearFarScalar(1000, 1, 300000, 0),
         },
       });
+      (cesiumD as unknown as Record<string, unknown>)._argosEventId = dId;
+      eventMapRef.current.set(dId, { type: "disaster", data: d });
     }
 
     for (const c of cyberThreats) {
       if (c.lat == null || c.lng == null) continue;
-      viewer.entities.add({
+      const cId = `cyber-${c.lat}-${c.lng}-${c.threatCategory}`;
+      const cesiumC = viewer.entities.add({
         position: Cartesian3.fromDegrees(c.lng!, c.lat!, 40),
         point: {
           pixelSize: 5,
@@ -616,6 +643,8 @@ export default function ThreeGlobe({
           scaleByDistance: new NearFarScalar(1000, 1.5, 500000, 0.3),
         },
       });
+      (cesiumC as unknown as Record<string, unknown>)._argosEventId = cId;
+      eventMapRef.current.set(cId, { type: "cyber", data: c });
     }
 
     if (userLocation) {
@@ -814,47 +843,37 @@ export default function ThreeGlobe({
           )}
         </div>
 
-        {/* ═══ CCTV PANEL (left side, below data layers) ═══ */}
+        {/* ═══ CCTV PANEL (compact dropdown) ═══ */}
         {showCCTV && (
-          <div className="absolute top-40 left-64 z-50 bg-black/95 border border-cyan-900/40 p-3 w-64" style={{ pointerEvents: "auto", maxHeight: "calc(100vh - 200px)", overflowY: "auto" }}>
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-[10px] font-mono text-cyan-300 tracking-wider">📹 CCTV</p>
+          <div className="absolute top-40 left-64 z-50 bg-black/95 border border-cyan-900/40 p-3 w-64" style={{ pointerEvents: "auto" }}>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-[10px] font-mono text-cyan-300 tracking-wider">📹 CCTV ({CCTV_CAMERAS.length})</p>
               <button onClick={() => { setShowCCTV(false); setSelectedCCTV(null); }} className="text-cyan-600/50 hover:text-cyan-300 text-xs cursor-pointer">✕</button>
             </div>
 
-            {CCTV_CAMERAS.length === 0 ? (
-              <p className="text-[8px] font-mono text-cyan-600/40">Aucune camera disponible</p>
-            ) : (
-              <div className="space-y-1">
-                {CCTV_CAMERAS.map(cam => (
-                  <button
-                    key={cam.id}
-                    onClick={() => {
-                      setSelectedCCTV(prev => prev?.id === cam.id ? null : cam);
-                      const v = viewerRef.current;
-                      if (v && !v.isDestroyed()) {
-                        v.camera.flyTo({
-                          destination: Cartesian3.fromDegrees(cam.lng, cam.lat, 300),
-                          orientation: { heading: CesiumMath.toRadians(cam.hdg), pitch: CesiumMath.toRadians(-40), roll: 0 },
-                          duration: 1.5,
-                        });
-                      }
-                    }}
-                    className={`w-full text-left px-2 py-1.5 flex items-center gap-2 cursor-pointer border ${
-                      selectedCCTV?.id === cam.id
-                        ? "bg-cyan-500/20 border-cyan-400/50"
-                        : "border-transparent hover:bg-cyan-900/20"
-                    }`}
-                  >
-                    <span className={`w-2 h-2 rounded-full ${selectedCCTV?.id === cam.id ? "bg-cyan-300 animate-pulse" : cam.sourceUrl ? "bg-green-600" : "bg-cyan-700"}`} />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[9px] font-mono text-cyan-300/90 truncate">{cam.name}</p>
-                      <p className="text-[7px] font-mono text-cyan-600/40">{cam.city} | HDG {cam.hdg}°</p>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
+            <select
+              value={selectedCCTV?.id || ""}
+              onChange={(e) => {
+                const cam = CCTV_CAMERAS.find(c => c.id === e.target.value) || null;
+                setSelectedCCTV(cam);
+                if (cam) {
+                  const v = viewerRef.current;
+                  if (v && !v.isDestroyed()) {
+                    v.camera.flyTo({
+                      destination: Cartesian3.fromDegrees(cam.lng, cam.lat, 300),
+                      orientation: { heading: CesiumMath.toRadians(cam.hdg), pitch: CesiumMath.toRadians(-40), roll: 0 },
+                      duration: 1.5,
+                    });
+                  }
+                }
+              }}
+              className="w-full bg-cyan-900/20 border border-cyan-800/40 text-cyan-300 text-[9px] font-mono px-2 py-1.5 rounded focus:outline-none focus:border-cyan-400/50"
+            >
+              <option value="">-- Selectionner une camera --</option>
+              {CCTV_CAMERAS.map(cam => (
+                <option key={cam.id} value={cam.id}>{cam.city} — {cam.name}</option>
+              ))}
+            </select>
 
             {selectedCCTV && (
               <div className="mt-3 pt-3 border-t border-cyan-400/30 space-y-2">

@@ -343,20 +343,34 @@ async function checkVulnerabilities(url: string, html: string, headers: Headers)
     }
   } catch { /* test failed, not necessarily safe */ }
 
-  // CSRF check
+  // CSRF check — detect both classic token and modern cookie-based protection
   const hasCsrfToken = html.includes("csrf") || html.includes("_token") || html.includes("authenticity_token") || html.includes("__RequestVerificationToken");
+  const hasCsrfCookie = html.includes("csrf-token") || html.includes("__Host-next-auth.csrf") || html.includes("XSRF-TOKEN");
+  const hasSameSiteCookies = headers.get("set-cookie")?.toLowerCase().includes("samesite=lax") || headers.get("set-cookie")?.toLowerCase().includes("samesite=strict");
+  const hasCspFormAction = (headers.get("content-security-policy") || "").includes("form-action");
+  const hasModernCsrf = hasCsrfCookie || hasSameSiteCookies || hasCspFormAction;
   const forms = (html.match(/<form[^>]*>/gi) || []);
-  const hasFormsWithoutCsrf = forms.length > 0 && !hasCsrfToken;
+  const hasFormsWithoutCsrf = forms.length > 0 && !hasCsrfToken && !hasModernCsrf;
   if (hasFormsWithoutCsrf) {
     vulns.push({
       id: "vuln-csrf-missing",
       title: "Protection CSRF absente sur les formulaires",
       severity: "high",
       category: "CSRF",
-      description: `${forms.length} formulaire(s) detecte(s) sans token CSRF visible. Les actions utilisateur pourraient etre forgees par un site tiers.`,
-      remediation: "Implementer des tokens CSRF sur tous les formulaires. Utiliser SameSite=Strict sur les cookies de session.",
+      description: `${forms.length} formulaire(s) detecte(s) sans token CSRF visible ni protection cookie-based (SameSite, CSP form-action). Les actions utilisateur pourraient etre forgees.`,
+      remediation: "Implementer des tokens CSRF ou utiliser SameSite=Strict + CSP form-action 'self'.",
       affectedComponent: "Formulaires",
       cvss: 6.5,
+    });
+  } else if (forms.length > 0 && !hasCsrfToken && hasModernCsrf) {
+    vulns.push({
+      id: "vuln-csrf-modern",
+      title: "Protection CSRF via cookies (methode moderne)",
+      severity: "info",
+      category: "CSRF",
+      description: `${forms.length} formulaire(s) detecte(s). Pas de token CSRF classique, mais protection assuree par SameSite cookies et/ou CSP form-action.`,
+      remediation: "Aucune action requise — protection moderne en place.",
+      affectedComponent: "Formulaires",
     });
   }
 
@@ -474,6 +488,173 @@ async function checkAdminPaths(baseUrl: string): Promise<VulnCheck[]> {
       affectedComponent: "Endpoints",
     });
   }
+
+  return vulns;
+}
+
+const CLOUDFLARE_PORTS = new Set([80, 443, 2052, 2053, 2082, 2083, 2086, 2087, 2095, 2096, 8080, 8443]);
+
+function isCloudflare(serverHeader: string | undefined, headers: Headers): boolean {
+  if (serverHeader?.toLowerCase().includes("cloudflare")) return true;
+  if (headers.has("cf-ray") || headers.has("cf-cache-status")) return true;
+  return false;
+}
+
+async function checkBruteForce(baseUrl: string): Promise<VulnCheck[]> {
+  const vulns: VulnCheck[] = [];
+  const loginPaths = ["/login", "/signin", "/auth/login", "/wp-login.php", "/admin/login", "/user/login", "/api/auth/signin"];
+  let loginUrl: string | null = null;
+  let loginStatus = 0;
+
+  for (const path of loginPaths) {
+    try {
+      const res = await fetch(`${baseUrl}${path}`, {
+        method: "HEAD",
+        redirect: "manual",
+        headers: { "User-Agent": "ARGOS-SecurityAudit/1.0" },
+        signal: AbortSignal.timeout(4000),
+      });
+      if (res.status === 200 || res.status === 302 || res.status === 301) {
+        loginUrl = `${baseUrl}${path}`;
+        loginStatus = res.status;
+        break;
+      }
+    } catch { /* not found */ }
+  }
+
+  if (!loginUrl) return vulns;
+
+  // Test rate limiting with rapid requests
+  let blocked = false;
+  let rateLimitHeader: string | null = null;
+  const rapidResults: number[] = [];
+
+  for (let i = 0; i < 6; i++) {
+    try {
+      const res = await fetch(loginUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          "User-Agent": "ARGOS-SecurityAudit/1.0",
+        },
+        body: "username=admin&password=wrongpassword123",
+        redirect: "manual",
+        signal: AbortSignal.timeout(4000),
+      });
+      rapidResults.push(res.status);
+      if (res.status === 429 || res.status === 403) {
+        blocked = true;
+        rateLimitHeader = res.headers.get("retry-after") || res.headers.get("x-ratelimit-remaining");
+        break;
+      }
+    } catch {
+      blocked = true;
+      break;
+    }
+  }
+
+  if (!blocked) {
+    vulns.push({
+      id: "vuln-no-rate-limit",
+      title: "Absence de rate limiting sur l'authentification",
+      severity: "high",
+      category: "Authentification",
+      description: `Le formulaire de connexion (${loginUrl}) accepte ${rapidResults.length} tentatives rapides sans blocage (codes: ${rapidResults.join(", ")}). Vulnerable au brute force.`,
+      remediation: "Implementer un rate limiting (ex: 5 tentatives / minute). Ajouter un CAPTCHA apres 3 echecs. Considerer fail2ban cote serveur.",
+      affectedComponent: "Systeme d'authentification",
+      cvss: 7.5,
+    });
+  } else {
+    vulns.push({
+      id: "vuln-rate-limit-ok",
+      title: "Rate limiting detecte sur l'authentification",
+      severity: "info",
+      category: "Authentification",
+      description: `Le systeme a bloque les tentatives rapides apres ${rapidResults.length} requete(s).${rateLimitHeader ? ` Header: ${rateLimitHeader}` : ""} Protection anti-brute-force active.`,
+      remediation: "Aucune action requise.",
+      affectedComponent: "Systeme d'authentification",
+    });
+  }
+
+  // Check for account enumeration
+  try {
+    const res1 = await fetch(loginUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded", "User-Agent": "ARGOS-SecurityAudit/1.0" },
+      body: "username=admin&password=wrongpassword",
+      redirect: "manual",
+      signal: AbortSignal.timeout(5000),
+    });
+    const body1 = await res1.text();
+
+    const res2 = await fetch(loginUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded", "User-Agent": "ARGOS-SecurityAudit/1.0" },
+      body: "username=nonexistent_user_xyz_1234&password=wrongpassword",
+      redirect: "manual",
+      signal: AbortSignal.timeout(5000),
+    });
+    const body2 = await res2.text();
+
+    if (body1.length !== body2.length && Math.abs(body1.length - body2.length) > 20) {
+      vulns.push({
+        id: "vuln-user-enumeration",
+        title: "Enumeration de comptes possible",
+        severity: "medium",
+        category: "Authentification",
+        description: "Les reponses d'echec de connexion different selon que le nom d'utilisateur existe ou non. Un attaquant peut deviner les comptes valides.",
+        remediation: "Utiliser un message generique identique: 'Identifiants incorrects' que le compte existe ou non.",
+        affectedComponent: "Formulaire de connexion",
+        cvss: 5.3,
+      });
+    }
+  } catch { /* could not test */ }
+
+  // Check login page for security features
+  try {
+    const loginRes = await fetch(loginUrl, {
+      headers: { "User-Agent": "Mozilla/5.0" },
+      signal: AbortSignal.timeout(5000),
+    });
+    const loginHtml = await loginRes.text();
+
+    const hasCaptcha = /captcha|recaptcha|hcaptcha|turnstile|g-recaptcha/i.test(loginHtml);
+    const hasMFA = /(?:two.?factor|2fa|mfa|otp|authenticator|verification.?code)/i.test(loginHtml);
+
+    if (!hasCaptcha) {
+      vulns.push({
+        id: "vuln-no-captcha",
+        title: "Absence de CAPTCHA sur le formulaire de connexion",
+        severity: "medium",
+        category: "Authentification",
+        description: "Aucun CAPTCHA detecte sur la page de connexion. Facilite les attaques automatisees.",
+        remediation: "Ajouter un CAPTCHA (reCAPTCHA v3, hCaptcha, Cloudflare Turnstile) sur le formulaire de connexion.",
+        affectedComponent: "Formulaire de connexion",
+      });
+    } else {
+      vulns.push({
+        id: "vuln-captcha-ok",
+        title: "CAPTCHA detecte sur la connexion",
+        severity: "info",
+        category: "Authentification",
+        description: "Un systeme CAPTCHA est en place sur la page de connexion.",
+        remediation: "Aucune action requise.",
+        affectedComponent: "Formulaire de connexion",
+      });
+    }
+
+    if (hasMFA) {
+      vulns.push({
+        id: "vuln-mfa-detected",
+        title: "Authentification multi-facteurs detectee",
+        severity: "info",
+        category: "Authentification",
+        description: "Le systeme semble supporter l'authentification a deux facteurs (2FA/MFA).",
+        remediation: "Aucune action requise — bonne pratique.",
+        affectedComponent: "Systeme d'authentification",
+      });
+    }
+  } catch { /* could not check login page */ }
 
   return vulns;
 }
@@ -670,26 +851,49 @@ export async function POST(req: NextRequest) {
     const cookies = parseCookies(rawCookies);
 
     // ─── Phase 5: Vulnerability checks ───
-    const [appVulns, adminVulns] = await Promise.all([
+    const cfDetected = isCloudflare(respHeaders.get("server") || undefined, respHeaders);
+
+    const [appVulns, adminVulns, bruteForceVulns] = await Promise.all([
       checkVulnerabilities(url, html, respHeaders),
       checkAdminPaths(parsedUrl.origin),
+      checkBruteForce(parsedUrl.origin),
     ]);
 
-    const vulnerabilities: VulnCheck[] = [...appVulns, ...adminVulns];
+    const vulnerabilities: VulnCheck[] = [...appVulns, ...adminVulns, ...bruteForceVulns];
 
-    // Port-based vulns
-    const dangerousPorts = ports.filter(p => p.risk === "critical" && p.port !== 80 && p.port !== 443);
+    // Port-based vulns — filter out Cloudflare proxy ports
+    const dangerousPorts = ports.filter(p => {
+      if (p.port === 80 || p.port === 443) return false;
+      if (cfDetected && CLOUDFLARE_PORTS.has(p.port)) return false;
+      return p.risk === "critical" || p.risk === "high";
+    });
     for (const dp of dangerousPorts) {
       vulnerabilities.push({
         id: `vuln-port-${dp.port}`,
         title: `Port ${dp.port} (${dp.service}) ouvert — acces critique`,
-        severity: "critical",
+        severity: dp.risk === "critical" ? "critical" : "high",
         category: "Infrastructure",
         description: `Le port ${dp.port} (${dp.service}) est ouvert et accessible depuis Internet.${dp.banner ? ` Banniere: ${dp.banner}` : ""} Ce service ne devrait pas etre expose publiquement.`,
         remediation: `Fermer le port ${dp.port} dans le pare-feu. Si le service est necessaire, le restreindre par IP ou VPN.`,
         affectedComponent: `Service ${dp.service}`,
         cvss: 8.5,
       });
+    }
+
+    // Annotate Cloudflare proxy ports as info (not real server ports)
+    if (cfDetected) {
+      const cfPorts = ports.filter(p => CLOUDFLARE_PORTS.has(p.port) && p.port !== 80 && p.port !== 443);
+      if (cfPorts.length > 0) {
+        vulnerabilities.push({
+          id: "vuln-cloudflare-ports",
+          title: `Ports Cloudflare detectes (${cfPorts.map(p => p.port).join(", ")})`,
+          severity: "info",
+          category: "Infrastructure",
+          description: `Le site est derriere Cloudflare. Les ports ${cfPorts.map(p => p.port).join(", ")} sont des ports proxy Cloudflare standards, pas des ports de votre serveur.`,
+          remediation: "Aucune action requise — ports geres par le CDN Cloudflare.",
+          affectedComponent: "CDN Cloudflare",
+        });
+      }
     }
 
     // TLS vulns
@@ -775,13 +979,18 @@ export async function POST(req: NextRequest) {
     // Server header
     const serverHeader = respHeaders.get("server") || undefined;
     if (serverHeader) {
+      const isCDN = /cloudflare|fastly|akamai|cloudfront|vercel|netlify/i.test(serverHeader);
       vulnerabilities.push({
         id: "vuln-server-header",
         title: `Exposition du serveur: ${serverHeader}`,
-        severity: "low",
+        severity: isCDN ? "info" : "low",
         category: "Information Disclosure",
-        description: `Le header Server expose: "${serverHeader}". Cela facilite le ciblage d'exploits connus.`,
-        remediation: "Masquer la version: ServerTokens Prod (Apache) ou server_tokens off (Nginx).",
+        description: isCDN
+          ? `Le header Server indique "${serverHeader}" (CDN/plateforme). Non modifiable sur la plupart des plans.`
+          : `Le header Server expose: "${serverHeader}". Cela facilite le ciblage d'exploits connus.`,
+        remediation: isCDN
+          ? "Aucune action requise — header gere par le CDN/plateforme."
+          : "Masquer la version: ServerTokens Prod (Apache) ou server_tokens off (Nginx).",
         affectedComponent: "Serveur HTTP",
       });
     }

@@ -107,9 +107,9 @@ export default function MapItemDetail({ item, onClose }: Props) {
 
 function Row({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
   return (
-    <div className="flex items-center justify-between py-0.5">
-      <span className="text-argos-text-dim">{label}</span>
-      <span className={`text-right max-w-[60%] truncate ${highlight ? "text-red-400 font-bold" : "text-argos-text"}`}>{value}</span>
+    <div className="flex items-start justify-between py-0.5 gap-2">
+      <span className="text-argos-text-dim flex-shrink-0">{label}</span>
+      <span className={`text-right break-words ${highlight ? "text-red-400 font-bold" : "text-argos-text"}`}>{value}</span>
     </div>
   );
 }

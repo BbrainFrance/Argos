@@ -63,13 +63,13 @@ const ICON_VESSEL_CIVIL = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" 
 const ICON_VESSEL_MILITARY = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><g transform="translate(12,12)"><path d="M0,-9 L5,7 L0,4 L-5,7 Z" fill="#667788" stroke="#445566" stroke-width="0.8" stroke-linejoin="round"/><circle cx="0" cy="0" r="2" fill="#aabbcc"/></g></svg>`);
 const ICON_VESSEL_HOSTILE = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><g transform="translate(12,12)"><path d="M0,-9 L5,7 L0,4 L-5,7 Z" fill="#ff4444" stroke="#cc0000" stroke-width="0.8" stroke-linejoin="round"/></g></svg>`);
 
-// Conflicts
-const ICON_EXPLOSION = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><g transform="translate(24,24)"><polygon points="0,-16 4,-6 14,-10 8,-2 18,2 8,6 12,16 2,10 0,18 -2,10 -12,16 -8,6 -18,2 -8,-2 -14,-10 -4,-6" fill="#ff3300" stroke="#ff6600" stroke-width="1"/><circle cx="0" cy="0" r="5" fill="#ffcc00" opacity="0.9"/></g></svg>`);
-const ICON_GUNFIRE = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><g transform="translate(24,24)"><circle cx="0" cy="0" r="6" fill="#ff4400" opacity="0.7"/><line x1="0" y1="-14" x2="0" y2="-6" stroke="#ffaa00" stroke-width="2" stroke-linecap="round"/><line x1="10" y1="-10" x2="5" y2="-5" stroke="#ffaa00" stroke-width="2" stroke-linecap="round"/><line x1="14" y1="0" x2="6" y2="0" stroke="#ffaa00" stroke-width="2" stroke-linecap="round"/><line x1="-14" y1="0" x2="-6" y2="0" stroke="#ffaa00" stroke-width="2" stroke-linecap="round"/><line x1="-10" y1="-10" x2="-5" y2="-5" stroke="#ffaa00" stroke-width="2" stroke-linecap="round"/></g></svg>`);
-const ICON_PROTEST = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><g transform="translate(24,24)"><circle cx="0" cy="0" r="12" fill="#ffdd00" opacity="0.8" stroke="#cc9900" stroke-width="1"/><text x="0" y="6" text-anchor="middle" font-size="18" fill="#333" font-weight="bold">✊</text></g></svg>`);
-const ICON_RIOT = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><g transform="translate(24,24)"><circle cx="0" cy="0" r="12" fill="#ff8800" opacity="0.8" stroke="#aa5500" stroke-width="1.5"/><path d="M-6,-6 L6,6 M6,-6 L-6,6" stroke="#fff" stroke-width="3" stroke-linecap="round"/></g></svg>`);
-const ICON_VIOLENCE = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><g transform="translate(24,24)"><circle cx="0" cy="0" r="12" fill="#cc0000" opacity="0.7" stroke="#880000" stroke-width="1"/><path d="M0,-8 L2,-2 L8,0 L2,2 L0,8 L-2,2 L-8,0 L-2,-2 Z" fill="#fff" opacity="0.9"/></g></svg>`);
-const ICON_STRATEGIC = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><g transform="translate(24,24)"><rect x="-10" y="-10" width="20" height="20" rx="2" fill="#6644aa" opacity="0.8" stroke="#442288" stroke-width="1"/><circle cx="0" cy="0" r="4" fill="none" stroke="#fff" stroke-width="1.5"/><line x1="0" y1="-8" x2="0" y2="-4" stroke="#fff" stroke-width="1"/><line x1="0" y1="4" x2="0" y2="8" stroke="#fff" stroke-width="1"/><line x1="-8" y1="0" x2="-4" y2="0" stroke="#fff" stroke-width="1"/><line x1="4" y1="0" x2="8" y2="0" stroke="#fff" stroke-width="1"/></g></svg>`);
+// Conflicts — emoji-based icons
+const ICON_EXPLOSION = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><text x="24" y="34" text-anchor="middle" font-size="32">💥</text></svg>`);
+const ICON_GUNFIRE = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><text x="24" y="34" text-anchor="middle" font-size="32">⚔️</text></svg>`);
+const ICON_PROTEST = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><text x="24" y="34" text-anchor="middle" font-size="32">✊</text></svg>`);
+const ICON_RIOT = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><text x="24" y="34" text-anchor="middle" font-size="32">🔥</text></svg>`);
+const ICON_VIOLENCE = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><text x="24" y="34" text-anchor="middle" font-size="32">🎯</text></svg>`);
+const ICON_STRATEGIC = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><text x="24" y="34" text-anchor="middle" font-size="32">📡</text></svg>`);
 
 // Fires & disasters
 const ICON_FIRE = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><g transform="translate(24,24)"><path d="M0,-16 C4,-10 10,-8 8,-2 C12,-6 14,0 10,6 C14,2 16,8 8,14 C4,16 -4,16 -8,14 C-16,8 -14,2 -10,6 C-14,0 -12,-6 -8,-2 C-10,-8 -4,-10 0,-16Z" fill="#ff6600" stroke="#ff3300" stroke-width="0.5"/><path d="M0,-8 C2,-4 6,-2 4,4 C2,0 -2,0 -4,4 C-6,-2 -2,-4 0,-8Z" fill="#ffcc00" opacity="0.9"/></g></svg>`);
@@ -951,10 +951,14 @@ export default function DeckGLMap({
           data: conflictEvents,
           getPosition: (d: ConflictEvent) => [d.lng, d.lat] as [number, number],
           getIcon: (d: ConflictEvent) => ({ url: getConflictIcon(d.eventType), width: 48, height: 48, anchorY: 24 }),
-          getSize: (d: ConflictEvent) => Math.max(32, Math.min(d.fatalities * 3 + 32, 64)),
+          getSize: (d: ConflictEvent) => {
+            if (d.eventType === "battles" || d.eventType === "explosions") return Math.max(30, Math.min(d.fatalities * 2 + 30, 50));
+            if (d.eventType === "strategic_developments") return 36;
+            return 32;
+          },
           sizeScale: 1,
-          sizeMinPixels: 28,
-          sizeMaxPixels: 64,
+          sizeMinPixels: 24,
+          sizeMaxPixels: 50,
           pickable: true,
           onClick: (info) => {
             if (info.object) onSelectMapItem?.({ type: "conflict", data: info.object as ConflictEvent });
