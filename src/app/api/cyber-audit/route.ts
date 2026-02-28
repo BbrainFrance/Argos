@@ -558,7 +558,22 @@ async function checkBruteForce(baseUrl: string): Promise<VulnCheck[]> {
   let loginUrl: string | null = null;
   let loginStatus = 0;
 
-  // Soft-404 baseline for this origin
+  // Build list of origins to test: base + common subdomains
+  const parsedBase = new URL(baseUrl);
+  const hostParts = parsedBase.hostname.split(".");
+  const rootDomain = hostParts.length >= 2 ? hostParts.slice(-2).join(".") : parsedBase.hostname;
+  const originsToTest = [baseUrl];
+  if (!parsedBase.hostname.startsWith("www.")) {
+    originsToTest.push(`${parsedBase.protocol}//www.${parsedBase.hostname}`);
+  }
+  if (!parsedBase.hostname.startsWith("app.")) {
+    originsToTest.push(`${parsedBase.protocol}//app.${rootDomain}`);
+  }
+  if (!parsedBase.hostname.startsWith("my.")) {
+    originsToTest.push(`${parsedBase.protocol}//my.${rootDomain}`);
+  }
+
+  // Soft-404 baseline for the main origin
   let baseline404Size = -1;
   try {
     const rnd = await fetch(`${baseUrl}/argos-bf-probe-${Date.now()}-xyz`, {
@@ -572,30 +587,44 @@ async function checkBruteForce(baseUrl: string): Promise<VulnCheck[]> {
     }
   } catch { /* ignore */ }
 
-  for (const path of loginPaths) {
-    try {
-      const res = await fetch(`${baseUrl}${path}`, {
+  // Helper to follow redirects (301, 302, 307, 308) and fetch the final page
+  async function fetchFollowingRedirects(url: string, maxHops = 3): Promise<Response | null> {
+    let currentUrl = url;
+    for (let hop = 0; hop < maxHops; hop++) {
+      const res = await fetch(currentUrl, {
         redirect: "manual",
         headers: { "User-Agent": "ARGOS-SecurityAudit/1.0" },
-        signal: AbortSignal.timeout(4000),
+        signal: AbortSignal.timeout(5000),
       });
-      if (res.status === 200 || res.status === 302 || res.status === 301) {
-        // Read body to validate it's a real login page, not a soft 404
-        const body = await res.text();
-        if (res.status === 200 && baseline404Size > 0 && Math.abs(body.length - baseline404Size) < 200) {
-          continue; // soft 404
-        }
-        // Verify the page actually contains a login form
-        const hasLoginForm = /<form[\s\S]*?(?:password|login|sign.?in|connexion|mot.?de.?passe)/i.test(body)
-          || /<input[^>]*type\s*=\s*["']password["']/i.test(body);
-        if (res.status === 200 && !hasLoginForm) {
-          continue; // not a real login page
-        }
-        loginUrl = `${baseUrl}${path}`;
-        loginStatus = res.status;
-        break;
+      if (res.status >= 300 && res.status < 400) {
+        const loc = res.headers.get("location");
+        if (!loc) return res;
+        currentUrl = loc.startsWith("http") ? loc : new URL(loc, currentUrl).toString();
+        continue;
       }
-    } catch { /* not found */ }
+      return res;
+    }
+    return null;
+  }
+
+  for (const origin of originsToTest) {
+    if (loginUrl) break;
+    for (const path of loginPaths) {
+      try {
+        const res = await fetchFollowingRedirects(`${origin}${path}`);
+        if (!res || res.status !== 200) continue;
+        const body = await res.text();
+        // Soft-404 check
+        if (baseline404Size > 0 && Math.abs(body.length - baseline404Size) < 200) continue;
+        // Must contain a password input or login form
+        const hasLoginForm = /<input[^>]*type\s*=\s*["']password["']/i.test(body)
+          || (/<form/i.test(body) && /(?:password|login|sign.?in|connexion|mot.?de.?passe|e.?mail)/i.test(body));
+        if (!hasLoginForm) continue;
+        loginUrl = `${origin}${path}`;
+        loginStatus = 200;
+        break;
+      } catch { /* subdomain may not exist */ }
+    }
   }
 
   if (!loginUrl) {
@@ -604,8 +633,8 @@ async function checkBruteForce(baseUrl: string): Promise<VulnCheck[]> {
       title: "Aucun formulaire de connexion detecte",
       severity: "info",
       category: "Authentification",
-      description: `Aucune page de connexion trouvee parmi les chemins testes (${loginPaths.join(", ")}). Les tests de brute force n'ont pas pu etre effectues.`,
-      remediation: "Si un formulaire de connexion existe sur un chemin non standard, specifiez-le manuellement.",
+      description: `Aucune page de connexion avec champ password trouvee. Origines testees: ${originsToTest.join(", ")}. Chemins: ${loginPaths.join(", ")}. Les tests de brute force n'ont pas pu etre effectues.`,
+      remediation: "Si un formulaire de connexion existe sur un chemin ou sous-domaine non standard, specifiez-le manuellement.",
       affectedComponent: "Pages d'authentification",
     });
     return vulns;

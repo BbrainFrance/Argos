@@ -150,13 +150,13 @@ interface CCTVCamera {
   liveUrl: string;
 }
 const CCTV_CAMERAS: CCTVCamera[] = [
-  { id: "cctv-par-1", name: "Tour Eiffel — Trocadero", city: "Paris", lat: 48.8584, lng: 2.2945, hdg: 180, fov: 90, liveUrl: "https://www.skylinewebcams.com/en/webcam/france/ile-de-france/paris/paris-tour-eiffel.html", embedUrl: "https://www.skylinewebcams.com/en/webcam/france/ile-de-france/paris/paris-tour-eiffel.html" },
-  { id: "cctv-par-2", name: "Champs-Elysees", city: "Paris", lat: 48.8698, lng: 2.3075, hdg: 315, fov: 70, liveUrl: "https://www.skylinewebcams.com/en/webcam/france/ile-de-france/paris/champs-elysees.html", embedUrl: "https://www.skylinewebcams.com/en/webcam/france/ile-de-france/paris/champs-elysees.html" },
-  { id: "cctv-nyc-1", name: "Times Square 4K", city: "New York", lat: 40.758, lng: -73.9855, hdg: 180, fov: 75, liveUrl: "https://www.earthcam.com/usa/newyork/timessquare/?cam=tsstreet", embedUrl: "https://www.earthcam.com/usa/newyork/timessquare/?cam=tsstreet" },
-  { id: "cctv-nyc-2", name: "World Trade Center", city: "New York", lat: 40.7128, lng: -74.006, hdg: 90, fov: 80, liveUrl: "https://www.earthcam.com/usa/newyork/skyline/?cam=skyline_g", embedUrl: "https://www.earthcam.com/usa/newyork/skyline/?cam=skyline_g" },
-  { id: "cctv-tok-1", name: "Shibuya Crossing", city: "Tokyo", lat: 35.6595, lng: 139.7004, hdg: 0, fov: 90, liveUrl: "https://www.youtube.com/watch?v=3q5Eoqhc4oc", embedUrl: "https://www.youtube-nocookie.com/embed/3q5Eoqhc4oc?autoplay=1&mute=1" },
-  { id: "cctv-lon-1", name: "Abbey Road", city: "London", lat: 51.532, lng: -0.1779, hdg: 0, fov: 80, liveUrl: "https://www.earthcam.com/world/england/london/abbeyroad/?cam=abbeyroad_702", embedUrl: "https://www.earthcam.com/world/england/london/abbeyroad/?cam=abbeyroad_702" },
-  { id: "cctv-lon-2", name: "Tower Bridge", city: "London", lat: 51.5055, lng: -0.0754, hdg: 270, fov: 80, liveUrl: "https://www.skylinewebcams.com/en/webcam/united-kingdom/england/london/tower-bridge.html", embedUrl: "https://www.skylinewebcams.com/en/webcam/united-kingdom/england/london/tower-bridge.html" },
+  // YouTube live 24/7 — confirmed embeddable (use youtube.com, NOT youtube-nocookie.com)
+  { id: "cctv-par-1", name: "Tour Eiffel Live HD", city: "Paris", lat: 48.8584, lng: 2.2945, hdg: 180, fov: 90, liveUrl: "https://www.youtube.com/watch?v=iZipA1LL_sU", embedUrl: "https://www.youtube.com/embed/iZipA1LL_sU?autoplay=1&mute=1&playsinline=1" },
+  { id: "cctv-mia-1", name: "Port Miami 4K", city: "Miami", lat: 25.7743, lng: -80.1709, hdg: 90, fov: 80, liveUrl: "https://www.youtube.com/watch?v=mqJLCYASw2E", embedUrl: "https://www.youtube.com/embed/mqJLCYASw2E?autoplay=1&mute=1&playsinline=1" },
+  { id: "cctv-nyc-1", name: "Times Square EarthCam", city: "New York", lat: 40.758, lng: -73.9855, hdg: 180, fov: 75, liveUrl: "https://www.youtube.com/watch?v=QTTTY_ra2Tg", embedUrl: "https://www.youtube.com/embed/QTTTY_ra2Tg?autoplay=1&mute=1&playsinline=1" },
+  { id: "cctv-hou-1", name: "Houston City Cam", city: "Houston", lat: 29.7604, lng: -95.3698, hdg: 0, fov: 80, liveUrl: "https://www.youtube.com/watch?v=svV_zogN3sw", embedUrl: "https://www.youtube.com/embed/svV_zogN3sw?autoplay=1&mute=1&playsinline=1" },
+  { id: "cctv-sd-1", name: "San Diego Bay 4K", city: "San Diego", lat: 32.7157, lng: -117.1611, hdg: 270, fov: 80, liveUrl: "https://www.youtube.com/watch?v=OUB8NDFSmFI", embedUrl: "https://www.youtube.com/embed/OUB8NDFSmFI?autoplay=1&mute=1&playsinline=1" },
+  { id: "cctv-tok-1", name: "Shibuya Crossing", city: "Tokyo", lat: 35.6595, lng: 139.7004, hdg: 0, fov: 90, liveUrl: "https://www.youtube.com/watch?v=3q5Eoqhc4oc", embedUrl: "https://www.youtube.com/embed/3q5Eoqhc4oc?autoplay=1&mute=1&playsinline=1" },
 ];
 
 // ─── Error Boundary ──────────────────────────────────────────────────────────
@@ -925,7 +925,7 @@ export default function ThreeGlobe({
 
         {/* ═══ CCTV PANEL — filtered by activeCity, anchored bottom-right ═══ */}
         {showCCTV && visibleCCTVs.length > 0 && (
-          <div className="absolute bottom-4 right-4 z-50 bg-black/95 border border-cyan-900/40 p-3" style={{ pointerEvents: "auto", width: 260 }}>
+          <div className="absolute bottom-4 right-4 z-50 bg-black/95 border border-cyan-900/40 p-3" style={{ pointerEvents: "auto", width: selectedCCTV?.embedUrl ? 420 : 260 }}>
             <div className="flex items-center justify-between mb-2">
               <p className="text-[10px] font-mono text-cyan-300 tracking-wider">📹 {activeCity} ({visibleCCTVs.length})</p>
               <button onClick={() => { setShowCCTV(false); setSelectedCCTV(null); }} className="text-cyan-600/50 hover:text-cyan-300 text-xs cursor-pointer">✕</button>
@@ -960,26 +960,22 @@ export default function ThreeGlobe({
 
             {selectedCCTV && (
               <div className="pt-2 border-t border-cyan-400/30 space-y-2">
-                <div className="bg-argos-panel/40 rounded p-2 space-y-1.5">
-                  <div className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-                    <span className="text-[9px] font-mono text-cyan-200">{selectedCCTV.name}</span>
+                {selectedCCTV.embedUrl && (
+                  <div className="relative w-full bg-black border border-cyan-900/30" style={{ aspectRatio: "16/9" }}>
+                    <iframe
+                      src={selectedCCTV.embedUrl}
+                      className="w-full h-full"
+                      allow="autoplay; encrypted-media; picture-in-picture; accelerometer; gyroscope"
+                      allowFullScreen
+                      style={{ border: "none" }}
+                    />
+                    <div className="absolute top-1 left-1 px-1.5 py-0.5 bg-red-600 text-white text-[7px] font-bold tracking-wider rounded-sm">● LIVE</div>
                   </div>
-                  <div className="grid grid-cols-2 gap-x-4 text-[8px] font-mono text-cyan-500/70">
-                    <span>HDG {selectedCCTV.hdg}°</span>
-                    <span>FOV {selectedCCTV.fov}°</span>
-                    <span>LAT {selectedCCTV.lat.toFixed(4)}</span>
-                    <span>LNG {selectedCCTV.lng.toFixed(4)}</span>
-                  </div>
+                )}
+                <div className="flex items-center justify-between text-[8px] font-mono text-cyan-500/70">
+                  <span>HDG {selectedCCTV.hdg}° | FOV {selectedCCTV.fov}°</span>
+                  <a href={selectedCCTV.liveUrl} target="_blank" rel="noopener noreferrer" className="text-cyan-300 hover:text-cyan-100">Source ↗</a>
                 </div>
-                <a
-                  href={selectedCCTV.liveUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block w-full text-center px-3 py-2 bg-cyan-500/20 border border-cyan-400/40 text-cyan-200 text-[10px] font-mono tracking-wider hover:bg-cyan-500/30 transition-colors"
-                >
-                  ● OUVRIR LE FLUX LIVE ↗
-                </a>
               </div>
             )}
           </div>
