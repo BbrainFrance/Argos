@@ -104,6 +104,8 @@ export interface DeckGLMapProps {
   onBoundsChange?: (bounds: { latMin: number; latMax: number; lonMin: number; lonMax: number }) => void;
   onSelectMapItem?: (item: MapItem) => void;
   sigintTraces?: SIGINTTrace[];
+  userLocation?: { lat: number; lng: number } | null;
+  geoRadius?: number;
 }
 
 export default function DeckGLMap({
@@ -145,6 +147,8 @@ export default function DeckGLMap({
   onBoundsChange,
   onSelectMapItem,
   sigintTraces = [],
+  userLocation,
+  geoRadius = 20,
 }: DeckGLMapProps) {
   const [ivs, setIvs] = useState(INITIAL_VIEW);
   const vsRef = useRef(INITIAL_VIEW);
@@ -1116,6 +1120,52 @@ export default function DeckGLMap({
       }
     }
 
+    if (userLocation) {
+      l.push(
+        new ScatterplotLayer({
+          id: "user-location-ring",
+          data: [userLocation],
+          getPosition: (d: { lat: number; lng: number }) => [d.lng, d.lat] as [number, number],
+          getRadius: geoRadius * 1000,
+          getFillColor: [0, 212, 255, 15] as [number, number, number, number],
+          getLineColor: [0, 212, 255, 80] as [number, number, number, number],
+          lineWidthMinPixels: 1,
+          stroked: true,
+          filled: true,
+          pickable: false,
+          updateTriggers: { getRadius: [geoRadius] },
+        })
+      );
+      l.push(
+        new ScatterplotLayer({
+          id: "user-location-dot",
+          data: [userLocation],
+          getPosition: (d: { lat: number; lng: number }) => [d.lng, d.lat] as [number, number],
+          getRadius: 200,
+          getFillColor: [0, 212, 255, 220] as [number, number, number, number],
+          getLineColor: [255, 255, 255, 200] as [number, number, number, number],
+          lineWidthMinPixels: 2,
+          stroked: true,
+          radiusMinPixels: 6,
+          radiusMaxPixels: 10,
+          pickable: false,
+        })
+      );
+      l.push(
+        new ScatterplotLayer({
+          id: "user-location-pulse",
+          data: [userLocation],
+          getPosition: (d: { lat: number; lng: number }) => [d.lng, d.lat] as [number, number],
+          getRadius: 600 * pulseInv,
+          getFillColor: [0, 212, 255, Math.round(40 * pulse)] as [number, number, number, number],
+          radiusMinPixels: 10,
+          radiusMaxPixels: 20,
+          pickable: false,
+          updateTriggers: { getRadius: [animPhase], getFillColor: [animPhase] },
+        })
+      );
+    }
+
     return l;
   }, [
     showSatellite,
@@ -1150,6 +1200,8 @@ export default function DeckGLMap({
     drawPoints,
     measurePoints,
     animPhase,
+    userLocation,
+    geoRadius,
   ]);
 
   const interactionBlocked = placeMarkerMode || missionPlanMode || drawMode || measureMode;

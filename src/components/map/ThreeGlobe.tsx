@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback, Component, type ReactNode } from "react";
-import { Entity, Aircraft, Vessel, Infrastructure, ZoneOfInterest, SatellitePosition } from "@/types";
+import { Entity, Aircraft, Vessel, Infrastructure, ZoneOfInterest, SatellitePosition, ConflictEvent, FireHotspot, NaturalDisaster, CyberThreat } from "@/types";
 import { INFRA_ICONS } from "@/lib/infrastructure";
 import {
   Viewer,
@@ -148,19 +148,17 @@ interface CCTVCamera {
   sourceUrl?: string;
 }
 const CCTV_CAMERAS: CCTVCamera[] = [
-  { id: "cctv-par-1", name: "Champs-Elysees / Arc de Triomphe", city: "Paris", lat: 48.8738, lng: 2.2950, hdg: 45, fov: 60, embedUrl: "https://www.youtube.com/embed/cGwfyYJjw_Q?autoplay=1&mute=1", sourceUrl: "https://www.youtube.com/watch?v=cGwfyYJjw_Q" },
-  { id: "cctv-par-2", name: "Tour Eiffel Live", city: "Paris", lat: 48.8584, lng: 2.2945, hdg: 180, fov: 90, embedUrl: "https://www.youtube.com/embed/vEov7PFQIBo?autoplay=1&mute=1", sourceUrl: "https://www.youtube.com/watch?v=vEov7PFQIBo" },
-  { id: "cctv-par-3", name: "Sacre-Coeur / Montmartre", city: "Paris", lat: 48.8867, lng: 2.3431, hdg: 135, fov: 70, embedUrl: "https://www.youtube.com/embed/6ObbP0k1FrA?autoplay=1&mute=1", sourceUrl: "https://www.youtube.com/watch?v=6ObbP0k1FrA" },
-  { id: "cctv-lon-1", name: "London Eye / Thames", city: "London", lat: 51.5033, lng: -0.1196, hdg: 270, fov: 65, embedUrl: "https://www.youtube.com/embed/54-8p8_ZWJQ?autoplay=1&mute=1", sourceUrl: "https://www.youtube.com/watch?v=54-8p8_ZWJQ" },
-  { id: "cctv-lon-2", name: "Abbey Road Crossing", city: "London", lat: 51.5320, lng: -0.1779, hdg: 0, fov: 80, embedUrl: "https://www.youtube.com/embed/rhiMbAkgJns?autoplay=1&mute=1", sourceUrl: "https://www.youtube.com/watch?v=rhiMbAkgJns" },
-  { id: "cctv-nyc-1", name: "Times Square 4K", city: "New York", lat: 40.758, lng: -73.9855, hdg: 180, fov: 75, embedUrl: "https://www.youtube.com/embed/eJ7ZkQ5TC08?autoplay=1&mute=1", sourceUrl: "https://www.youtube.com/watch?v=eJ7ZkQ5TC08" },
-  { id: "cctv-nyc-2", name: "Statue of Liberty", city: "New York", lat: 40.6892, lng: -74.0445, hdg: 90, fov: 60, embedUrl: "https://www.youtube.com/embed/2VFsN-MY6dM?autoplay=1&mute=1", sourceUrl: "https://www.youtube.com/watch?v=2VFsN-MY6dM" },
-  { id: "cctv-tok-1", name: "Shibuya Crossing", city: "Tokyo", lat: 35.6595, lng: 139.7004, hdg: 0, fov: 90, embedUrl: "https://www.youtube.com/embed/3q6Gu6mJR8s?autoplay=1&mute=1", sourceUrl: "https://www.youtube.com/watch?v=3q6Gu6mJR8s" },
-  { id: "cctv-tok-2", name: "Tokyo Tower", city: "Tokyo", lat: 35.6586, lng: 139.7454, hdg: 180, fov: 70, embedUrl: "https://www.youtube.com/embed/DnqZoAligWE?autoplay=1&mute=1", sourceUrl: "https://www.youtube.com/watch?v=DnqZoAligWE" },
-  { id: "cctv-dub-1", name: "Dubai - Burj Khalifa", city: "Dubai", lat: 25.1972, lng: 55.2744, hdg: 45, fov: 60, embedUrl: "https://www.youtube.com/embed/JVJMBFmiYTk?autoplay=1&mute=1", sourceUrl: "https://www.youtube.com/watch?v=JVJMBFmiYTk" },
-  { id: "cctv-dc-1", name: "Washington DC Live", city: "Washington DC", lat: 38.8895, lng: -77.0235, hdg: 270, fov: 80, embedUrl: "https://www.youtube.com/embed/HCkEILshUyA?autoplay=1&mute=1", sourceUrl: "https://www.youtube.com/watch?v=HCkEILshUyA" },
-  { id: "cctv-ist-1", name: "Istanbul - Bosphorus", city: "Istanbul", lat: 41.0422, lng: 29.0083, hdg: 90, fov: 75, embedUrl: "https://www.youtube.com/embed/LbRMrSOkuRY?autoplay=1&mute=1", sourceUrl: "https://www.youtube.com/watch?v=LbRMrSOkuRY" },
-  { id: "cctv-rom-1", name: "Rome - Colosseum", city: "Rome", lat: 41.8902, lng: 12.4922, hdg: 180, fov: 70, embedUrl: "https://www.youtube.com/embed/F6Tfjg0Mzb0?autoplay=1&mute=1", sourceUrl: "https://www.youtube.com/watch?v=F6Tfjg0Mzb0" },
+  { id: "cctv-par-1", name: "Tour Eiffel — Peninsula Hotel", city: "Paris", lat: 48.8584, lng: 2.2945, hdg: 180, fov: 90, embedUrl: "https://www.youtube.com/embed/hliLbkfEBmo?autoplay=1&mute=1&si=1", sourceUrl: "https://www.youtube.com/watch?v=hliLbkfEBmo" },
+  { id: "cctv-par-2", name: "Paris Skyline — Sacre Coeur", city: "Paris", lat: 48.8867, lng: 2.3431, hdg: 135, fov: 70, embedUrl: "https://www.youtube.com/embed/26PDBhMo0Qw?autoplay=1&mute=1&si=1", sourceUrl: "https://www.youtube.com/watch?v=26PDBhMo0Qw" },
+  { id: "cctv-nyc-1", name: "Times Square 4K — EarthCam", city: "New York", lat: 40.758, lng: -73.9855, hdg: 180, fov: 75, embedUrl: "https://www.youtube.com/embed/QTTTY_ra2Tg?autoplay=1&mute=1&si=1", sourceUrl: "https://www.youtube.com/watch?v=QTTTY_ra2Tg" },
+  { id: "cctv-nyc-2", name: "Times Square Street — EarthCam", city: "New York", lat: 40.7585, lng: -73.9862, hdg: 90, fov: 60, embedUrl: "https://www.youtube.com/embed/6XipiqmqwOg?autoplay=1&mute=1&si=1", sourceUrl: "https://www.youtube.com/watch?v=6XipiqmqwOg" },
+  { id: "cctv-tok-1", name: "Shibuya Crossing — Live", city: "Tokyo", lat: 35.6595, lng: 139.7004, hdg: 0, fov: 90, embedUrl: "https://www.youtube.com/embed/DBWgFXSMr-8?autoplay=1&mute=1&si=1", sourceUrl: "https://www.youtube.com/watch?v=DBWgFXSMr-8" },
+  { id: "cctv-tok-2", name: "Shibuya Scramble — FNN", city: "Tokyo", lat: 35.6597, lng: 139.7006, hdg: 180, fov: 70, embedUrl: "https://www.youtube.com/embed/emHRFQJ57ME?autoplay=1&mute=1&si=1", sourceUrl: "https://www.youtube.com/watch?v=emHRFQJ57ME" },
+  { id: "cctv-lon-1", name: "Abbey Road Crossing", city: "London", lat: 51.5320, lng: -0.1779, hdg: 0, fov: 80, embedUrl: "https://www.youtube.com/embed/rhiMbAkgJns?autoplay=1&mute=1&si=1", sourceUrl: "https://www.youtube.com/watch?v=rhiMbAkgJns" },
+  { id: "cctv-dc-1", name: "Washington DC — Capitol", city: "Washington DC", lat: 38.8895, lng: -77.0235, hdg: 270, fov: 80 },
+  { id: "cctv-ist-1", name: "Istanbul — Bosphorus", city: "Istanbul", lat: 41.0422, lng: 29.0083, hdg: 90, fov: 75 },
+  { id: "cctv-dub-1", name: "Dubai — Burj Khalifa", city: "Dubai", lat: 25.1972, lng: 55.2744, hdg: 45, fov: 60 },
+  { id: "cctv-rom-1", name: "Rome — Colosseum", city: "Rome", lat: 41.8902, lng: 12.4922, hdg: 180, fov: 70 },
 ];
 
 // ─── Error Boundary ──────────────────────────────────────────────────────────
@@ -200,6 +198,12 @@ interface ThreeGlobeProps {
   showSatellite?: boolean;
   satellites?: SatellitePosition[];
   showSatellites?: boolean;
+  conflictEvents?: ConflictEvent[];
+  fireHotspots?: FireHotspot[];
+  naturalDisasters?: NaturalDisaster[];
+  cyberThreats?: CyberThreat[];
+  userLocation?: { lat: number; lng: number } | null;
+  geoRadius?: number;
 }
 
 function getEntityColor(entity: Entity, selectedId: string | null): [number, number, number, number] {
@@ -235,6 +239,12 @@ export default function ThreeGlobe({
   showInfrastructure,
   satellites = [],
   showSatellites = false,
+  conflictEvents = [],
+  fireHotspots = [],
+  naturalDisasters = [],
+  cyberThreats = [],
+  userLocation,
+  geoRadius = 20,
 }: ThreeGlobeProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<Viewer | null>(null);
@@ -512,7 +522,104 @@ export default function ThreeGlobe({
         });
       }
     }
-  }, [entities, infrastructure, zones, selectedEntityId, showTrails, showInfrastructure, satellites, showSatellites, ready, showCCTV]);
+
+    for (const ev of conflictEvents) {
+      const isExplosion = ev.eventType === "battles" || ev.eventType === "explosions";
+      viewer.entities.add({
+        position: Cartesian3.fromDegrees(ev.lng, ev.lat, 50),
+        point: {
+          pixelSize: isExplosion ? 8 : 6,
+          color: isExplosion ? Color.fromCssColorString("#ff2828") : Color.fromCssColorString("#ffaa00"),
+          outlineColor: Color.BLACK, outlineWidth: 1,
+          heightReference: HeightReference.NONE,
+          scaleByDistance: new NearFarScalar(1000, 2, 500000, 0.5),
+        },
+        label: {
+          text: `💥 ${ev.actor1}${ev.fatalities > 0 ? ` (${ev.fatalities})` : ""}`,
+          font: "9px monospace",
+          fillColor: Color.fromCssColorString("#ff6666"),
+          outlineColor: Color.BLACK, outlineWidth: 2,
+          style: LabelStyle.FILL_AND_OUTLINE,
+          verticalOrigin: VerticalOrigin.BOTTOM,
+          pixelOffset: new Cartesian2(12, -6),
+          scaleByDistance: new NearFarScalar(1000, 1, 200000, 0),
+        },
+      });
+    }
+
+    for (const f of fireHotspots) {
+      viewer.entities.add({
+        position: Cartesian3.fromDegrees(f.lng, f.lat, 30),
+        point: {
+          pixelSize: Math.min(4 + f.frp / 10, 12),
+          color: Color.fromCssColorString("#ff7800"),
+          outlineColor: Color.BLACK, outlineWidth: 1,
+          heightReference: HeightReference.NONE,
+          scaleByDistance: new NearFarScalar(1000, 2, 500000, 0.3),
+        },
+      });
+    }
+
+    for (const d of naturalDisasters) {
+      const icons: Record<string, string> = { earthquake: "🌍", flood: "🌊", cyclone: "🌀", volcano: "🌋", wildfire: "🔥", tsunami: "🌊", drought: "☀" };
+      const colors: Record<string, string> = { red: "#ff0000", orange: "#ff8800", green: "#00cc66" };
+      viewer.entities.add({
+        position: Cartesian3.fromDegrees(d.lng, d.lat, 80),
+        point: {
+          pixelSize: 10,
+          color: Color.fromCssColorString(colors[d.severity] || "#00cc66"),
+          outlineColor: Color.BLACK, outlineWidth: 2,
+          heightReference: HeightReference.NONE,
+          scaleByDistance: new NearFarScalar(1000, 2.5, 500000, 0.5),
+        },
+        label: {
+          text: `${icons[d.eventType] || "⚠"} ${d.title}`,
+          font: "10px monospace",
+          fillColor: Color.fromCssColorString(colors[d.severity] || "#00cc66"),
+          outlineColor: Color.BLACK, outlineWidth: 2,
+          style: LabelStyle.FILL_AND_OUTLINE,
+          verticalOrigin: VerticalOrigin.BOTTOM,
+          pixelOffset: new Cartesian2(14, -8),
+          scaleByDistance: new NearFarScalar(1000, 1, 300000, 0),
+        },
+      });
+    }
+
+    for (const c of cyberThreats) {
+      if (c.lat == null || c.lng == null) continue;
+      viewer.entities.add({
+        position: Cartesian3.fromDegrees(c.lng!, c.lat!, 40),
+        point: {
+          pixelSize: 5,
+          color: Color.fromCssColorString("#a855f7"),
+          heightReference: HeightReference.NONE,
+          scaleByDistance: new NearFarScalar(1000, 1.5, 500000, 0.3),
+        },
+      });
+    }
+
+    if (userLocation) {
+      viewer.entities.add({
+        position: Cartesian3.fromDegrees(userLocation.lng, userLocation.lat, 20),
+        point: {
+          pixelSize: 10,
+          color: Color.fromCssColorString("#00d4ff"),
+          outlineColor: Color.WHITE, outlineWidth: 3,
+          heightReference: HeightReference.NONE,
+        },
+        label: {
+          text: "📍 MA POSITION",
+          font: "10px monospace",
+          fillColor: Color.CYAN,
+          outlineColor: Color.BLACK, outlineWidth: 2,
+          style: LabelStyle.FILL_AND_OUTLINE,
+          verticalOrigin: VerticalOrigin.BOTTOM,
+          pixelOffset: new Cartesian2(12, -10),
+          scaleByDistance: new NearFarScalar(500, 1, 100000, 0),
+        },
+      });
+    }
+  }, [entities, infrastructure, zones, selectedEntityId, showTrails, showInfrastructure, satellites, showSatellites, ready, showCCTV, conflictEvents, fireHotspots, naturalDisasters, cyberThreats, userLocation]);
 
   // ─── HUD update interval ───
   useEffect(() => {

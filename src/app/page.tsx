@@ -158,9 +158,10 @@ export default function ArgosPage() {
   const [showAuditPanel, setShowAuditPanel] = useState(false);
 
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
-  const [geoRadius, setGeoRadius] = useState(50);
-  const [showGeoRadius, setShowGeoRadius] = useState(false);
+  const [geoRadius, setGeoRadius] = useState(20);
+  const [showGeoRadius, setShowGeoRadius] = useState(true);
   const [nearbyCount, setNearbyCount] = useState({ events: 0, entities: 0, fires: 0, disasters: 0 });
+  const geoInitDone = useRef(false);
 
   const [filters, setFilters] = useState<FilterState>({
     search: "",
@@ -274,7 +275,14 @@ export default function ArgosPage() {
   useEffect(() => {
     if (!("geolocation" in navigator)) return;
     const watchId = navigator.geolocation.watchPosition(
-      (pos) => setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      (pos) => {
+        const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        setUserLocation(loc);
+        if (!geoInitDone.current) {
+          geoInitDone.current = true;
+          setViewState(prev => ({ ...prev, center: [loc.lat, loc.lng], zoom: 10 }));
+        }
+      },
       () => {},
       { enableHighAccuracy: true, maximumAge: 30000, timeout: 10000 }
     );
@@ -1053,68 +1061,34 @@ export default function ArgosPage() {
                 nuclearFacilities={nuclearFacilities}
                 onSelectMapItem={handleSelectMapItem}
                 sigintTraces={sigintTraces}
+                userLocation={userLocation}
+                geoRadius={geoRadius}
                 />
 
-                {/* ─── Geolocation + Event Quick Filters ─── */}
-                <div className="absolute bottom-14 left-4 z-40 flex flex-col gap-2">
-                  {userLocation && (
-                    <div className="bg-argos-panel/90 border border-argos-border/50 rounded-lg px-3 py-2 space-y-2" style={{ minWidth: 200 }}>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-                          <p className="text-[9px] font-mono text-argos-accent tracking-wider">MA POSITION</p>
-                        </div>
-                        <button
-                          onClick={() => setShowGeoRadius(r => !r)}
-                          className={`text-[8px] font-mono px-2 py-0.5 border rounded cursor-pointer ${showGeoRadius ? "bg-argos-accent/20 border-argos-accent/50 text-argos-accent" : "border-argos-border text-argos-text-dim"}`}
-                        >
-                          {showGeoRadius ? "ON" : "OFF"}
-                        </button>
-                      </div>
-                      <p className="text-[8px] font-mono text-argos-text-dim">{userLocation.lat.toFixed(4)}, {userLocation.lng.toFixed(4)}</p>
-                      {showGeoRadius && (
-                        <>
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="range" min={5} max={500} value={geoRadius}
-                              onChange={e => setGeoRadius(Number(e.target.value))}
-                              className="flex-1 h-1 accent-cyan-500"
-                            />
-                            <span className="text-[8px] font-mono text-argos-accent w-12 text-right">{geoRadius} km</span>
-                          </div>
-                          <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-[8px] font-mono">
-                            <p className="text-argos-text-dim">Entites</p><p className="text-argos-text">{nearbyCount.entities}</p>
-                            <p className="text-argos-text-dim">Conflits</p><p className="text-red-400">{nearbyCount.events}</p>
-                            <p className="text-argos-text-dim">Feux</p><p className="text-orange-400">{nearbyCount.fires}</p>
-                            <p className="text-argos-text-dim">Catastrophes</p><p className="text-emerald-400">{nearbyCount.disasters}</p>
-                          </div>
-                        </>
-                      )}
+                {/* ─── Geolocation widget ─── */}
+                {userLocation && showGeoRadius && (
+                  <div className="absolute bottom-14 left-4 z-40 bg-argos-panel/90 border border-argos-border/50 rounded-lg px-3 py-2 space-y-2" style={{ minWidth: 200 }}>
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+                      <p className="text-[9px] font-mono text-argos-accent tracking-wider">MA POSITION</p>
                     </div>
-                  )}
-                  {/* Quick event filters */}
-                  <div className="flex flex-wrap gap-1">
-                    {([
-                      { key: "conflicts", label: "💥 Conflits", on: "bg-red-500/20 border-red-500/50 text-red-400" },
-                      { key: "fires", label: "🔥 Feux", on: "bg-orange-500/20 border-orange-500/50 text-orange-400" },
-                      { key: "disasters", label: "🌊 Catastrophes", on: "bg-emerald-500/20 border-emerald-500/50 text-emerald-400" },
-                      { key: "cyberThreats", label: "🛡 Cyber", on: "bg-purple-500/20 border-purple-500/50 text-purple-400" },
-                      { key: "internetOutages", label: "📵 Coupures", on: "bg-rose-500/20 border-rose-500/50 text-rose-400" },
-                    ] as const).map(f => (
-                      <button
-                        key={f.key}
-                        onClick={() => setActiveLayers(prev => ({ ...prev, [f.key]: !prev[f.key] }))}
-                        className={`text-[8px] font-mono px-2 py-1 rounded border cursor-pointer transition-all ${
-                          activeLayers[f.key]
-                            ? f.on
-                            : "bg-argos-panel/80 border-argos-border/40 text-argos-text-dim hover:border-argos-accent/30"
-                        }`}
-                      >
-                        {f.label}
-                      </button>
-                    ))}
+                    <p className="text-[8px] font-mono text-argos-text-dim">{userLocation.lat.toFixed(4)}, {userLocation.lng.toFixed(4)}</p>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="range" min={5} max={500} value={geoRadius}
+                        onChange={e => setGeoRadius(Number(e.target.value))}
+                        className="flex-1 h-1 accent-cyan-500"
+                      />
+                      <span className="text-[8px] font-mono text-argos-accent w-12 text-right">{geoRadius} km</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-[8px] font-mono">
+                      <p className="text-argos-text-dim">Entites</p><p className="text-argos-text">{nearbyCount.entities}</p>
+                      <p className="text-argos-text-dim">Conflits</p><p className="text-red-400">{nearbyCount.events}</p>
+                      <p className="text-argos-text-dim">Feux</p><p className="text-orange-400">{nearbyCount.fires}</p>
+                      <p className="text-argos-text-dim">Catastrophes</p><p className="text-emerald-400">{nearbyCount.disasters}</p>
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {drawMode && (
                   <div className="absolute top-3 left-1/2 -translate-x-1/2 z-50 px-4 py-2 bg-argos-warning/10 border border-argos-warning/40 rounded-lg backdrop-blur-sm">
@@ -1578,6 +1552,10 @@ export default function ArgosPage() {
                     alerts={alerts}
                     analyses={analysisResults}
                     selectedEntity={selectedEntity}
+                    onRequestBriefing={handleRequestBriefing}
+                    briefing={briefingText}
+                    briefingProvider={briefingProvider}
+                    briefingLoading={briefingLoading}
                   />
                   <WorldMonitorPanel
                     conflicts={conflictEvents}
@@ -1586,12 +1564,6 @@ export default function ArgosPage() {
                     outages={internetOutages}
                   />
                   <InstabilityPanel scores={instabilityScores} />
-                  <BriefingPanel
-                    onRequestBriefing={handleRequestBriefing}
-                    briefing={briefingText}
-                    provider={briefingProvider}
-                    loading={briefingLoading}
-                  />
                   <IntelFeedPanel items={intelFeedItems} />
                   <TacticalChat operatorName="OPERATOR" />
                   <FilterBar

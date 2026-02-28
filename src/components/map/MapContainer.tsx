@@ -48,6 +48,8 @@ interface MapContainerProps {
   onBoundsChange?: (bounds: { latMin: number; latMax: number; lonMin: number; lonMax: number }) => void;
   onSelectMapItem?: (item: MapItem) => void;
   sigintTraces?: SIGINTTrace[];
+  userLocation?: { lat: number; lng: number } | null;
+  geoRadius?: number;
 }
 
 export default function MapContainer({
@@ -90,6 +92,8 @@ export default function MapContainer({
   onBoundsChange,
   onSelectMapItem,
   sigintTraces,
+  userLocation,
+  geoRadius,
 }: MapContainerProps) {
   return (
     <div className="relative w-full h-full">
@@ -105,6 +109,12 @@ export default function MapContainer({
           showSatellite={showSatellite}
           satellites={satellites}
           showSatellites={showSatellites}
+          conflictEvents={conflictEvents}
+          fireHotspots={fireHotspots}
+          naturalDisasters={naturalDisasters}
+          cyberThreats={cyberThreats}
+          userLocation={userLocation}
+          geoRadius={geoRadius}
         />
       ) : (
         <DeckGLMap
@@ -146,6 +156,8 @@ export default function MapContainer({
           nuclearFacilities={nuclearFacilities}
           onSelectMapItem={onSelectMapItem}
           sigintTraces={sigintTraces}
+          userLocation={userLocation}
+          geoRadius={geoRadius}
         />
       )}
 
