@@ -60,136 +60,6 @@ const SCAN_TEMPLATES = [
   { id: "compliance", name: "Conformite ANSSI", description: "Referentiel ANSSI, RGPD, RGS", icon: "📋", duration: "~1 min" },
 ];
 
-function generateMockScan(target: string, template: string): ScanResult {
-  const now = new Date();
-  const vulns: Vulnerability[] = [];
-  const rng = () => Math.random();
-
-  if (template === "full" || template === "web") {
-    if (rng() > 0.3) vulns.push({
-      id: "vuln-001", title: "En-tete Content-Security-Policy absent", severity: "high", category: "Headers HTTP",
-      description: "L'en-tete Content-Security-Policy n'est pas defini. Cela expose le site aux attaques XSS et d'injection de contenu.",
-      remediation: "Ajouter un en-tete CSP strict : Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;",
-      cvss: 7.1, affectedComponent: "Serveur HTTP",
-    });
-    if (rng() > 0.4) vulns.push({
-      id: "vuln-002", title: "Cookie sans attribut Secure", severity: "medium", category: "Cookies",
-      description: "Des cookies de session sont transmis sans l'attribut Secure, permettant l'interception sur des connexions non-HTTPS.",
-      remediation: "Configurer tous les cookies de session avec les attributs : Secure; HttpOnly; SameSite=Strict",
-      cvss: 5.3, affectedComponent: "Gestion de session",
-    });
-    if (rng() > 0.5) vulns.push({
-      id: "vuln-003", title: "Version TLS 1.0/1.1 supportee", severity: "critical", category: "Chiffrement",
-      description: "Le serveur accepte encore TLS 1.0 et 1.1 qui sont deprecies et vulnerables (POODLE, BEAST).",
-      remediation: "Desactiver TLS 1.0 et 1.1. Configurer le serveur pour supporter uniquement TLS 1.2+ avec des cipher suites modernes.",
-      cvss: 9.1, cve: "CVE-2014-3566", affectedComponent: "Configuration TLS",
-    });
-    if (rng() > 0.4) vulns.push({
-      id: "vuln-004", title: "X-Frame-Options non defini", severity: "medium", category: "Headers HTTP",
-      description: "L'en-tete X-Frame-Options est absent, exposant le site aux attaques de clickjacking.",
-      remediation: "Ajouter l'en-tete : X-Frame-Options: DENY (ou SAMEORIGIN si l'iframe est necessaire).",
-      cvss: 4.3, affectedComponent: "Serveur HTTP",
-    });
-    if (rng() > 0.6) vulns.push({
-      id: "vuln-005", title: "Exposition d'informations serveur", severity: "low", category: "Information Disclosure",
-      description: "Le header Server expose la version du serveur web (Apache/2.4.41). Cela facilite la reconnaissance par un attaquant.",
-      remediation: "Configurer le serveur pour masquer la version : ServerTokens Prod (Apache) ou server_tokens off (Nginx).",
-      cvss: 3.1, affectedComponent: "Serveur HTTP",
-    });
-  }
-
-  if (template === "full" || template === "infra") {
-    if (rng() > 0.3) vulns.push({
-      id: "vuln-006", title: "Port SSH (22) expose avec authentification par mot de passe", severity: "high", category: "Acces Reseau",
-      description: "Le port SSH est ouvert et accepte l'authentification par mot de passe, exposant le serveur aux attaques brute-force.",
-      remediation: "Desactiver l'authentification par mot de passe SSH. Utiliser uniquement les cles SSH. Configurer fail2ban.",
-      cvss: 7.5, affectedComponent: "Service SSH",
-    });
-    if (rng() > 0.5) vulns.push({
-      id: "vuln-007", title: "Port FTP (21) ouvert", severity: "critical", category: "Acces Reseau",
-      description: "FTP transmet les identifiants en clair. Ce protocole est intrinsiquement non securise.",
-      remediation: "Desactiver FTP. Migrer vers SFTP ou SCP pour les transferts de fichiers.",
-      cvss: 8.2, affectedComponent: "Service FTP",
-    });
-    if (rng() > 0.4) vulns.push({
-      id: "vuln-008", title: "Enregistrement DNS SPF manquant", severity: "medium", category: "DNS/Email",
-      description: "Aucun enregistrement SPF n'est configure, permettant l'usurpation d'emails du domaine.",
-      remediation: "Ajouter un enregistrement TXT SPF : v=spf1 include:_spf.google.com ~all (adapter selon le fournisseur email).",
-      cvss: 5.8, affectedComponent: "Configuration DNS",
-    });
-  }
-
-  if (template === "full" || template === "compliance") {
-    if (rng() > 0.3) vulns.push({
-      id: "vuln-009", title: "Non-conformite RGPD : absence de bandeau cookies", severity: "high", category: "Conformite",
-      description: "Le site ne presente pas de bandeau de consentement pour les cookies conformement au RGPD.",
-      remediation: "Implementer un bandeau de consentement conforme RGPD avec consentement explicite avant tout depot de cookie non essentiel.",
-      cvss: 6.0, affectedComponent: "Interface utilisateur",
-    });
-    if (rng() > 0.5) vulns.push({
-      id: "vuln-010", title: "Politique de mots de passe faible", severity: "medium", category: "Authentification",
-      description: "La politique de mots de passe n'exige pas de longueur minimale de 12 caracteres (recommandation ANSSI).",
-      remediation: "Appliquer une politique conforme ANSSI : minimum 12 caracteres, melange majuscules/minuscules/chiffres/speciaux.",
-      cvss: 5.5, affectedComponent: "Systeme d'authentification",
-    });
-  }
-
-  vulns.push({
-    id: "vuln-info-001", title: "HSTS configure correctement", severity: "info", category: "Headers HTTP",
-    description: "L'en-tete Strict-Transport-Security est present et correctement configure.",
-    remediation: "Aucune action requise. Bonne pratique detectee.",
-    affectedComponent: "Serveur HTTP",
-  });
-
-  const score = Math.max(0, 100 - vulns.filter(v => v.severity === "critical").length * 25
-    - vulns.filter(v => v.severity === "high").length * 15
-    - vulns.filter(v => v.severity === "medium").length * 8
-    - vulns.filter(v => v.severity === "low").length * 3);
-
-  return {
-    target,
-    scanDate: now.toISOString(),
-    duration: Math.floor(30 + Math.random() * 120),
-    score,
-    vulnerabilities: vulns.sort((a, b) => {
-      const order: Record<Severity, number> = { critical: 0, high: 1, medium: 2, low: 3, info: 4 };
-      return order[a.severity] - order[b.severity];
-    }),
-    tlsInfo: {
-      version: rng() > 0.5 ? "TLS 1.3" : "TLS 1.2",
-      cipher: "TLS_AES_256_GCM_SHA384",
-      validFrom: "2025-01-15",
-      validTo: "2026-01-15",
-      issuer: "Let's Encrypt Authority X3",
-      grade: rng() > 0.5 ? "A" : rng() > 0.3 ? "B" : "C",
-    },
-    headers: [
-      { name: "Content-Security-Policy", present: rng() > 0.5, recommendation: "Definir une politique CSP stricte" },
-      { name: "X-Frame-Options", present: rng() > 0.4, value: "DENY" },
-      { name: "X-Content-Type-Options", present: rng() > 0.3, value: "nosniff" },
-      { name: "Strict-Transport-Security", present: true, value: "max-age=31536000; includeSubDomains" },
-      { name: "X-XSS-Protection", present: rng() > 0.5, value: "1; mode=block" },
-      { name: "Referrer-Policy", present: rng() > 0.6, value: "strict-origin-when-cross-origin" },
-      { name: "Permissions-Policy", present: rng() > 0.7, recommendation: "Restreindre les APIs navigateur" },
-    ],
-    ports: ([
-      { port: 80, service: "HTTP", state: "open", risk: "low" as Severity },
-      { port: 443, service: "HTTPS", state: "open", risk: "info" as Severity },
-      { port: 22, service: "SSH", state: rng() > 0.5 ? "open" : "filtered", risk: (rng() > 0.5 ? "high" : "medium") as Severity },
-      { port: 21, service: "FTP", state: rng() > 0.6 ? "open" : "closed", risk: "critical" as Severity },
-      { port: 3306, service: "MySQL", state: rng() > 0.7 ? "open" : "filtered", risk: "critical" as Severity },
-      { port: 8080, service: "HTTP-ALT", state: rng() > 0.5 ? "open" : "closed", risk: "medium" as Severity },
-    ]).filter(p => p.state !== "closed"),
-    dnsRecords: [
-      { type: "A", value: `${Math.floor(rng()*255)}.${Math.floor(rng()*255)}.${Math.floor(rng()*255)}.${Math.floor(rng()*255)}` },
-      { type: "AAAA", value: "2606:4700:3033::ac43:84c1" },
-      { type: "MX", value: "mx1.mail.ovh.net" },
-      { type: "TXT", value: rng() > 0.5 ? "v=spf1 include:_spf.google.com ~all" : "(absent)" },
-      { type: "NS", value: "dns1.registrar-servers.com" },
-    ],
-  };
-}
-
 function buildVulnsFromApiResult(api: Record<string, unknown>): Vulnerability[] {
   const vulns: Vulnerability[] = [];
   const headers = (api.headers || []) as { name: string; present: boolean; value?: string; recommendation?: string }[];
@@ -342,14 +212,25 @@ export default function CyberAuditPage() {
     } catch (err) {
       clearInterval(progressInterval);
       setProgress(0);
-      setStatus("error");
-      const fallback = generateMockScan(target, template);
-      fallback.vulnerabilities.unshift({
-        id: "vuln-api-error", title: `Erreur API: ${(err as Error).message}`, severity: "info", category: "Systeme",
-        description: "Le scan serveur a echoue, les resultats ci-dessous sont des donnees de demonstration.", remediation: "Verifier la connectivite du serveur ARGOS.", affectedComponent: "API",
-      });
-      setResult(fallback);
-      setHistory(prev => [fallback, ...prev].slice(0, 10));
+      const errorResult: ScanResult = {
+        target: target.trim(),
+        scanDate: new Date().toISOString(),
+        duration: 0,
+        score: 0,
+        vulnerabilities: [{
+          id: "vuln-api-error",
+          title: `Echec du scan: ${(err as Error).message}`,
+          severity: "critical",
+          category: "Connectivite",
+          description: `Le serveur n'a pas pu analyser la cible. Erreur: ${(err as Error).message}`,
+          remediation: "Verifier que la cible est accessible et que l'URL est correcte.",
+          affectedComponent: "Reseau",
+        }],
+        headers: [],
+        ports: [],
+        dnsRecords: [],
+      };
+      setResult(errorResult);
       setStatus("done");
     }
   }, [target, template]);
