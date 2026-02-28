@@ -374,22 +374,26 @@ async function checkVulnerabilities(url: string, html: string, headers: Headers)
     });
   }
 
-  // Information disclosure in HTML
+  // Information disclosure in HTML — strip JSON-LD and structured data before scanning
+  const htmlWithoutStructured = html
+    .replace(/<script[^>]*type\s*=\s*["']application\/ld\+json["'][^>]*>[\s\S]*?<\/script>/gi, "")
+    .replace(/<script[^>]*type\s*=\s*["']application\/json["'][^>]*>[\s\S]*?<\/script>/gi, "");
+
   const sensitivePatterns = [
     { pattern: /(?:api[_-]?key|apikey)\s*[:=]\s*["']?[a-zA-Z0-9_-]{20,}/i, name: "Cle API exposee", severity: "critical" as const },
     { pattern: /(?:password|passwd|pwd)\s*[:=]\s*["'][^"']+["']/i, name: "Mot de passe en dur dans le code", severity: "critical" as const },
     { pattern: /(?:secret[_-]?key|private[_-]?key)\s*[:=]\s*["']?[a-zA-Z0-9_/+=]{20,}/i, name: "Cle secrete exposee", severity: "critical" as const },
-    { pattern: /<!--[\s\S]*?(?:TODO|FIXME|HACK|BUG|password|secret|key|token)[\s\S]*?-->/i, name: "Commentaire HTML sensible", severity: "medium" as const },
+    { pattern: /<!--[\s\S]*?(?:TODO|FIXME|HACK|BUG|password|secret)[\s\S]*?-->/i, name: "Commentaire HTML sensible", severity: "medium" as const },
     { pattern: /(?:mysql|postgres|mongodb):\/\/[^\s"'<]+/i, name: "Chaine de connexion BDD exposee", severity: "critical" as const },
   ];
   for (const sp of sensitivePatterns) {
-    if (sp.pattern.test(html)) {
+    if (sp.pattern.test(htmlWithoutStructured)) {
       vulns.push({
         id: `vuln-disclosure-${sp.name.replace(/\s/g, "-").toLowerCase()}`,
         title: sp.name,
         severity: sp.severity,
         category: "Information Disclosure",
-        description: `Un pattern sensible a ete detecte dans le code source HTML de la page.`,
+        description: `Un pattern sensible a ete detecte dans le code source HTML de la page (hors donnees structurees JSON-LD/SEO).`,
         remediation: "Supprimer toute information sensible du code source. Utiliser des variables d'environnement pour les secrets.",
         affectedComponent: "Code source HTML",
       });
@@ -524,12 +528,12 @@ async function checkBruteForce(baseUrl: string): Promise<VulnCheck[]> {
 
   if (!loginUrl) return vulns;
 
-  // Test rate limiting with rapid requests
+  // Test rate limiting with rapid requests (20 attempts)
   let blocked = false;
   let rateLimitHeader: string | null = null;
   const rapidResults: number[] = [];
 
-  for (let i = 0; i < 6; i++) {
+  for (let i = 0; i < 20; i++) {
     try {
       const res = await fetch(loginUrl, {
         method: "POST",

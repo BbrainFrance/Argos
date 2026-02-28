@@ -151,16 +151,14 @@ interface CCTVCamera {
   sourceUrl?: string;
 }
 const CCTV_CAMERAS: CCTVCamera[] = [
-  { id: "cctv-par-1", name: "Tour Eiffel — Trocadero", city: "Paris", lat: 48.8584, lng: 2.2945, hdg: 180, fov: 90, snapshotUrl: "https://www.skylinewebcams.com/en/webcam/france/ile-de-france/paris/paris-tour-eiffel.html", sourceUrl: "https://www.skylinewebcams.com/en/webcam/france/ile-de-france/paris/paris-tour-eiffel.html" },
-  { id: "cctv-par-2", name: "Notre Dame — Seine", city: "Paris", lat: 48.8530, lng: 2.3499, hdg: 135, fov: 70, snapshotUrl: "https://www.skylinewebcams.com/en/webcam/france/ile-de-france/paris/notre-dame-de-paris.html", sourceUrl: "https://www.skylinewebcams.com/en/webcam/france/ile-de-france/paris/notre-dame-de-paris.html" },
-  { id: "cctv-rom-1", name: "Colisee — Rome", city: "Rome", lat: 41.8902, lng: 12.4922, hdg: 180, fov: 70, snapshotUrl: "https://www.skylinewebcams.com/en/webcam/italia/lazio/roma/colosseo.html", sourceUrl: "https://www.skylinewebcams.com/en/webcam/italia/lazio/roma/colosseo.html" },
-  { id: "cctv-ven-1", name: "Place Saint-Marc — Venise", city: "Venise", lat: 45.4341, lng: 12.3388, hdg: 90, fov: 80, snapshotUrl: "https://www.skylinewebcams.com/en/webcam/italia/veneto/venezia/piazza-san-marco.html", sourceUrl: "https://www.skylinewebcams.com/en/webcam/italia/veneto/venezia/piazza-san-marco.html" },
-  { id: "cctv-nyc-1", name: "Manhattan Skyline", city: "New York", lat: 40.758, lng: -73.9855, hdg: 180, fov: 75 },
-  { id: "cctv-tok-1", name: "Shibuya Crossing", city: "Tokyo", lat: 35.6595, lng: 139.7004, hdg: 0, fov: 90 },
-  { id: "cctv-lon-1", name: "Tower Bridge", city: "London", lat: 51.5055, lng: -0.0754, hdg: 0, fov: 80 },
-  { id: "cctv-dc-1", name: "Capitol", city: "Washington DC", lat: 38.8895, lng: -77.0235, hdg: 270, fov: 80 },
-  { id: "cctv-ist-1", name: "Bosphorus", city: "Istanbul", lat: 41.0422, lng: 29.0083, hdg: 90, fov: 75 },
-  { id: "cctv-dub-1", name: "Burj Khalifa", city: "Dubai", lat: 25.1972, lng: 55.2744, hdg: 45, fov: 60 },
+  { id: "cctv-par-1", name: "Tour Eiffel — Trocadero", city: "Paris", lat: 48.8584, lng: 2.2945, hdg: 180, fov: 90, embedUrl: "https://www.youtube.com/embed/cVsyS0EvIjM?autoplay=1&mute=1", sourceUrl: "https://www.youtube.com/watch?v=cVsyS0EvIjM" },
+  { id: "cctv-par-2", name: "Sacre-Coeur — Montmartre", city: "Paris", lat: 48.8867, lng: 2.3431, hdg: 180, fov: 70, embedUrl: "https://www.youtube.com/embed/cE0O9pYBpGo?autoplay=1&mute=1", sourceUrl: "https://www.youtube.com/watch?v=cE0O9pYBpGo" },
+  { id: "cctv-jax-1", name: "Jacksonville Beach", city: "Jacksonville", lat: 30.2947, lng: -81.3931, hdg: 90, fov: 80, embedUrl: "https://www.youtube.com/embed/Hu5a5sGN6XE?autoplay=1&mute=1", sourceUrl: "https://www.youtube.com/watch?v=Hu5a5sGN6XE" },
+  { id: "cctv-nyc-1", name: "Times Square", city: "New York", lat: 40.758, lng: -73.9855, hdg: 180, fov: 75, embedUrl: "https://www.youtube.com/embed/AdUw5RdyZxI?autoplay=1&mute=1", sourceUrl: "https://www.youtube.com/watch?v=AdUw5RdyZxI" },
+  { id: "cctv-tok-1", name: "Shibuya Crossing", city: "Tokyo", lat: 35.6595, lng: 139.7004, hdg: 0, fov: 90, embedUrl: "https://www.youtube.com/embed/3q5Eoqhc4oc?autoplay=1&mute=1", sourceUrl: "https://www.youtube.com/watch?v=3q5Eoqhc4oc" },
+  { id: "cctv-iss-1", name: "ISS — Station Spatiale", city: "Orbite LEO", lat: 0, lng: 0, hdg: 0, fov: 180, embedUrl: "https://www.youtube.com/embed/P9C25Un7xaM?autoplay=1&mute=1", sourceUrl: "https://www.youtube.com/watch?v=P9C25Un7xaM" },
+  { id: "cctv-ven-1", name: "Place Saint-Marc", city: "Venise", lat: 45.4341, lng: 12.3388, hdg: 90, fov: 80, embedUrl: "https://www.youtube.com/embed/vPbRHswf7JI?autoplay=1&mute=1", sourceUrl: "https://www.youtube.com/watch?v=vPbRHswf7JI" },
+  { id: "cctv-dub-1", name: "Dubai Marina", city: "Dubai", lat: 25.1972, lng: 55.2744, hdg: 45, fov: 60, embedUrl: "https://www.youtube.com/embed/vLaDwjfMfZI?autoplay=1&mute=1", sourceUrl: "https://www.youtube.com/watch?v=vLaDwjfMfZI" },
 ];
 
 // ─── Error Boundary ──────────────────────────────────────────────────────────
@@ -564,23 +562,26 @@ export default function ThreeGlobe({
       const icons: Record<string, string> = { battles: "⚔️", explosions: "💥", protests: "✊", riots: "🔥", violence_against_civilians: "🎯", strategic_developments: "📡" };
       const evId = `conflict-${ev.lat}-${ev.lng}-${ev.eventType}`;
       const cesiumEv = viewer.entities.add({
-        position: Cartesian3.fromDegrees(ev.lng, ev.lat, 50),
+        position: Cartesian3.fromDegrees(ev.lng, ev.lat, 100),
         point: {
-          pixelSize: isExplosion ? 8 : 6,
+          pixelSize: isExplosion ? 14 : 10,
           color: isExplosion ? Color.fromCssColorString("#ff2828") : Color.fromCssColorString("#ffaa00"),
-          outlineColor: Color.BLACK, outlineWidth: 1,
+          outlineColor: isExplosion ? Color.fromCssColorString("#ff6600") : Color.fromCssColorString("#ffcc00"),
+          outlineWidth: 2,
           heightReference: HeightReference.NONE,
-          scaleByDistance: new NearFarScalar(1000, 2, 500000, 0.5),
+          scaleByDistance: new NearFarScalar(1000, 2.5, 1000000, 0.6),
+          disableDepthTestDistance: Number.POSITIVE_INFINITY,
         },
         label: {
           text: `${icons[ev.eventType] || "💥"} ${ev.actor1}${ev.fatalities > 0 ? ` (${ev.fatalities})` : ""}`,
-          font: "9px monospace",
+          font: "11px monospace",
           fillColor: Color.fromCssColorString("#ff6666"),
           outlineColor: Color.BLACK, outlineWidth: 2,
           style: LabelStyle.FILL_AND_OUTLINE,
           verticalOrigin: VerticalOrigin.BOTTOM,
-          pixelOffset: new Cartesian2(12, -6),
-          scaleByDistance: new NearFarScalar(1000, 1, 200000, 0),
+          pixelOffset: new Cartesian2(14, -8),
+          scaleByDistance: new NearFarScalar(1000, 1, 300000, 0),
+          disableDepthTestDistance: Number.POSITIVE_INFINITY,
         },
       });
       (cesiumEv as unknown as Record<string, unknown>)._argosEventId = evId;
@@ -590,13 +591,23 @@ export default function ThreeGlobe({
     for (const f of fireHotspots) {
       const fId = `fire-${f.lat}-${f.lng}`;
       const cesiumF = viewer.entities.add({
-        position: Cartesian3.fromDegrees(f.lng, f.lat, 30),
+        position: Cartesian3.fromDegrees(f.lng, f.lat, 50),
         point: {
-          pixelSize: Math.min(4 + f.frp / 10, 12),
+          pixelSize: Math.min(6 + f.frp / 8, 14),
           color: Color.fromCssColorString("#ff7800"),
-          outlineColor: Color.BLACK, outlineWidth: 1,
+          outlineColor: Color.fromCssColorString("#ff4400"),
+          outlineWidth: 2,
           heightReference: HeightReference.NONE,
-          scaleByDistance: new NearFarScalar(1000, 2, 500000, 0.3),
+          scaleByDistance: new NearFarScalar(1000, 2, 500000, 0.4),
+          disableDepthTestDistance: Number.POSITIVE_INFINITY,
+        },
+        label: {
+          text: "🔥",
+          font: "12px sans-serif",
+          verticalOrigin: VerticalOrigin.CENTER,
+          pixelOffset: new Cartesian2(0, -14),
+          scaleByDistance: new NearFarScalar(1000, 1, 300000, 0),
+          disableDepthTestDistance: Number.POSITIVE_INFINITY,
         },
       });
       (cesiumF as unknown as Record<string, unknown>)._argosEventId = fId;
@@ -608,13 +619,15 @@ export default function ThreeGlobe({
       const colors: Record<string, string> = { red: "#ff0000", orange: "#ff8800", green: "#00cc66" };
       const dId = `disaster-${d.lat}-${d.lng}-${d.eventType}`;
       const cesiumD = viewer.entities.add({
-        position: Cartesian3.fromDegrees(d.lng, d.lat, 80),
+        position: Cartesian3.fromDegrees(d.lng, d.lat, 100),
         point: {
-          pixelSize: 10,
+          pixelSize: 12,
           color: Color.fromCssColorString(colors[d.severity] || "#00cc66"),
-          outlineColor: Color.BLACK, outlineWidth: 2,
+          outlineColor: Color.fromCssColorString(d.severity === "red" ? "#ff4444" : "#ffaa00"),
+          outlineWidth: 2,
           heightReference: HeightReference.NONE,
-          scaleByDistance: new NearFarScalar(1000, 2.5, 500000, 0.5),
+          scaleByDistance: new NearFarScalar(1000, 2.5, 1000000, 0.5),
+          disableDepthTestDistance: Number.POSITIVE_INFINITY,
         },
         label: {
           text: `${icons[d.eventType] || "⚠"} ${d.title}`,
@@ -634,13 +647,28 @@ export default function ThreeGlobe({
     for (const c of cyberThreats) {
       if (c.lat == null || c.lng == null) continue;
       const cId = `cyber-${c.lat}-${c.lng}-${c.threatCategory}`;
+      const cyberIcons: Record<string, string> = { malware: "🦠", botnet: "🤖", phishing: "🎣", c2: "💀", ransomware: "🔒", scanner: "🔍", exploit: "⚡" };
       const cesiumC = viewer.entities.add({
-        position: Cartesian3.fromDegrees(c.lng!, c.lat!, 40),
+        position: Cartesian3.fromDegrees(c.lng!, c.lat!, 60),
         point: {
-          pixelSize: 5,
+          pixelSize: 8,
           color: Color.fromCssColorString("#a855f7"),
+          outlineColor: Color.fromCssColorString("#7722cc"),
+          outlineWidth: 2,
           heightReference: HeightReference.NONE,
-          scaleByDistance: new NearFarScalar(1000, 1.5, 500000, 0.3),
+          scaleByDistance: new NearFarScalar(1000, 2, 500000, 0.4),
+          disableDepthTestDistance: Number.POSITIVE_INFINITY,
+        },
+        label: {
+          text: `${cyberIcons[c.threatCategory] || "🦠"} ${c.threatCategory}`,
+          font: "9px monospace",
+          fillColor: Color.fromCssColorString("#a855f7"),
+          outlineColor: Color.BLACK, outlineWidth: 2,
+          style: LabelStyle.FILL_AND_OUTLINE,
+          verticalOrigin: VerticalOrigin.BOTTOM,
+          pixelOffset: new Cartesian2(12, -6),
+          scaleByDistance: new NearFarScalar(1000, 1, 200000, 0),
+          disableDepthTestDistance: Number.POSITIVE_INFINITY,
         },
       });
       (cesiumC as unknown as Record<string, unknown>)._argosEventId = cId;
@@ -843,69 +871,61 @@ export default function ThreeGlobe({
           )}
         </div>
 
-        {/* ═══ CCTV PANEL (compact dropdown) ═══ */}
+        {/* ═══ CCTV PANEL ═══ */}
         {showCCTV && (
-          <div className="absolute top-40 left-64 z-50 bg-black/95 border border-cyan-900/40 p-3 w-64" style={{ pointerEvents: "auto" }}>
+          <div className="absolute top-40 left-64 z-50 bg-black/95 border border-cyan-900/40 p-3" style={{ pointerEvents: "auto", width: selectedCCTV?.embedUrl ? 420 : 260 }}>
             <div className="flex items-center justify-between mb-2">
               <p className="text-[10px] font-mono text-cyan-300 tracking-wider">📹 CCTV ({CCTV_CAMERAS.length})</p>
               <button onClick={() => { setShowCCTV(false); setSelectedCCTV(null); }} className="text-cyan-600/50 hover:text-cyan-300 text-xs cursor-pointer">✕</button>
             </div>
 
-            <select
-              value={selectedCCTV?.id || ""}
-              onChange={(e) => {
-                const cam = CCTV_CAMERAS.find(c => c.id === e.target.value) || null;
-                setSelectedCCTV(cam);
-                if (cam) {
-                  const v = viewerRef.current;
-                  if (v && !v.isDestroyed()) {
-                    v.camera.flyTo({
-                      destination: Cartesian3.fromDegrees(cam.lng, cam.lat, 300),
-                      orientation: { heading: CesiumMath.toRadians(cam.hdg), pitch: CesiumMath.toRadians(-40), roll: 0 },
-                      duration: 1.5,
-                    });
-                  }
-                }
-              }}
-              className="w-full bg-cyan-900/20 border border-cyan-800/40 text-cyan-300 text-[9px] font-mono px-2 py-1.5 rounded focus:outline-none focus:border-cyan-400/50"
-            >
-              <option value="">-- Selectionner une camera --</option>
+            <div className="space-y-1 max-h-[140px] overflow-y-auto mb-2" style={{ scrollbarWidth: "thin" }}>
               {CCTV_CAMERAS.map(cam => (
-                <option key={cam.id} value={cam.id}>{cam.city} — {cam.name}</option>
+                <button
+                  key={cam.id}
+                  onClick={() => {
+                    setSelectedCCTV(prev => prev?.id === cam.id ? null : cam);
+                    const v = viewerRef.current;
+                    if (v && !v.isDestroyed() && cam.lat !== 0) {
+                      v.camera.flyTo({
+                        destination: Cartesian3.fromDegrees(cam.lng, cam.lat, 300),
+                        orientation: { heading: CesiumMath.toRadians(cam.hdg), pitch: CesiumMath.toRadians(-40), roll: 0 },
+                        duration: 1.5,
+                      });
+                    }
+                  }}
+                  className={`w-full text-left px-2 py-1 flex items-center gap-2 cursor-pointer text-[9px] font-mono transition-colors ${
+                    selectedCCTV?.id === cam.id
+                      ? "bg-cyan-500/20 text-cyan-200"
+                      : "text-cyan-400/70 hover:bg-cyan-900/30 hover:text-cyan-300"
+                  }`}
+                >
+                  <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${selectedCCTV?.id === cam.id ? "bg-cyan-300 animate-pulse" : "bg-green-600"}`} />
+                  <span className="truncate">{cam.city} — {cam.name}</span>
+                </button>
               ))}
-            </select>
+            </div>
 
             {selectedCCTV && (
-              <div className="mt-3 pt-3 border-t border-cyan-400/30 space-y-2">
-                <div className="bg-cyan-900/20 border border-cyan-800/30 p-2">
-                  <p className="text-[10px] font-mono text-cyan-200 mb-2 tracking-wider">{selectedCCTV.name}</p>
-                  <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[8px] font-mono">
-                    <p className="text-cyan-500/70">POSITION</p>
-                    <p className="text-cyan-300/90">{selectedCCTV.lat.toFixed(4)}, {selectedCCTV.lng.toFixed(4)}</p>
-                    <p className="text-cyan-500/70">HEADING</p>
-                    <p className="text-cyan-300/90">{selectedCCTV.hdg}°</p>
-                    <p className="text-cyan-500/70">VILLE</p>
-                    <p className="text-cyan-300/90">{selectedCCTV.city}</p>
-                    <p className="text-cyan-500/70">STATUS</p>
-                    <p className={`${selectedCCTV.sourceUrl ? "text-green-400" : "text-yellow-500"}`}>{selectedCCTV.sourceUrl ? "● DISPONIBLE" : "○ REF. SEULE"}</p>
+              <div className="pt-2 border-t border-cyan-400/30 space-y-2">
+                {selectedCCTV.embedUrl && (
+                  <div className="relative w-full bg-black border border-cyan-900/30" style={{ aspectRatio: "16/9" }}>
+                    <iframe
+                      src={selectedCCTV.embedUrl}
+                      className="w-full h-full"
+                      allow="autoplay; encrypted-media"
+                      allowFullScreen
+                      style={{ border: "none" }}
+                    />
+                    <div className="absolute top-1 left-1 px-1.5 py-0.5 bg-red-600 text-white text-[7px] font-bold tracking-wider rounded-sm">● LIVE</div>
                   </div>
+                )}
+                <div className="flex items-center justify-between text-[8px] font-mono text-cyan-500/70">
+                  <span>{selectedCCTV.city} | HDG {selectedCCTV.hdg}°</span>
+                  {selectedCCTV.sourceUrl && (
+                    <a href={selectedCCTV.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-cyan-300 hover:text-cyan-100">Source ↗</a>
+                  )}
                 </div>
-
-                {selectedCCTV.sourceUrl && (
-                  <a
-                    href={selectedCCTV.sourceUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block text-center text-[9px] font-mono px-3 py-2 bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 hover:bg-cyan-500/20 hover:border-cyan-400/50 cursor-pointer transition-all"
-                  >
-                    📹 OUVRIR LE FLUX EN DIRECT ↗
-                  </a>
-                )}
-                {!selectedCCTV.sourceUrl && (
-                  <div className="text-center py-2 border border-dashed border-cyan-900/30">
-                    <p className="text-[8px] font-mono text-cyan-600/40">REFERENCE UNIQUEMENT</p>
-                  </div>
-                )}
               </div>
             )}
           </div>

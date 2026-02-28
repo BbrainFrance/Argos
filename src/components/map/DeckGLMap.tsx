@@ -923,9 +923,9 @@ export default function DeckGLMap({
       );
     }
 
-    // Phase 3 — World Monitor layers (animated)
-    const pulse = 0.6 + 0.4 * Math.sin(animPhase * Math.PI * 2);
-    const pulseInv = 1.4 - 0.4 * Math.sin(animPhase * Math.PI * 2);
+    // Phase 3 — World Monitor layers (animated with VISIBLE pulsing glow)
+    const pulse = 0.3 + 0.7 * Math.sin(animPhase * Math.PI * 2);
+    const pulseInv = 1.0 + 0.6 * Math.sin(animPhase * Math.PI * 2);
 
     if (conflictEvents.length > 0) {
       l.push(
@@ -933,14 +933,15 @@ export default function DeckGLMap({
           id: "conflicts-glow",
           data: conflictEvents,
           getPosition: (d: ConflictEvent) => [d.lng, d.lat] as [number, number],
-          getRadius: (d: ConflictEvent) => Math.max(5, Math.min(d.fatalities * 3, 40)) * 300 * pulseInv,
+          getRadius: () => 800 * pulseInv,
           getFillColor: (d: ConflictEvent) => {
-            const a = Math.round(60 * pulse);
-            if (d.eventType === "battles" || d.eventType === "explosions") return [255, 40, 0, a] as [number, number, number, number];
-            return [255, 160, 0, a] as [number, number, number, number];
+            const a = Math.round(140 * pulse);
+            if (d.eventType === "battles" || d.eventType === "explosions") return [255, 30, 0, a] as [number, number, number, number];
+            if (d.eventType === "protests" || d.eventType === "riots") return [255, 200, 0, a] as [number, number, number, number];
+            return [255, 100, 0, a] as [number, number, number, number];
           },
-          radiusMinPixels: 8,
-          radiusMaxPixels: 35,
+          radiusMinPixels: 14,
+          radiusMaxPixels: 45,
           pickable: false,
           updateTriggers: { getRadius: [animPhase], getFillColor: [animPhase] },
         })
@@ -951,14 +952,10 @@ export default function DeckGLMap({
           data: conflictEvents,
           getPosition: (d: ConflictEvent) => [d.lng, d.lat] as [number, number],
           getIcon: (d: ConflictEvent) => ({ url: getConflictIcon(d.eventType), width: 48, height: 48, anchorY: 24 }),
-          getSize: (d: ConflictEvent) => {
-            if (d.eventType === "battles" || d.eventType === "explosions") return Math.max(30, Math.min(d.fatalities * 2 + 30, 50));
-            if (d.eventType === "strategic_developments") return 36;
-            return 32;
-          },
+          getSize: 28,
           sizeScale: 1,
-          sizeMinPixels: 24,
-          sizeMaxPixels: 50,
+          sizeMinPixels: 18,
+          sizeMaxPixels: 36,
           pickable: true,
           onClick: (info) => {
             if (info.object) onSelectMapItem?.({ type: "conflict", data: info.object as ConflictEvent });
@@ -977,10 +974,10 @@ export default function DeckGLMap({
           id: "fires-glow",
           data: fireHotspots,
           getPosition: (d: FireHotspot) => [d.lng, d.lat] as [number, number],
-          getRadius: (d: FireHotspot) => d.frp * 80 * pulseInv,
-          getFillColor: [255, 80, 0, Math.round(50 * pulse)] as [number, number, number, number],
-          radiusMinPixels: 6,
-          radiusMaxPixels: 20,
+          getRadius: () => 600 * pulseInv,
+          getFillColor: [255, 100, 0, Math.round(130 * pulse)] as [number, number, number, number],
+          radiusMinPixels: 12,
+          radiusMaxPixels: 35,
           pickable: false,
           updateTriggers: { getRadius: [animPhase], getFillColor: [animPhase] },
         })
@@ -991,9 +988,9 @@ export default function DeckGLMap({
           data: fireHotspots,
           getPosition: (d: FireHotspot) => [d.lng, d.lat] as [number, number],
           getIcon: () => ({ url: ICON_FIRE, width: 48, height: 48, anchorY: 24 }),
-          getSize: (d: FireHotspot) => Math.max(28, Math.min(d.frp * 3 + 28, 56)),
-          sizeMinPixels: 24,
-          sizeMaxPixels: 56,
+          getSize: 28,
+          sizeMinPixels: 18,
+          sizeMaxPixels: 36,
           pickable: true,
           onClick: (info) => {
             if (info.object) onSelectMapItem?.({ type: "fire", data: info.object as FireHotspot });
@@ -1012,9 +1009,9 @@ export default function DeckGLMap({
           id: "disasters-glow",
           data: naturalDisasters,
           getPosition: (d: NaturalDisaster) => [d.lng, d.lat] as [number, number],
-          getRadius: 1200 * pulseInv,
+          getRadius: 800 * pulseInv,
           getFillColor: (d: NaturalDisaster) => {
-            const a = Math.round(50 * pulse);
+            const a = Math.round(130 * pulse);
             if (d.severity === "red") return [255, 0, 0, a] as [number, number, number, number];
             if (d.severity === "orange") return [255, 160, 0, a] as [number, number, number, number];
             return [0, 200, 100, a] as [number, number, number, number];
@@ -1031,9 +1028,9 @@ export default function DeckGLMap({
           data: naturalDisasters,
           getPosition: (d: NaturalDisaster) => [d.lng, d.lat] as [number, number],
           getIcon: (d: NaturalDisaster) => ({ url: getDisasterIcon(d.eventType), width: 48, height: 48, anchorY: 24 }),
-          getSize: (d: NaturalDisaster) => d.severity === "red" ? 52 : d.severity === "orange" ? 40 : 32,
-          sizeMinPixels: 28,
-          sizeMaxPixels: 60,
+          getSize: 28,
+          sizeMinPixels: 18,
+          sizeMaxPixels: 36,
           pickable: true,
           onClick: (info) => {
             if (info.object) onSelectMapItem?.({ type: "disaster", data: info.object as NaturalDisaster });
@@ -1055,9 +1052,9 @@ export default function DeckGLMap({
             data: geoThreats,
             getPosition: (d: CyberThreat) => [d.lng!, d.lat!] as [number, number],
             getRadius: 600 * pulseInv,
-            getFillColor: [168, 85, 247, Math.round(40 * pulse)] as [number, number, number, number],
-            radiusMinPixels: 6,
-            radiusMaxPixels: 16,
+            getFillColor: [168, 85, 247, Math.round(120 * pulse)] as [number, number, number, number],
+            radiusMinPixels: 12,
+            radiusMaxPixels: 30,
             pickable: false,
             updateTriggers: { getRadius: [animPhase], getFillColor: [animPhase] },
           })
