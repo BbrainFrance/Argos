@@ -147,18 +147,20 @@ const POI_LANDMARKS: Record<string, { name: string; lat: number; lng: number }[]
 interface CCTVCamera {
   id: string; name: string; city: string; lat: number; lng: number; hdg: number; fov: number;
   embedUrl?: string;
+  snapshotUrl?: string;
   sourceUrl?: string;
 }
 const CCTV_CAMERAS: CCTVCamera[] = [
-  { id: "cctv-par-1", name: "Tour Eiffel — Live HD", city: "Paris", lat: 48.8584, lng: 2.2945, hdg: 180, fov: 90, embedUrl: "https://www.youtube.com/embed/iZipA1LL_sU?autoplay=1&mute=1&controls=1&playsinline=1", sourceUrl: "https://www.youtube.com/watch?v=iZipA1LL_sU" },
-  { id: "cctv-par-2", name: "Paris Skyline — Montmartre", city: "Paris", lat: 48.8867, lng: 2.3431, hdg: 135, fov: 70, embedUrl: "https://www.youtube.com/embed/26PDBhMo0Qw?autoplay=1&mute=1&controls=1&playsinline=1", sourceUrl: "https://www.youtube.com/watch?v=26PDBhMo0Qw" },
-  { id: "cctv-jh-1", name: "Jackson Hole — Town Square", city: "Jackson Hole", lat: 43.4799, lng: -110.7624, hdg: 180, fov: 75, embedUrl: "https://www.youtube.com/embed/1EiC9bvVGnk?autoplay=1&mute=1&controls=1&playsinline=1", sourceUrl: "https://www.youtube.com/watch?v=1EiC9bvVGnk" },
-  { id: "cctv-tok-1", name: "Shibuya Crossing — Live", city: "Tokyo", lat: 35.6595, lng: 139.7004, hdg: 0, fov: 90, embedUrl: "https://www.youtube.com/embed/DBWgFXSMr-8?autoplay=1&mute=1&controls=1&playsinline=1", sourceUrl: "https://www.youtube.com/watch?v=DBWgFXSMr-8" },
-  { id: "cctv-lon-1", name: "Abbey Road Crossing", city: "London", lat: 51.5320, lng: -0.1779, hdg: 0, fov: 80, embedUrl: "https://www.youtube.com/embed/rhiMbAkgJns?autoplay=1&mute=1&controls=1&playsinline=1", sourceUrl: "https://www.youtube.com/watch?v=rhiMbAkgJns" },
-  { id: "cctv-dc-1", name: "Washington DC — Capitol", city: "Washington DC", lat: 38.8895, lng: -77.0235, hdg: 270, fov: 80 },
-  { id: "cctv-ist-1", name: "Istanbul — Bosphorus", city: "Istanbul", lat: 41.0422, lng: 29.0083, hdg: 90, fov: 75 },
-  { id: "cctv-dub-1", name: "Dubai — Burj Khalifa", city: "Dubai", lat: 25.1972, lng: 55.2744, hdg: 45, fov: 60 },
-  { id: "cctv-rom-1", name: "Rome — Colosseum", city: "Rome", lat: 41.8902, lng: 12.4922, hdg: 180, fov: 70 },
+  { id: "cctv-par-1", name: "Tour Eiffel — Trocadero", city: "Paris", lat: 48.8584, lng: 2.2945, hdg: 180, fov: 90, snapshotUrl: "https://www.skylinewebcams.com/en/webcam/france/ile-de-france/paris/paris-tour-eiffel.html", sourceUrl: "https://www.skylinewebcams.com/en/webcam/france/ile-de-france/paris/paris-tour-eiffel.html" },
+  { id: "cctv-par-2", name: "Notre Dame — Seine", city: "Paris", lat: 48.8530, lng: 2.3499, hdg: 135, fov: 70, snapshotUrl: "https://www.skylinewebcams.com/en/webcam/france/ile-de-france/paris/notre-dame-de-paris.html", sourceUrl: "https://www.skylinewebcams.com/en/webcam/france/ile-de-france/paris/notre-dame-de-paris.html" },
+  { id: "cctv-rom-1", name: "Colisee — Rome", city: "Rome", lat: 41.8902, lng: 12.4922, hdg: 180, fov: 70, snapshotUrl: "https://www.skylinewebcams.com/en/webcam/italia/lazio/roma/colosseo.html", sourceUrl: "https://www.skylinewebcams.com/en/webcam/italia/lazio/roma/colosseo.html" },
+  { id: "cctv-ven-1", name: "Place Saint-Marc — Venise", city: "Venise", lat: 45.4341, lng: 12.3388, hdg: 90, fov: 80, snapshotUrl: "https://www.skylinewebcams.com/en/webcam/italia/veneto/venezia/piazza-san-marco.html", sourceUrl: "https://www.skylinewebcams.com/en/webcam/italia/veneto/venezia/piazza-san-marco.html" },
+  { id: "cctv-nyc-1", name: "Manhattan Skyline", city: "New York", lat: 40.758, lng: -73.9855, hdg: 180, fov: 75 },
+  { id: "cctv-tok-1", name: "Shibuya Crossing", city: "Tokyo", lat: 35.6595, lng: 139.7004, hdg: 0, fov: 90 },
+  { id: "cctv-lon-1", name: "Tower Bridge", city: "London", lat: 51.5055, lng: -0.0754, hdg: 0, fov: 80 },
+  { id: "cctv-dc-1", name: "Capitol", city: "Washington DC", lat: 38.8895, lng: -77.0235, hdg: 270, fov: 80 },
+  { id: "cctv-ist-1", name: "Bosphorus", city: "Istanbul", lat: 41.0422, lng: 29.0083, hdg: 90, fov: 75 },
+  { id: "cctv-dub-1", name: "Burj Khalifa", city: "Dubai", lat: 25.1972, lng: 55.2744, hdg: 45, fov: 60 },
 ];
 
 // ─── Error Boundary ──────────────────────────────────────────────────────────
@@ -812,19 +814,19 @@ export default function ThreeGlobe({
           )}
         </div>
 
-        {/* ═══ CCTV PANEL ═══ */}
+        {/* ═══ CCTV PANEL (left side, below data layers) ═══ */}
         {showCCTV && (
-          <div className={`absolute top-28 right-4 z-50 bg-black/95 border border-cyan-900/40 p-3 ${selectedCCTV ? "w-80" : "w-64"}`} style={{ pointerEvents: "auto", maxHeight: "calc(100vh - 220px)", overflowY: "auto" }}>
+          <div className="absolute top-40 left-64 z-50 bg-black/95 border border-cyan-900/40 p-3 w-64" style={{ pointerEvents: "auto", maxHeight: "calc(100vh - 200px)", overflowY: "auto" }}>
             <div className="flex items-center justify-between mb-3">
-              <p className="text-[10px] font-mono text-cyan-300 tracking-wider">📹 CCTV — {activeCity.toUpperCase()}</p>
+              <p className="text-[10px] font-mono text-cyan-300 tracking-wider">📹 CCTV</p>
               <button onClick={() => { setShowCCTV(false); setSelectedCCTV(null); }} className="text-cyan-600/50 hover:text-cyan-300 text-xs cursor-pointer">✕</button>
             </div>
 
-            {visibleCCTVs.length === 0 ? (
-              <p className="text-[8px] font-mono text-cyan-600/40">Aucune camera disponible pour cette ville</p>
+            {CCTV_CAMERAS.length === 0 ? (
+              <p className="text-[8px] font-mono text-cyan-600/40">Aucune camera disponible</p>
             ) : (
               <div className="space-y-1">
-                {visibleCCTVs.map(cam => (
+                {CCTV_CAMERAS.map(cam => (
                   <button
                     key={cam.id}
                     onClick={() => {
@@ -844,10 +846,10 @@ export default function ThreeGlobe({
                         : "border-transparent hover:bg-cyan-900/20"
                     }`}
                   >
-                    <span className={`w-2 h-2 rounded-full ${selectedCCTV?.id === cam.id ? "bg-cyan-300 animate-pulse" : cam.embedUrl ? "bg-green-600" : "bg-cyan-700"}`} />
+                    <span className={`w-2 h-2 rounded-full ${selectedCCTV?.id === cam.id ? "bg-cyan-300 animate-pulse" : cam.sourceUrl ? "bg-green-600" : "bg-cyan-700"}`} />
                     <div className="flex-1 min-w-0">
                       <p className="text-[9px] font-mono text-cyan-300/90 truncate">{cam.name}</p>
-                      <p className="text-[7px] font-mono text-cyan-600/40">HDG {cam.hdg}° | FOV {cam.fov}°{cam.embedUrl ? " | LIVE" : ""}</p>
+                      <p className="text-[7px] font-mono text-cyan-600/40">{cam.city} | HDG {cam.hdg}°</p>
                     </div>
                   </button>
                 ))}
@@ -855,62 +857,34 @@ export default function ThreeGlobe({
             )}
 
             {selectedCCTV && (
-              <div className="mt-3 pt-3 border-t border-cyan-400/30 space-y-3">
+              <div className="mt-3 pt-3 border-t border-cyan-400/30 space-y-2">
                 <div className="bg-cyan-900/20 border border-cyan-800/30 p-2">
                   <p className="text-[10px] font-mono text-cyan-200 mb-2 tracking-wider">{selectedCCTV.name}</p>
                   <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[8px] font-mono">
-                    <p className="text-cyan-500/70">ID</p>
-                    <p className="text-cyan-300/90">{selectedCCTV.id}</p>
                     <p className="text-cyan-500/70">POSITION</p>
                     <p className="text-cyan-300/90">{selectedCCTV.lat.toFixed(4)}, {selectedCCTV.lng.toFixed(4)}</p>
                     <p className="text-cyan-500/70">HEADING</p>
                     <p className="text-cyan-300/90">{selectedCCTV.hdg}°</p>
-                    <p className="text-cyan-500/70">FOV</p>
-                    <p className="text-cyan-300/90">{selectedCCTV.fov}°</p>
-                    <p className="text-cyan-500/70">STATUS</p>
-                    <p className={`${selectedCCTV.embedUrl ? "text-green-400" : "text-yellow-500"}`}>{selectedCCTV.embedUrl ? "● EN LIGNE" : "○ HORS LIGNE"}</p>
                     <p className="text-cyan-500/70">VILLE</p>
                     <p className="text-cyan-300/90">{selectedCCTV.city}</p>
-                    <p className="text-cyan-500/70">RESEAU</p>
-                    <p className="text-cyan-300/90">{visibleCCTVs.length} cameras</p>
+                    <p className="text-cyan-500/70">STATUS</p>
+                    <p className={`${selectedCCTV.sourceUrl ? "text-green-400" : "text-yellow-500"}`}>{selectedCCTV.sourceUrl ? "● DISPONIBLE" : "○ REF. SEULE"}</p>
                   </div>
                 </div>
 
-                {selectedCCTV.embedUrl && (
-                  <>
-                    <div className="border border-cyan-800/30 bg-black">
-                      <div className="flex items-center justify-between px-2 py-1 border-b border-cyan-900/30 bg-cyan-900/10">
-                        <p className="text-[7px] font-mono text-cyan-400/70">FLUX EN DIRECT</p>
-                        <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
-                      </div>
-                      <div className="relative w-full" style={{ paddingBottom: "56.25%" }}>
-                        <iframe
-                          src={selectedCCTV.embedUrl}
-                          className="absolute inset-0 w-full h-full border-0"
-                          allow="autoplay; encrypted-media; accelerometer; gyroscope; picture-in-picture"
-                          allowFullScreen
-                          referrerPolicy="no-referrer"
-                          loading="lazy"
-                          title={selectedCCTV.name}
-                        />
-                      </div>
-                    </div>
-                    {selectedCCTV.sourceUrl && (
-                      <a
-                        href={selectedCCTV.sourceUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="block text-center text-[8px] font-mono px-3 py-1 border border-cyan-900/40 text-cyan-500/70 hover:text-cyan-300 hover:border-cyan-500/40 cursor-pointer"
-                      >
-                        OUVRIR DANS UN NOUVEL ONGLET ↗
-                      </a>
-                    )}
-                  </>
+                {selectedCCTV.sourceUrl && (
+                  <a
+                    href={selectedCCTV.sourceUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block text-center text-[9px] font-mono px-3 py-2 bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 hover:bg-cyan-500/20 hover:border-cyan-400/50 cursor-pointer transition-all"
+                  >
+                    📹 OUVRIR LE FLUX EN DIRECT ↗
+                  </a>
                 )}
-                {!selectedCCTV.embedUrl && (
-                  <div className="text-center py-3 border border-dashed border-cyan-900/30">
-                    <p className="text-[8px] font-mono text-cyan-600/40">AUCUN FLUX PUBLIC DISPONIBLE</p>
-                    <p className="text-[7px] font-mono text-cyan-600/30 mt-1">Camera reference uniquement</p>
+                {!selectedCCTV.sourceUrl && (
+                  <div className="text-center py-2 border border-dashed border-cyan-900/30">
+                    <p className="text-[8px] font-mono text-cyan-600/40">REFERENCE UNIQUEMENT</p>
                   </div>
                 )}
               </div>

@@ -109,7 +109,7 @@ export async function fetchSubmarineCables(): Promise<SubmarineCable[]> {
           return {
             id: String(f.properties?.id ?? f.properties?.name ?? Math.random()),
             name: f.properties?.name || "Unknown",
-            owners: [],
+            owners: f.properties?.color ? [f.properties.color] : [],
             lengthKm: 0,
             rfsDate: null,
             status: "active" as const,

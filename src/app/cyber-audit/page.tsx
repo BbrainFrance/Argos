@@ -190,6 +190,61 @@ function generateMockScan(target: string, template: string): ScanResult {
   };
 }
 
+function buildVulnsFromApiResult(api: Record<string, unknown>): Vulnerability[] {
+  const vulns: Vulnerability[] = [];
+  const headers = (api.headers || []) as { name: string; present: boolean; value?: string; recommendation?: string }[];
+  
+  for (const h of headers) {
+    if (!h.present) {
+      const severity: Severity = 
+        h.name === "Content-Security-Policy" ? "high" :
+        h.name === "Strict-Transport-Security" ? "high" :
+        h.name === "X-Frame-Options" ? "medium" :
+        "low";
+      vulns.push({
+        id: `header-${h.name}`,
+        title: `En-tete ${h.name} absent`,
+        severity,
+        category: "Headers HTTP",
+        description: `L'en-tete de securite ${h.name} n'est pas present dans la reponse du serveur.`,
+        remediation: h.recommendation || `Configurer l'en-tete ${h.name} dans la configuration du serveur.`,
+        affectedComponent: "Serveur HTTP",
+      });
+    }
+  }
+
+  const serverHeader = api.serverHeader as string | undefined;
+  if (serverHeader) {
+    vulns.push({
+      id: "server-exposure",
+      title: `Exposition d'informations serveur: ${serverHeader}`,
+      severity: "low",
+      category: "Information Disclosure",
+      description: `Le header Server expose des informations: "${serverHeader}". Cela facilite la reconnaissance.`,
+      remediation: "Masquer la version du serveur: ServerTokens Prod (Apache) ou server_tokens off (Nginx).",
+      affectedComponent: "Serveur HTTP",
+    });
+  }
+
+  const presentHeaders = headers.filter(h => h.present);
+  for (const h of presentHeaders) {
+    vulns.push({
+      id: `header-ok-${h.name}`,
+      title: `${h.name} correctement configure`,
+      severity: "info",
+      category: "Headers HTTP",
+      description: `Valeur: ${h.value || "present"}`,
+      remediation: "Aucune action requise.",
+      affectedComponent: "Serveur HTTP",
+    });
+  }
+
+  return vulns.sort((a, b) => {
+    const order: Record<Severity, number> = { critical: 0, high: 1, medium: 2, low: 3, info: 4 };
+    return order[a.severity] - order[b.severity];
+  });
+}
+
 function ScoreGauge({ score }: { score: number }) {
   const color = score >= 80 ? "#10b981" : score >= 60 ? "#f59e0b" : score >= 40 ? "#f97316" : "#ef4444";
   const label = score >= 80 ? "BON" : score >= 60 ? "MOYEN" : score >= 40 ? "FAIBLE" : "CRITIQUE";
@@ -222,7 +277,7 @@ export default function CyberAuditPage() {
   const [activeTab, setActiveTab] = useState<"overview" | "vulns" | "headers" | "ports" | "dns" | "tls">("overview");
   const [history, setHistory] = useState<ScanResult[]>([]);
 
-  const startScan = useCallback(() => {
+  const startScan = useCallback(async () => {
     if (!target.trim()) return;
     setStatus("scanning");
     setProgress(0);
@@ -230,18 +285,73 @@ export default function CyberAuditPage() {
     setActiveTab("overview");
 
     let p = 0;
-    const interval = setInterval(() => {
-      p += Math.random() * 15 + 5;
-      if (p >= 100) {
-        p = 100;
-        clearInterval(interval);
-        const res = generateMockScan(target, template);
-        setResult(res);
-        setHistory(prev => [res, ...prev].slice(0, 10));
-        setStatus("done");
+    const progressInterval = setInterval(() => {
+      p += Math.random() * 8 + 2;
+      setProgress(Math.min(p, 90));
+    }, 300);
+
+    try {
+      const res = await fetch("/api/cyber-audit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ target: target.trim(), template }),
+      });
+      clearInterval(progressInterval);
+      setProgress(100);
+
+      if (!res.ok) throw new Error(`Erreur serveur: ${res.status}`);
+      const apiResult = await res.json();
+
+      const scanResult: ScanResult = {
+        target: apiResult.target,
+        scanDate: apiResult.scanDate,
+        duration: Math.floor((Date.now() - new Date(apiResult.scanDate).getTime()) / 1000) || 1,
+        score: apiResult.score,
+        vulnerabilities: buildVulnsFromApiResult(apiResult),
+        tlsInfo: apiResult.tlsInfo ? {
+          version: apiResult.tlsInfo.version,
+          cipher: "Auto-detected",
+          validFrom: "-",
+          validTo: "-",
+          issuer: "-",
+          grade: apiResult.tlsInfo.grade,
+        } : undefined,
+        headers: apiResult.headers || [],
+        ports: [],
+        dnsRecords: [],
+      };
+      if (apiResult.serverHeader) {
+        scanResult.dnsRecords.push({ type: "SERVER", value: apiResult.serverHeader });
       }
-      setProgress(Math.min(p, 100));
-    }, 400);
+      if (apiResult.statusCode) {
+        scanResult.dnsRecords.push({ type: "HTTP", value: `Status ${apiResult.statusCode}` });
+      }
+      if (apiResult.redirectUrl) {
+        scanResult.dnsRecords.push({ type: "REDIRECT", value: apiResult.redirectUrl });
+      }
+      if (apiResult.error) {
+        scanResult.vulnerabilities.unshift({
+          id: "vuln-error", title: apiResult.error, severity: "critical", category: "Connectivite",
+          description: apiResult.error, remediation: "Verifier que la cible est accessible.", affectedComponent: "Reseau",
+        });
+      }
+
+      setResult(scanResult);
+      setHistory(prev => [scanResult, ...prev].slice(0, 10));
+      setStatus("done");
+    } catch (err) {
+      clearInterval(progressInterval);
+      setProgress(0);
+      setStatus("error");
+      const fallback = generateMockScan(target, template);
+      fallback.vulnerabilities.unshift({
+        id: "vuln-api-error", title: `Erreur API: ${(err as Error).message}`, severity: "info", category: "Systeme",
+        description: "Le scan serveur a echoue, les resultats ci-dessous sont des donnees de demonstration.", remediation: "Verifier la connectivite du serveur ARGOS.", affectedComponent: "API",
+      });
+      setResult(fallback);
+      setHistory(prev => [fallback, ...prev].slice(0, 10));
+      setStatus("done");
+    }
   }, [target, template]);
 
   const exportReport = useCallback(() => {

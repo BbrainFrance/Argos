@@ -51,6 +51,7 @@ interface MapContainerProps {
   userLocation?: { lat: number; lng: number } | null;
   geoRadius?: number;
   flyToTrigger?: { lat: number; lng: number; zoom: number; ts: number } | null;
+  onSelectPosition?: () => void;
 }
 
 export default function MapContainer({
@@ -96,6 +97,7 @@ export default function MapContainer({
   userLocation,
   geoRadius,
   flyToTrigger,
+  onSelectPosition,
 }: MapContainerProps) {
   return (
     <div className="relative w-full h-full">
@@ -161,6 +163,7 @@ export default function MapContainer({
           sigintTraces={sigintTraces}
           userLocation={userLocation}
           geoRadius={geoRadius}
+          onSelectPosition={onSelectPosition}
         />
       )}
 

@@ -1083,52 +1083,31 @@ export default function ArgosPage() {
                 userLocation={userLocation}
                 geoRadius={geoRadius}
                 flyToTrigger={flyToTrigger}
+                onSelectPosition={() => {
+                  if (userLocation) handleSelectMapItem({
+                    type: "position",
+                    data: { lat: userLocation.lat, lng: userLocation.lng, address: userAddress || undefined, ip: userIp || undefined, nearbyCount, geoRadius },
+                  });
+                }}
                 />
 
-                {/* ─── Geolocation widget ─── */}
+                {/* ─── Geolocation compact indicator ─── */}
                 {userLocation && (
-                  <div className="absolute bottom-14 left-4 z-40">
-                    {showGeoRadius ? (
-                      <div className="bg-argos-panel/90 border border-argos-border/50 rounded-lg px-3 py-2 space-y-2" style={{ minWidth: 220 }}>
-                        <div className="flex items-center justify-between">
-                          <button
-                            onClick={() => setFlyToTrigger({ lat: userLocation.lat, lng: userLocation.lng, zoom: 12, ts: Date.now() })}
-                            className="flex items-center gap-2 cursor-pointer hover:opacity-80"
-                          >
-                            <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-                            <p className="text-[9px] font-mono text-argos-accent tracking-wider">MA POSITION</p>
-                          </button>
-                          <button onClick={() => setShowGeoRadius(false)} className="text-argos-text-dim hover:text-argos-text text-xs cursor-pointer">▾</button>
-                        </div>
-                        {userAddress && <p className="text-[8px] font-mono text-argos-text-dim truncate max-w-[200px]" title={userAddress}>{userAddress}</p>}
-                        <div className="flex items-center gap-1 text-[7px] font-mono text-argos-text-dim">
-                          <span>{userLocation.lat.toFixed(4)}, {userLocation.lng.toFixed(4)}</span>
-                          {userIp && <><span className="text-argos-border/50">|</span><span>IP: <span className="text-argos-accent">{userIp}</span></span></>}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <input type="range" min={5} max={500} value={geoRadius} onChange={e => setGeoRadius(Number(e.target.value))} className="flex-1 h-1 accent-cyan-500" />
-                          <span className="text-[8px] font-mono text-argos-accent w-12 text-right">{geoRadius} km</span>
-                        </div>
-                        <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-[8px] font-mono">
-                          <p className="text-argos-text-dim">Entites</p><p className="text-argos-text">{nearbyCount.entities}</p>
-                          <p className="text-argos-text-dim">Conflits</p><p className="text-red-400">{nearbyCount.events}</p>
-                          <p className="text-argos-text-dim">Feux</p><p className="text-orange-400">{nearbyCount.fires}</p>
-                          <p className="text-argos-text-dim">Catastrophes</p><p className="text-emerald-400">{nearbyCount.disasters}</p>
-                        </div>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => {
-                          setShowGeoRadius(true);
-                          setFlyToTrigger({ lat: userLocation.lat, lng: userLocation.lng, zoom: 12, ts: Date.now() });
-                        }}
-                        className="bg-argos-panel/90 border border-argos-border/50 rounded-lg px-3 py-2 flex items-center gap-2 cursor-pointer hover:border-argos-accent/40"
-                      >
-                        <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-                        <p className="text-[9px] font-mono text-argos-accent tracking-wider">📍</p>
-                        <span className="text-argos-text-dim text-xs">▸</span>
-                      </button>
-                    )}
+                  <div className="absolute bottom-3 left-4 z-40">
+                    <button
+                      onClick={() => {
+                        setFlyToTrigger({ lat: userLocation.lat, lng: userLocation.lng, zoom: 12, ts: Date.now() });
+                        handleSelectMapItem({
+                          type: "position",
+                          data: { lat: userLocation.lat, lng: userLocation.lng, address: userAddress || undefined, ip: userIp || undefined, nearbyCount, geoRadius },
+                        });
+                      }}
+                      className="bg-argos-panel/90 border border-argos-border/50 rounded-lg px-3 py-1.5 flex items-center gap-2 cursor-pointer hover:border-argos-accent/40 transition-all"
+                    >
+                      <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+                      <span className="text-[9px] font-mono text-argos-accent tracking-wider">MA POSITION</span>
+                      {userAddress && <span className="text-[8px] font-mono text-argos-text-dim truncate max-w-[160px]">{userAddress}</span>}
+                    </button>
                   </div>
                 )}
 

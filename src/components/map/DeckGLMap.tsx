@@ -58,10 +58,10 @@ const ICON_AIRCRAFT_MILITARY = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/
 const ICON_AIRCRAFT_HOSTILE = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><g transform="translate(16,16)"><path d="M0,-11 L2,-3 L11,-1 L11,1 L2,4.5 L1.5,9 L4,10 L4,11 L0,10 L-4,11 L-4,10 L-1.5,9 L-2,4.5 L-11,1 L-11,-1 L-2,-3 Z" fill="#ff3333" stroke="#aa0000" stroke-width="0.7"/></g></svg>`);
 const ICON_AIRCRAFT_GROUND = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><g transform="translate(16,16)"><path d="M0,-7 L1,-2 L7,-0.5 L7,0.5 L1,3 L0.5,6 L2.5,7 L2.5,7.5 L0,7 L-2.5,7.5 L-2.5,7 L-0.5,6 L-1,3 L-7,0.5 L-7,-0.5 L-1,-2 Z" fill="#666" stroke="#444" stroke-width="0.5" opacity="0.5"/></g></svg>`);
 
-// Vessel — emoji-based for clarity
-const ICON_VESSEL_CIVIL = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40"><text x="20" y="28" text-anchor="middle" font-size="26">🚢</text></svg>`);
-const ICON_VESSEL_MILITARY = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40"><text x="20" y="28" text-anchor="middle" font-size="26">⚓</text></svg>`);
-const ICON_VESSEL_HOSTILE = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40"><circle cx="20" cy="20" r="18" fill="#ff000030" stroke="#ff0000" stroke-width="1.5"/><text x="20" y="28" text-anchor="middle" font-size="24">🚢</text></svg>`);
+// Vessel — small directional arrow/chevron
+const ICON_VESSEL_CIVIL = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><g transform="translate(12,12)"><path d="M0,-9 L5,7 L0,4 L-5,7 Z" fill="#22aaff" stroke="#1188cc" stroke-width="0.8" stroke-linejoin="round"/></g></svg>`);
+const ICON_VESSEL_MILITARY = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><g transform="translate(12,12)"><path d="M0,-9 L5,7 L0,4 L-5,7 Z" fill="#667788" stroke="#445566" stroke-width="0.8" stroke-linejoin="round"/><circle cx="0" cy="0" r="2" fill="#aabbcc"/></g></svg>`);
+const ICON_VESSEL_HOSTILE = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><g transform="translate(12,12)"><path d="M0,-9 L5,7 L0,4 L-5,7 Z" fill="#ff4444" stroke="#cc0000" stroke-width="0.8" stroke-linejoin="round"/></g></svg>`);
 
 // Conflicts
 const ICON_EXPLOSION = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><g transform="translate(24,24)"><polygon points="0,-16 4,-6 14,-10 8,-2 18,2 8,6 12,16 2,10 0,18 -2,10 -12,16 -8,6 -18,2 -8,-2 -14,-10 -4,-6" fill="#ff3300" stroke="#ff6600" stroke-width="1"/><circle cx="0" cy="0" r="5" fill="#ffcc00" opacity="0.9"/></g></svg>`);
@@ -99,22 +99,37 @@ const ICON_NUCLEAR = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width
 // Satellite
 const ICON_SATELLITE = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36"><text x="18" y="26" text-anchor="middle" font-size="24">🛰️</text></svg>`);
 
-// Cable company color map
-const CABLE_COMPANY_COLORS: Record<string, [number, number, number, number]> = {};
+// Cell towers by type
+const ICON_CELL_LTE = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 28 28"><g transform="translate(14,14)"><path d="M0,8 L-3,0 L0,-10 L3,0 Z" fill="#ef4444" stroke="#b91c1c" stroke-width="0.6"/><path d="M-6,-3 A8,8 0 0,1 6,-3" fill="none" stroke="#ef4444" stroke-width="1" opacity="0.5"/><path d="M-9,-5 A12,12 0 0,1 9,-5" fill="none" stroke="#ef4444" stroke-width="0.7" opacity="0.3"/></g></svg>`);
+const ICON_CELL_5G = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 28 28"><g transform="translate(14,14)"><path d="M0,8 L-3,0 L0,-10 L3,0 Z" fill="#3b82f6" stroke="#1d4ed8" stroke-width="0.6"/><path d="M-6,-3 A8,8 0 0,1 6,-3" fill="none" stroke="#3b82f6" stroke-width="1" opacity="0.5"/><path d="M-9,-5 A12,12 0 0,1 9,-5" fill="none" stroke="#3b82f6" stroke-width="0.7" opacity="0.3"/></g></svg>`);
+const ICON_CELL_OTHER = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 28 28"><g transform="translate(14,14)"><path d="M0,8 L-3,0 L0,-10 L3,0 Z" fill="#8b5cf6" stroke="#6d28d9" stroke-width="0.6"/><path d="M-6,-3 A8,8 0 0,1 6,-3" fill="none" stroke="#8b5cf6" stroke-width="1" opacity="0.5"/><path d="M-9,-5 A12,12 0 0,1 9,-5" fill="none" stroke="#8b5cf6" stroke-width="0.7" opacity="0.3"/></g></svg>`);
+
+function getCellIcon(radio: string): string {
+  if (radio === "LTE") return ICON_CELL_LTE;
+  if (radio === "5G") return ICON_CELL_5G;
+  return ICON_CELL_OTHER;
+}
+
+// Cable color — use the color from API (hex), fallback to palette
+const CABLE_COLOR_CACHE: Record<string, [number, number, number, number]> = {};
 let cableColorIdx = 0;
 const CABLE_PALETTE: [number, number, number][] = [
   [14, 165, 233], [236, 72, 153], [34, 197, 94], [245, 158, 11], [168, 85, 247],
   [239, 68, 68], [6, 182, 212], [132, 204, 22], [251, 146, 60], [99, 102, 241],
   [244, 114, 182], [20, 184, 166], [234, 179, 8], [59, 130, 246], [192, 132, 252],
 ];
-function getCableColor(owners: string[]): [number, number, number, number] {
-  const key = owners.slice(0, 2).sort().join("|") || "unknown";
-  if (!CABLE_COMPANY_COLORS[key]) {
+function getCableColor(owners: string[], name?: string): [number, number, number, number] {
+  const hexColor = owners[0];
+  if (hexColor && /^#[0-9a-fA-F]{6}$/.test(hexColor)) {
+    return [...hexToRgb(hexColor), 180] as [number, number, number, number];
+  }
+  const key = name || owners.join("|") || "unknown";
+  if (!CABLE_COLOR_CACHE[key]) {
     const c = CABLE_PALETTE[cableColorIdx % CABLE_PALETTE.length];
-    CABLE_COMPANY_COLORS[key] = [c[0], c[1], c[2], 160];
+    CABLE_COLOR_CACHE[key] = [c[0], c[1], c[2], 160];
     cableColorIdx++;
   }
-  return CABLE_COMPANY_COLORS[key];
+  return CABLE_COLOR_CACHE[key];
 }
 
 function isMilitaryCallsign(callsign: string | null): boolean {
@@ -243,6 +258,7 @@ export interface DeckGLMapProps {
   userLocation?: { lat: number; lng: number } | null;
   geoRadius?: number;
   flyToTrigger?: { lat: number; lng: number; zoom: number; ts: number } | null;
+  onSelectPosition?: () => void;
 }
 
 export default function DeckGLMap({
@@ -287,6 +303,7 @@ export default function DeckGLMap({
   userLocation,
   geoRadius = 20,
   flyToTrigger,
+  onSelectPosition,
 }: DeckGLMapProps) {
   const [ivs, setIvs] = useState(INITIAL_VIEW);
   const vsRef = useRef(INITIAL_VIEW);
@@ -414,10 +431,10 @@ export default function DeckGLMap({
           );
         }
         const color = AFFILIATION_COLORS[affiliation] ?? [128, 128, 128];
-        const size = isSelected ? 32
+        const size = isSelected ? 28
           : e.type === "aircraft" && (e as Aircraft).metadata.onGround ? 14
           : e.type === "aircraft" ? 22
-          : 30;
+          : 20;
         const angle = e.type === "aircraft"
           ? -((e as Aircraft).metadata.trueTrack ?? 0)
           : e.type === "vessel"
@@ -807,7 +824,7 @@ export default function DeckGLMap({
           getPosition: (d) => d.position,
           getIcon: (d) => {
             const e = d.entity as Entity;
-            const w = e.type === "vessel" ? 40 : 32;
+            const w = e.type === "vessel" ? 24 : 32;
             return { url: d.icon, width: w, height: w, anchorY: w / 2 };
           },
           getSize: (d) => d.size,
@@ -884,14 +901,17 @@ export default function DeckGLMap({
 
     if (cellLayerData.length > 0) {
       l.push(
-        new ScatterplotLayer({
+        new IconLayer({
           id: "cell-towers",
           data: cellLayerData,
           getPosition: (d) => d.position,
-          getRadius: (d) => d.radius * 100,
-          getFillColor: (d) => d.color,
-          radiusMinPixels: 4,
-          radiusMaxPixels: 8,
+          getIcon: (d) => {
+            const t = d.tower as CellTower;
+            return { url: getCellIcon(t.radio), width: 28, height: 28, anchorY: 14 };
+          },
+          getSize: 22,
+          sizeMinPixels: 10,
+          sizeMaxPixels: 24,
           pickable: true,
           onClick: (info) => {
             if (!info.object) return;
@@ -899,7 +919,7 @@ export default function DeckGLMap({
             if (obj?.tower) onSelectMapItem?.({ type: "tower", data: obj.tower });
           },
           onHover: (info) => setHoverInfo(info.picked ? { x: info.x!, y: info.y!, object: info.object } : null),
-        })
+        }) as unknown as Layer
       );
     }
 
@@ -1092,7 +1112,7 @@ export default function DeckGLMap({
           id: "submarine-cables",
           data: submarineCables,
           getPath: (d: SubmarineCable) => d.coordinates.map(([lat, lng]) => [lng, lat] as [number, number]),
-          getColor: (d: SubmarineCable) => getCableColor(d.owners),
+          getColor: (d: SubmarineCable) => getCableColor(d.owners, d.name),
           getWidth: 2,
           widthMinPixels: 1,
           pickable: true,
@@ -1303,7 +1323,9 @@ export default function DeckGLMap({
           stroked: true,
           radiusMinPixels: 6,
           radiusMaxPixels: 10,
-          pickable: false,
+          pickable: true,
+          onClick: () => onSelectPosition?.(),
+          onHover: (info) => setHoverInfo(info.picked ? { x: info.x!, y: info.y!, object: { position: "Ma Position" } } : null),
         })
       );
       l.push(

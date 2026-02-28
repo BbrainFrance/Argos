@@ -23,11 +23,21 @@ export type MapItemType =
   | "pipeline"
   | "base"
   | "nuclear"
-  | "tower";
+  | "tower"
+  | "position";
+
+export interface PositionData {
+  lat: number;
+  lng: number;
+  address?: string;
+  ip?: string;
+  nearbyCount: { entities: number; events: number; fires: number; disasters: number };
+  geoRadius: number;
+}
 
 export interface MapItem {
   type: MapItemType;
-  data: ConflictEvent | CyberThreat | InternetOutage | SubmarineCable | Pipeline | MilitaryBase | NuclearFacility | FireHotspot | NaturalDisaster | CellTower;
+  data: ConflictEvent | CyberThreat | InternetOutage | SubmarineCable | Pipeline | MilitaryBase | NuclearFacility | FireHotspot | NaturalDisaster | CellTower | PositionData;
 }
 
 interface Props {
@@ -46,6 +56,7 @@ const TYPE_META: Record<MapItemType, { label: string; icon: string; color: strin
   base: { label: "BASE MILITAIRE", icon: "🎖", color: "text-red-500" },
   nuclear: { label: "INSTALLATION NUCLEAIRE", icon: "☢", color: "text-yellow-400" },
   tower: { label: "ANTENNE RELAIS", icon: "📡", color: "text-red-400" },
+  position: { label: "MA POSITION", icon: "📍", color: "text-cyan-400" },
 };
 
 const SEV_COLORS: Record<string, string> = {
@@ -88,6 +99,7 @@ export default function MapItemDetail({ item, onClose }: Props) {
         {item.type === "base" && <BaseDetail d={item.data as MilitaryBase} />}
         {item.type === "nuclear" && <NuclearDetail d={item.data as NuclearFacility} />}
         {item.type === "tower" && <TowerDetail d={item.data as CellTower} />}
+        {item.type === "position" && <PositionDetail d={item.data as PositionData} />}
       </div>
     </div>
   );
@@ -363,6 +375,44 @@ function TowerDetail({ d }: { d: CellTower }) {
       <Row label="LAC" value={String(d.lac)} />
       <Row label="Portee" value={`${d.range} m`} />
       <Row label="Position" value={`${d.lat.toFixed(4)}°N ${d.lng.toFixed(4)}°E`} />
+    </>
+  );
+}
+
+function PositionDetail({ d }: { d: PositionData }) {
+  return (
+    <>
+      <h3 className="text-xs font-semibold text-cyan-400 mb-1">Position Operateur</h3>
+      {d.address && <Row label="Adresse" value={d.address} />}
+      <Row label="Coordonnees" value={`${d.lat.toFixed(5)}°N ${d.lng.toFixed(5)}°E`} />
+      {d.ip && <Row label="IP publique" value={d.ip} />}
+      <Row label="Rayon surveillance" value={`${d.geoRadius} km`} />
+
+      <div className="mt-2 pt-2 border-t border-argos-border/20">
+        <p className="text-[8px] text-argos-text-dim uppercase tracking-wider mb-1">Situation a proximite ({d.geoRadius} km)</p>
+        <div className="grid grid-cols-2 gap-x-3 gap-y-1">
+          <Row label="Entites" value={String(d.nearbyCount.entities)} />
+          <Row label="Conflits" value={String(d.nearbyCount.events)} highlight={d.nearbyCount.events > 0} />
+          <Row label="Feux actifs" value={String(d.nearbyCount.fires)} highlight={d.nearbyCount.fires > 0} />
+          <Row label="Catastrophes" value={String(d.nearbyCount.disasters)} highlight={d.nearbyCount.disasters > 0} />
+        </div>
+      </div>
+
+      <div className="mt-2 pt-2 border-t border-argos-border/20">
+        <p className="text-[8px] text-argos-text-dim uppercase tracking-wider mb-1">Brief de situation</p>
+        <div className="p-2 rounded bg-argos-panel/50 border border-argos-border/10">
+          <p className="text-[9px] text-argos-text-dim leading-relaxed">
+            {d.nearbyCount.events === 0 && d.nearbyCount.fires === 0 && d.nearbyCount.disasters === 0
+              ? `Zone calme. Aucune menace detectee dans un rayon de ${d.geoRadius} km. ${d.nearbyCount.entities} entite${d.nearbyCount.entities > 1 ? "s" : ""} trackee${d.nearbyCount.entities > 1 ? "s" : ""}.`
+              : `ATTENTION — ${[
+                  d.nearbyCount.events > 0 ? `${d.nearbyCount.events} conflit${d.nearbyCount.events > 1 ? "s" : ""}` : "",
+                  d.nearbyCount.fires > 0 ? `${d.nearbyCount.fires} feu${d.nearbyCount.fires > 1 ? "x" : ""} actif${d.nearbyCount.fires > 1 ? "s" : ""}` : "",
+                  d.nearbyCount.disasters > 0 ? `${d.nearbyCount.disasters} catastrophe${d.nearbyCount.disasters > 1 ? "s" : ""}` : "",
+                ].filter(Boolean).join(", ")} detecte${d.nearbyCount.events + d.nearbyCount.fires + d.nearbyCount.disasters > 1 ? "s" : ""} dans un rayon de ${d.geoRadius} km. ${d.nearbyCount.entities} entite${d.nearbyCount.entities > 1 ? "s" : ""} trackee${d.nearbyCount.entities > 1 ? "s" : ""}.`
+            }
+          </p>
+        </div>
+      </div>
     </>
   );
 }
