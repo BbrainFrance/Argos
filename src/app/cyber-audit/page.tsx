@@ -18,6 +18,21 @@ interface Vulnerability {
   affectedComponent: string;
 }
 
+interface CookieCheck {
+  name: string;
+  secure: boolean;
+  httpOnly: boolean;
+  sameSite: string | null;
+  issues: string[];
+}
+
+interface ComplianceCheck {
+  name: string;
+  passed: boolean;
+  details: string;
+  category: string;
+}
+
 interface ScanResult {
   target: string;
   scanDate: string;
@@ -27,14 +42,21 @@ interface ScanResult {
   tlsInfo?: {
     version: string;
     cipher: string;
+    cipherBits?: number;
     validFrom: string;
     validTo: string;
     issuer: string;
+    subject?: string;
     grade: string;
+    daysUntilExpiry?: number;
+    altNames?: string[];
+    serialNumber?: string;
   };
   headers: { name: string; present: boolean; value?: string; recommendation?: string }[];
-  ports: { port: number; service: string; state: string; risk: Severity }[];
+  ports: { port: number; service: string; state: string; risk: Severity; banner?: string }[];
   dnsRecords: { type: string; value: string }[];
+  cookies: CookieCheck[];
+  compliance: ComplianceCheck[];
 }
 
 const SEVERITY_COLORS: Record<Severity, string> = {
@@ -60,60 +82,7 @@ const SCAN_TEMPLATES = [
   { id: "compliance", name: "Conformite ANSSI", description: "Referentiel ANSSI, RGPD, RGS", icon: "📋", duration: "~1 min" },
 ];
 
-function buildVulnsFromApiResult(api: Record<string, unknown>): Vulnerability[] {
-  const vulns: Vulnerability[] = [];
-  const headers = (api.headers || []) as { name: string; present: boolean; value?: string; recommendation?: string }[];
-  
-  for (const h of headers) {
-    if (!h.present) {
-      const severity: Severity = 
-        h.name === "Content-Security-Policy" ? "high" :
-        h.name === "Strict-Transport-Security" ? "high" :
-        h.name === "X-Frame-Options" ? "medium" :
-        "low";
-      vulns.push({
-        id: `header-${h.name}`,
-        title: `En-tete ${h.name} absent`,
-        severity,
-        category: "Headers HTTP",
-        description: `L'en-tete de securite ${h.name} n'est pas present dans la reponse du serveur.`,
-        remediation: h.recommendation || `Configurer l'en-tete ${h.name} dans la configuration du serveur.`,
-        affectedComponent: "Serveur HTTP",
-      });
-    }
-  }
-
-  const serverHeader = api.serverHeader as string | undefined;
-  if (serverHeader) {
-    vulns.push({
-      id: "server-exposure",
-      title: `Exposition d'informations serveur: ${serverHeader}`,
-      severity: "low",
-      category: "Information Disclosure",
-      description: `Le header Server expose des informations: "${serverHeader}". Cela facilite la reconnaissance.`,
-      remediation: "Masquer la version du serveur: ServerTokens Prod (Apache) ou server_tokens off (Nginx).",
-      affectedComponent: "Serveur HTTP",
-    });
-  }
-
-  const presentHeaders = headers.filter(h => h.present);
-  for (const h of presentHeaders) {
-    vulns.push({
-      id: `header-ok-${h.name}`,
-      title: `${h.name} correctement configure`,
-      severity: "info",
-      category: "Headers HTTP",
-      description: `Valeur: ${h.value || "present"}`,
-      remediation: "Aucune action requise.",
-      affectedComponent: "Serveur HTTP",
-    });
-  }
-
-  return vulns.sort((a, b) => {
-    const order: Record<Severity, number> = { critical: 0, high: 1, medium: 2, low: 3, info: 4 };
-    return order[a.severity] - order[b.severity];
-  });
-}
+// no mock — API returns real data directly
 
 function ScoreGauge({ score }: { score: number }) {
   const color = score >= 80 ? "#10b981" : score >= 60 ? "#f59e0b" : score >= 40 ? "#f97316" : "#ef4444";
@@ -144,7 +113,7 @@ export default function CyberAuditPage() {
   const [progress, setProgress] = useState(0);
   const [result, setResult] = useState<ScanResult | null>(null);
   const [expandedVuln, setExpandedVuln] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"overview" | "vulns" | "headers" | "ports" | "dns" | "tls">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "vulns" | "headers" | "ports" | "dns" | "tls" | "cookies" | "compliance">("overview");
   const [history, setHistory] = useState<ScanResult[]>([]);
 
   const startScan = useCallback(async () => {
@@ -156,9 +125,9 @@ export default function CyberAuditPage() {
 
     let p = 0;
     const progressInterval = setInterval(() => {
-      p += Math.random() * 8 + 2;
-      setProgress(Math.min(p, 90));
-    }, 300);
+      p += Math.random() * 3 + 1;
+      setProgress(Math.min(p, 92));
+    }, 500);
 
     try {
       const res = await fetch("/api/cyber-audit", {
@@ -175,30 +144,16 @@ export default function CyberAuditPage() {
       const scanResult: ScanResult = {
         target: apiResult.target,
         scanDate: apiResult.scanDate,
-        duration: Math.floor((Date.now() - new Date(apiResult.scanDate).getTime()) / 1000) || 1,
+        duration: apiResult.duration || 0,
         score: apiResult.score,
-        vulnerabilities: buildVulnsFromApiResult(apiResult),
-        tlsInfo: apiResult.tlsInfo ? {
-          version: apiResult.tlsInfo.version,
-          cipher: "Auto-detected",
-          validFrom: "-",
-          validTo: "-",
-          issuer: "-",
-          grade: apiResult.tlsInfo.grade,
-        } : undefined,
+        vulnerabilities: apiResult.vulnerabilities || [],
+        tlsInfo: apiResult.tlsInfo || undefined,
         headers: apiResult.headers || [],
-        ports: [],
-        dnsRecords: [],
+        ports: apiResult.ports || [],
+        dnsRecords: apiResult.dnsRecords || [],
+        cookies: apiResult.cookies || [],
+        compliance: apiResult.compliance || [],
       };
-      if (apiResult.serverHeader) {
-        scanResult.dnsRecords.push({ type: "SERVER", value: apiResult.serverHeader });
-      }
-      if (apiResult.statusCode) {
-        scanResult.dnsRecords.push({ type: "HTTP", value: `Status ${apiResult.statusCode}` });
-      }
-      if (apiResult.redirectUrl) {
-        scanResult.dnsRecords.push({ type: "REDIRECT", value: apiResult.redirectUrl });
-      }
       if (apiResult.error) {
         scanResult.vulnerabilities.unshift({
           id: "vuln-error", title: apiResult.error, severity: "critical", category: "Connectivite",
@@ -229,6 +184,8 @@ export default function CyberAuditPage() {
         headers: [],
         ports: [],
         dnsRecords: [],
+        cookies: [],
+        compliance: [],
       };
       setResult(errorResult);
       setStatus("done");
@@ -484,11 +441,13 @@ export default function CyberAuditPage() {
               <div className="flex items-center border-b border-argos-border/30 bg-argos-surface">
                 {([
                   { id: "overview", label: "VUE GENERALE", icon: "📊" },
-                  { id: "vulns", label: `VULNERABILITES (${result.vulnerabilities.length})`, icon: "⚠️" },
-                  { id: "headers", label: "HEADERS HTTP", icon: "🌐" },
-                  { id: "ports", label: "PORTS", icon: "🔌" },
+                  { id: "vulns", label: `VULNS (${result.vulnerabilities.length})`, icon: "⚠️" },
+                  { id: "headers", label: "HEADERS", icon: "🌐" },
+                  { id: "ports", label: `PORTS (${result.ports.length})`, icon: "🔌" },
                   { id: "tls", label: "TLS/SSL", icon: "🔒" },
-                  { id: "dns", label: "DNS", icon: "📡" },
+                  { id: "dns", label: `DNS (${result.dnsRecords.length})`, icon: "📡" },
+                  { id: "cookies", label: `COOKIES (${result.cookies.length})`, icon: "🍪" },
+                  { id: "compliance", label: "CONFORMITE", icon: "📋" },
                 ] as { id: typeof activeTab; label: string; icon: string }[]).map(tab => (
                   <button
                     key={tab.id}
@@ -539,8 +498,8 @@ export default function CyberAuditPage() {
                           </div>
                           <div className="flex items-center justify-between">
                             <span className="text-[10px] text-argos-text-dim">TLS</span>
-                            <span className={`text-[10px] font-bold ${result.tlsInfo?.grade === "A" ? "text-green-400" : result.tlsInfo?.grade === "B" ? "text-yellow-400" : "text-red-400"}`}>
-                              Grade {result.tlsInfo?.grade}
+                            <span className={`text-[10px] font-bold ${result.tlsInfo?.grade?.startsWith("A") ? "text-green-400" : result.tlsInfo?.grade?.startsWith("B") ? "text-yellow-400" : "text-red-400"}`}>
+                              {result.tlsInfo ? `${result.tlsInfo.version} — Grade ${result.tlsInfo.grade}` : "N/A"}
                             </span>
                           </div>
                         </div>
@@ -567,6 +526,22 @@ export default function CyberAuditPage() {
                           </div>
                         </div>
                       </div>
+                    </div>
+
+                    {/* Scan modules summary */}
+                    <div className="grid grid-cols-4 gap-3">
+                      {[
+                        { label: "Ports ouverts", value: String(result.ports.length), icon: "🔌", color: result.ports.length > 2 ? "text-red-400" : result.ports.length > 0 ? "text-yellow-400" : "text-green-400" },
+                        { label: "Cookies", value: String(result.cookies.length), icon: "🍪", color: result.cookies.some(c => c.issues.length > 0) ? "text-yellow-400" : "text-green-400" },
+                        { label: "DNS Records", value: String(result.dnsRecords.length), icon: "📡", color: "text-argos-accent" },
+                        { label: "Conformite", value: `${result.compliance.filter(c => c.passed).length}/${result.compliance.length}`, icon: "📋", color: result.compliance.filter(c => !c.passed).length > 2 ? "text-red-400" : "text-green-400" },
+                      ].map(m => (
+                        <div key={m.label} className="bg-argos-surface border border-argos-border/20 rounded-lg p-3 text-center">
+                          <span className="text-lg">{m.icon}</span>
+                          <p className={`text-lg font-bold mt-1 ${m.color}`}>{m.value}</p>
+                          <p className="text-[8px] text-argos-text-dim uppercase">{m.label}</p>
+                        </div>
+                      ))}
                     </div>
 
                     {/* Top vulns */}
@@ -660,70 +635,174 @@ export default function CyberAuditPage() {
 
                 {activeTab === "ports" && (
                   <div className="bg-argos-surface border border-argos-border/20 rounded-lg overflow-hidden">
-                    <div className="px-4 py-2 bg-argos-panel/30 border-b border-argos-border/20">
-                      <p className="text-[9px] text-argos-text-dim tracking-wider uppercase">Ports detectes</p>
+                    <div className="px-4 py-2 bg-argos-panel/30 border-b border-argos-border/20 flex items-center justify-between">
+                      <p className="text-[9px] text-argos-text-dim tracking-wider uppercase">Ports ouverts detectes</p>
+                      <p className="text-[9px] text-argos-text-dim">{result.ports.length} / 21 ports scannes</p>
                     </div>
-                    <div className="divide-y divide-argos-border/10">
-                      {result.ports.map(p => (
-                        <div key={p.port} className="px-4 py-2.5 flex items-center gap-3">
-                          <span className={`text-[9px] font-bold px-2 py-0.5 rounded ${SEVERITY_BADGE[p.risk]}`}>{p.risk.toUpperCase()}</span>
-                          <span className="text-sm font-bold w-16">{p.port}</span>
-                          <span className="text-[10px] text-argos-text-dim flex-1">{p.service}</span>
-                          <span className={`text-[10px] font-bold ${p.state === "open" ? "text-red-400" : "text-yellow-400"}`}>{p.state.toUpperCase()}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {activeTab === "tls" && result.tlsInfo && (
-                  <div className="space-y-4">
-                    <div className="bg-argos-surface border border-argos-border/20 rounded-lg p-4">
-                      <div className="flex items-center gap-4 mb-4">
-                        <div className={`w-16 h-16 rounded-lg flex items-center justify-center text-2xl font-bold ${
-                          result.tlsInfo.grade === "A" ? "bg-green-500/10 text-green-400 border border-green-500/30"
-                          : result.tlsInfo.grade === "B" ? "bg-yellow-500/10 text-yellow-400 border border-yellow-500/30"
-                          : "bg-red-500/10 text-red-400 border border-red-500/30"
-                        }`}>
-                          {result.tlsInfo.grade}
-                        </div>
-                        <div>
-                          <p className="text-sm font-bold">Certificat TLS/SSL</p>
-                          <p className="text-[10px] text-argos-text-dim">Analyse du chiffrement et du certificat</p>
-                        </div>
+                    {result.ports.length === 0 ? (
+                      <div className="px-4 py-6 text-center">
+                        <p className="text-[10px] text-green-400">Aucun port ouvert detecte sur les 21 ports scannes</p>
+                        <p className="text-[8px] text-argos-text-dim mt-1">21, 22, 23, 25, 53, 80, 110, 143, 443, 445, 993, 995, 1433, 3306, 3389, 5432, 5900, 6379, 8080, 8443, 27017</p>
                       </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        {[
-                          { label: "Version TLS", value: result.tlsInfo.version },
-                          { label: "Cipher Suite", value: result.tlsInfo.cipher },
-                          { label: "Emetteur", value: result.tlsInfo.issuer },
-                          { label: "Valide du", value: result.tlsInfo.validFrom },
-                          { label: "Valide jusqu'au", value: result.tlsInfo.validTo },
-                          { label: "Grade", value: result.tlsInfo.grade },
-                        ].map(f => (
-                          <div key={f.label} className="bg-argos-panel/30 rounded p-2">
-                            <p className="text-[8px] text-argos-text-dim uppercase tracking-wider">{f.label}</p>
-                            <p className="text-[10px] font-bold mt-0.5">{f.value}</p>
+                    ) : (
+                      <div className="divide-y divide-argos-border/10">
+                        {result.ports.map(p => (
+                          <div key={p.port} className="px-4 py-2.5 flex items-center gap-3">
+                            <span className={`text-[9px] font-bold px-2 py-0.5 rounded ${SEVERITY_BADGE[p.risk]}`}>{p.risk.toUpperCase()}</span>
+                            <span className="text-sm font-bold w-16">{p.port}</span>
+                            <span className="text-[10px] text-argos-text-dim flex-1">{p.service}</span>
+                            {p.banner && <span className="text-[8px] text-argos-text-dim bg-argos-panel/50 px-2 py-0.5 rounded max-w-[200px] truncate">{p.banner}</span>}
+                            <span className="text-[10px] font-bold text-red-400">OPEN</span>
                           </div>
                         ))}
                       </div>
-                    </div>
+                    )}
+                  </div>
+                )}
+
+                {activeTab === "tls" && (
+                  <div className="space-y-4">
+                    {!result.tlsInfo ? (
+                      <div className="bg-argos-surface border border-red-500/30 rounded-lg p-4 text-center">
+                        <p className="text-[10px] text-red-400">Aucune connexion TLS — le site n&apos;utilise pas HTTPS ou l&apos;analyse TLS a echoue</p>
+                      </div>
+                    ) : (
+                      <div className="bg-argos-surface border border-argos-border/20 rounded-lg p-4">
+                        <div className="flex items-center gap-4 mb-4">
+                          <div className={`w-16 h-16 rounded-lg flex items-center justify-center text-2xl font-bold ${
+                            result.tlsInfo.grade.startsWith("A") ? "bg-green-500/10 text-green-400 border border-green-500/30"
+                            : result.tlsInfo.grade.startsWith("B") ? "bg-yellow-500/10 text-yellow-400 border border-yellow-500/30"
+                            : "bg-red-500/10 text-red-400 border border-red-500/30"
+                          }`}>
+                            {result.tlsInfo.grade}
+                          </div>
+                          <div>
+                            <p className="text-sm font-bold">Certificat TLS/SSL</p>
+                            <p className="text-[10px] text-argos-text-dim">Analyse reelle du chiffrement et du certificat</p>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          {[
+                            { label: "Protocole", value: result.tlsInfo.version },
+                            { label: "Cipher Suite", value: result.tlsInfo.cipher },
+                            { label: "Sujet (CN)", value: result.tlsInfo.subject || "-" },
+                            { label: "Emetteur", value: result.tlsInfo.issuer },
+                            { label: "Valide du", value: result.tlsInfo.validFrom },
+                            { label: "Expire le", value: result.tlsInfo.validTo },
+                            { label: "Jours restants", value: result.tlsInfo.daysUntilExpiry != null ? String(result.tlsInfo.daysUntilExpiry) : "-" },
+                            { label: "Serial", value: result.tlsInfo.serialNumber || "-" },
+                          ].map(f => (
+                            <div key={f.label} className="bg-argos-panel/30 rounded p-2">
+                              <p className="text-[8px] text-argos-text-dim uppercase tracking-wider">{f.label}</p>
+                              <p className="text-[10px] font-bold mt-0.5 break-all">{f.value}</p>
+                            </div>
+                          ))}
+                        </div>
+                        {result.tlsInfo.altNames && result.tlsInfo.altNames.length > 0 && (
+                          <div className="mt-3 bg-argos-panel/30 rounded p-2">
+                            <p className="text-[8px] text-argos-text-dim uppercase tracking-wider mb-1">Subject Alternative Names ({result.tlsInfo.altNames.length})</p>
+                            <div className="flex flex-wrap gap-1">
+                              {result.tlsInfo.altNames.map((san, i) => (
+                                <span key={i} className="text-[9px] bg-argos-accent/10 text-argos-accent px-2 py-0.5 rounded">{san}</span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
 
                 {activeTab === "dns" && (
                   <div className="bg-argos-surface border border-argos-border/20 rounded-lg overflow-hidden">
                     <div className="px-4 py-2 bg-argos-panel/30 border-b border-argos-border/20">
-                      <p className="text-[9px] text-argos-text-dim tracking-wider uppercase">Enregistrements DNS</p>
+                      <p className="text-[9px] text-argos-text-dim tracking-wider uppercase">Enregistrements DNS ({result.dnsRecords.length})</p>
                     </div>
-                    <div className="divide-y divide-argos-border/10">
-                      {result.dnsRecords.map((d, i) => (
-                        <div key={i} className="px-4 py-2.5 flex items-center gap-3">
-                          <span className="text-[10px] font-bold bg-argos-accent/10 text-argos-accent px-2 py-0.5 rounded w-12 text-center">{d.type}</span>
-                          <span className="text-[10px] text-argos-text-dim flex-1 break-all">{d.value}</span>
+                    {result.dnsRecords.length === 0 ? (
+                      <div className="px-4 py-6 text-center text-[10px] text-argos-text-dim">Aucun enregistrement DNS detecte</div>
+                    ) : (
+                      <div className="divide-y divide-argos-border/10">
+                        {result.dnsRecords.map((d, i) => (
+                          <div key={i} className="px-4 py-2.5 flex items-center gap-3">
+                            <span className={`text-[9px] font-bold px-2 py-0.5 rounded w-14 text-center ${
+                              d.type === "SPF" || d.type === "DMARC" || d.type === "DKIM" ? "bg-green-500/10 text-green-400 border border-green-500/20" :
+                              d.type === "MX" ? "bg-purple-500/10 text-purple-400 border border-purple-500/20" :
+                              "bg-argos-accent/10 text-argos-accent border border-argos-accent/20"
+                            }`}>{d.type}</span>
+                            <span className="text-[10px] text-argos-text-dim flex-1 break-all">{d.value}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {activeTab === "cookies" && (
+                  <div className="space-y-3">
+                    {result.cookies.length === 0 ? (
+                      <div className="bg-argos-surface border border-argos-border/20 rounded-lg px-4 py-6 text-center">
+                        <p className="text-[10px] text-argos-text-dim">Aucun cookie detecte dans la reponse</p>
+                      </div>
+                    ) : result.cookies.map((c, i) => (
+                      <div key={i} className={`bg-argos-surface border rounded-lg p-4 ${c.issues.length > 0 ? "border-yellow-500/30" : "border-green-500/30"}`}>
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="text-sm">{c.issues.length > 0 ? "⚠️" : "✅"}</span>
+                          <span className="text-[11px] font-bold">{c.name}</span>
                         </div>
-                      ))}
-                    </div>
+                        <div className="grid grid-cols-3 gap-2 text-[9px] font-mono mb-2">
+                          <div className={`px-2 py-1 rounded text-center ${c.secure ? "bg-green-500/10 text-green-400" : "bg-red-500/10 text-red-400"}`}>
+                            Secure: {c.secure ? "✓" : "✗"}
+                          </div>
+                          <div className={`px-2 py-1 rounded text-center ${c.httpOnly ? "bg-green-500/10 text-green-400" : "bg-red-500/10 text-red-400"}`}>
+                            HttpOnly: {c.httpOnly ? "✓" : "✗"}
+                          </div>
+                          <div className={`px-2 py-1 rounded text-center ${c.sameSite && c.sameSite !== "none" ? "bg-green-500/10 text-green-400" : "bg-yellow-500/10 text-yellow-400"}`}>
+                            SameSite: {c.sameSite || "absent"}
+                          </div>
+                        </div>
+                        {c.issues.length > 0 && (
+                          <div className="space-y-1 mt-2">
+                            {c.issues.map((issue, j) => (
+                              <p key={j} className="text-[9px] text-yellow-400/80">• {issue}</p>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {activeTab === "compliance" && (
+                  <div className="space-y-4">
+                    {(() => {
+                      const categories = [...new Set(result.compliance.map(c => c.category))];
+                      return categories.map(cat => (
+                        <div key={cat} className="bg-argos-surface border border-argos-border/20 rounded-lg overflow-hidden">
+                          <div className="px-4 py-2 bg-argos-panel/30 border-b border-argos-border/20 flex items-center justify-between">
+                            <p className="text-[9px] text-argos-text-dim tracking-wider uppercase">{cat}</p>
+                            <span className="text-[9px] font-mono">
+                              {result.compliance.filter(c => c.category === cat && c.passed).length}/
+                              {result.compliance.filter(c => c.category === cat).length} OK
+                            </span>
+                          </div>
+                          <div className="divide-y divide-argos-border/10">
+                            {result.compliance.filter(c => c.category === cat).map((c, i) => (
+                              <div key={i} className="px-4 py-3 flex gap-3">
+                                <span className={`mt-0.5 w-5 h-5 rounded flex items-center justify-center text-xs flex-shrink-0 ${
+                                  c.passed ? "bg-green-500/10 text-green-400" : "bg-red-500/10 text-red-400"
+                                }`}>
+                                  {c.passed ? "✓" : "✗"}
+                                </span>
+                                <div className="flex-1">
+                                  <p className="text-[10px] font-bold">{c.name}</p>
+                                  <p className="text-[9px] text-argos-text-dim mt-0.5 leading-relaxed">{c.details}</p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ));
+                    })()}
                   </div>
                 )}
               </div>
