@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 
 interface GibsProduct {
   id: string;
@@ -317,6 +318,13 @@ export default function Sidebar({ activeLayers, onToggleLayer, showTrails, onTog
       <div className="p-2 border-t border-argos-border/30 space-y-2">
         {!collapsed && (
           <div className="space-y-1">
+            <Link
+              href="/cyber-audit"
+              className="w-full flex items-center gap-2 px-2 py-2 rounded text-left transition-all hover:bg-purple-500/10 border border-transparent hover:border-purple-500/30"
+            >
+              <span className="text-sm">🛡️</span>
+              <span className="text-[10px] font-mono text-purple-400">Eval. Risque Num.</span>
+            </Link>
             <button
               onClick={onExportPDF}
               className="w-full flex items-center gap-2 px-2 py-2 rounded text-left transition-all hover:bg-argos-panel/30 border border-transparent hover:border-argos-border/30"

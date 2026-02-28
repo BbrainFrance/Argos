@@ -285,8 +285,20 @@ export default function ArgosPage() {
         if (!geoInitDone.current) {
           geoInitDone.current = true;
           setFlyToTrigger({ lat: loc.lat, lng: loc.lng, zoom: 10, ts: Date.now() });
-          fetch(`https://nominatim.openstreetmap.org/reverse?lat=${loc.lat}&lon=${loc.lng}&format=json&accept-language=fr`)
-            .then(r => r.json()).then(d => { if (d.display_name) setUserAddress(d.display_name); }).catch(() => {});
+          fetch(`https://nominatim.openstreetmap.org/reverse?lat=${loc.lat}&lon=${loc.lng}&format=json&accept-language=fr&addressdetails=1`)
+            .then(r => r.json()).then(d => {
+              if (d.address) {
+                const a = d.address;
+                const num = a.house_number || "";
+                const road = a.road || a.pedestrian || a.footway || "";
+                const city = a.city || a.town || a.village || a.municipality || "";
+                const postcode = a.postcode || "";
+                const short = [num && road ? `${num}, ${road}` : road || num, postcode && city ? `${postcode} ${city}` : city].filter(Boolean).join(" — ");
+                setUserAddress(short || d.display_name);
+              } else if (d.display_name) {
+                setUserAddress(d.display_name);
+              }
+            }).catch(() => {});
         }
       },
       () => {},
@@ -1088,9 +1100,11 @@ export default function ArgosPage() {
                           </button>
                           <button onClick={() => setShowGeoRadius(false)} className="text-argos-text-dim hover:text-argos-text text-xs cursor-pointer">▾</button>
                         </div>
-                        <p className="text-[8px] font-mono text-argos-text-dim">{userLocation.lat.toFixed(4)}, {userLocation.lng.toFixed(4)}</p>
-                        {userIp && <p className="text-[8px] font-mono text-argos-text-dim">IP: <span className="text-argos-accent">{userIp}</span></p>}
-                        {userAddress && <p className="text-[7px] font-mono text-argos-text-dim leading-tight">{userAddress}</p>}
+                        {userAddress && <p className="text-[8px] font-mono text-argos-text-dim truncate max-w-[200px]" title={userAddress}>{userAddress}</p>}
+                        <div className="flex items-center gap-1 text-[7px] font-mono text-argos-text-dim">
+                          <span>{userLocation.lat.toFixed(4)}, {userLocation.lng.toFixed(4)}</span>
+                          {userIp && <><span className="text-argos-border/50">|</span><span>IP: <span className="text-argos-accent">{userIp}</span></span></>}
+                        </div>
                         <div className="flex items-center gap-2">
                           <input type="range" min={5} max={500} value={geoRadius} onChange={e => setGeoRadius(Number(e.target.value))} className="flex-1 h-1 accent-cyan-500" />
                           <span className="text-[8px] font-mono text-argos-accent w-12 text-right">{geoRadius} km</span>

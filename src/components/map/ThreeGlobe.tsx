@@ -150,13 +150,11 @@ interface CCTVCamera {
   sourceUrl?: string;
 }
 const CCTV_CAMERAS: CCTVCamera[] = [
-  { id: "cctv-par-1", name: "Tour Eiffel — Peninsula Hotel", city: "Paris", lat: 48.8584, lng: 2.2945, hdg: 180, fov: 90, embedUrl: "https://www.youtube-nocookie.com/embed/hliLbkfEBmo?autoplay=1&mute=1&controls=0&modestbranding=1&playsinline=1", sourceUrl: "https://www.youtube.com/watch?v=hliLbkfEBmo" },
-  { id: "cctv-par-2", name: "Paris Skyline — Sacre Coeur", city: "Paris", lat: 48.8867, lng: 2.3431, hdg: 135, fov: 70, embedUrl: "https://www.youtube-nocookie.com/embed/26PDBhMo0Qw?autoplay=1&mute=1&controls=0&modestbranding=1&playsinline=1", sourceUrl: "https://www.youtube.com/watch?v=26PDBhMo0Qw" },
-  { id: "cctv-nyc-1", name: "Times Square 4K — EarthCam", city: "New York", lat: 40.758, lng: -73.9855, hdg: 180, fov: 75, embedUrl: "https://www.youtube-nocookie.com/embed/QTTTY_ra2Tg?autoplay=1&mute=1&controls=0&modestbranding=1&playsinline=1", sourceUrl: "https://www.youtube.com/watch?v=QTTTY_ra2Tg" },
-  { id: "cctv-nyc-2", name: "Times Square Street — EarthCam", city: "New York", lat: 40.7585, lng: -73.9862, hdg: 90, fov: 60, embedUrl: "https://www.youtube-nocookie.com/embed/6XipiqmqwOg?autoplay=1&mute=1&controls=0&modestbranding=1&playsinline=1", sourceUrl: "https://www.youtube.com/watch?v=6XipiqmqwOg" },
-  { id: "cctv-tok-1", name: "Shibuya Crossing — Live", city: "Tokyo", lat: 35.6595, lng: 139.7004, hdg: 0, fov: 90, embedUrl: "https://www.youtube-nocookie.com/embed/DBWgFXSMr-8?autoplay=1&mute=1&controls=0&modestbranding=1&playsinline=1", sourceUrl: "https://www.youtube.com/watch?v=DBWgFXSMr-8" },
-  { id: "cctv-tok-2", name: "Shibuya Scramble — FNN", city: "Tokyo", lat: 35.6597, lng: 139.7006, hdg: 180, fov: 70, embedUrl: "https://www.youtube-nocookie.com/embed/emHRFQJ57ME?autoplay=1&mute=1&controls=0&modestbranding=1&playsinline=1", sourceUrl: "https://www.youtube.com/watch?v=emHRFQJ57ME" },
-  { id: "cctv-lon-1", name: "Abbey Road Crossing", city: "London", lat: 51.5320, lng: -0.1779, hdg: 0, fov: 80, embedUrl: "https://www.youtube-nocookie.com/embed/rhiMbAkgJns?autoplay=1&mute=1&controls=0&modestbranding=1&playsinline=1", sourceUrl: "https://www.youtube.com/watch?v=rhiMbAkgJns" },
+  { id: "cctv-par-1", name: "Tour Eiffel — Live HD", city: "Paris", lat: 48.8584, lng: 2.2945, hdg: 180, fov: 90, embedUrl: "https://www.youtube.com/embed/iZipA1LL_sU?autoplay=1&mute=1&controls=1&playsinline=1", sourceUrl: "https://www.youtube.com/watch?v=iZipA1LL_sU" },
+  { id: "cctv-par-2", name: "Paris Skyline — Montmartre", city: "Paris", lat: 48.8867, lng: 2.3431, hdg: 135, fov: 70, embedUrl: "https://www.youtube.com/embed/26PDBhMo0Qw?autoplay=1&mute=1&controls=1&playsinline=1", sourceUrl: "https://www.youtube.com/watch?v=26PDBhMo0Qw" },
+  { id: "cctv-jh-1", name: "Jackson Hole — Town Square", city: "Jackson Hole", lat: 43.4799, lng: -110.7624, hdg: 180, fov: 75, embedUrl: "https://www.youtube.com/embed/1EiC9bvVGnk?autoplay=1&mute=1&controls=1&playsinline=1", sourceUrl: "https://www.youtube.com/watch?v=1EiC9bvVGnk" },
+  { id: "cctv-tok-1", name: "Shibuya Crossing — Live", city: "Tokyo", lat: 35.6595, lng: 139.7004, hdg: 0, fov: 90, embedUrl: "https://www.youtube.com/embed/DBWgFXSMr-8?autoplay=1&mute=1&controls=1&playsinline=1", sourceUrl: "https://www.youtube.com/watch?v=DBWgFXSMr-8" },
+  { id: "cctv-lon-1", name: "Abbey Road Crossing", city: "London", lat: 51.5320, lng: -0.1779, hdg: 0, fov: 80, embedUrl: "https://www.youtube.com/embed/rhiMbAkgJns?autoplay=1&mute=1&controls=1&playsinline=1", sourceUrl: "https://www.youtube.com/watch?v=rhiMbAkgJns" },
   { id: "cctv-dc-1", name: "Washington DC — Capitol", city: "Washington DC", lat: 38.8895, lng: -77.0235, hdg: 270, fov: 80 },
   { id: "cctv-ist-1", name: "Istanbul — Bosphorus", city: "Istanbul", lat: 41.0422, lng: 29.0083, hdg: 90, fov: 75 },
   { id: "cctv-dub-1", name: "Dubai — Burj Khalifa", city: "Dubai", lat: 25.1972, lng: 55.2744, hdg: 45, fov: 60 },
@@ -324,8 +322,7 @@ export default function ThreeGlobe({
       fullscreenButton: false, infoBox: false, selectionIndicator: false,
       shadows: false,
       skyAtmosphere: undefined,
-      requestRenderMode: true,
-      maximumRenderTimeChange: 0.1,
+      requestRenderMode: false,
       msaaSamples: 1,
       useBrowserRecommendedResolution: true,
       contextOptions: {
@@ -348,20 +345,23 @@ export default function ThreeGlobe({
     ssc.enableLook = true;
     ssc.tiltEventTypes = [
       CameraEventType.RIGHT_DRAG,
+      CameraEventType.MIDDLE_DRAG,
       CameraEventType.PINCH,
       { eventType: CameraEventType.LEFT_DRAG, modifier: KeyboardEventModifier.CTRL },
       { eventType: CameraEventType.LEFT_DRAG, modifier: KeyboardEventModifier.SHIFT },
     ];
     ssc.zoomEventTypes = [
-      CameraEventType.MIDDLE_DRAG,
       CameraEventType.WHEEL,
       CameraEventType.PINCH,
     ];
     ssc.rotateEventTypes = [CameraEventType.LEFT_DRAG];
     ssc.lookEventTypes = [];
     ssc.inertiaZoom = 0.8;
-    ssc.inertiaSpin = 0.8;
+    ssc.inertiaSpin = 0.9;
     ssc.inertiaTranslate = 0.8;
+
+    const canvas = viewer.canvas;
+    canvas.addEventListener("contextmenu", (e: Event) => e.preventDefault());
 
     if (apiKey) {
       createGooglePhotorealistic3DTileset({ key: apiKey }, {
@@ -889,8 +889,7 @@ export default function ThreeGlobe({
                           className="absolute inset-0 w-full h-full border-0"
                           allow="autoplay; encrypted-media; accelerometer; gyroscope; picture-in-picture"
                           allowFullScreen
-                          referrerPolicy="no-referrer-when-downgrade"
-                          sandbox="allow-scripts allow-same-origin allow-presentation allow-popups"
+                          referrerPolicy="no-referrer"
                           loading="lazy"
                           title={selectedCCTV.name}
                         />
@@ -985,22 +984,7 @@ export default function ThreeGlobe({
           )}
         </div>
 
-        {/* ═══ VISUAL FILTER BAR (bottom center) ═══ */}
-        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-50 flex items-center gap-0.5 bg-black/70 border border-cyan-900/40 p-1 rounded-sm" style={{ pointerEvents: "auto" }}>
-          {(Object.entries(FILTER_CONFIG) as [VisualFilter, typeof FILTER_CONFIG[VisualFilter]][]).map(([key, cfg]) => (
-            <button
-              key={key}
-              onClick={() => setActiveFilter(key)}
-              className={`flex flex-col items-center gap-0.5 px-3 py-1.5 min-w-[48px] transition-all ${key === activeFilter
-                ? "bg-cyan-500/30 border border-cyan-400/60 text-cyan-200"
-                : "border border-transparent text-cyan-700/50 hover:text-cyan-400/80 hover:bg-cyan-900/20"
-                }`}
-            >
-              <span className="text-sm">{cfg.icon}</span>
-              <span className="text-[7px] font-mono tracking-wider">{cfg.label}</span>
-            </button>
-          ))}
-        </div>
+        {/* Visual filter bar removed — overlapped city names and didn't provide real NVG/thermal */}
 
         {/* ═══ Corner brackets ═══ */}
         <div className="absolute top-8 left-2 w-5 h-5 border-l border-t border-cyan-500/20 pointer-events-none z-30" />

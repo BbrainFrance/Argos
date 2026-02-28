@@ -58,10 +58,10 @@ const ICON_AIRCRAFT_MILITARY = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/
 const ICON_AIRCRAFT_HOSTILE = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><g transform="translate(16,16)"><path d="M0,-11 L2,-3 L11,-1 L11,1 L2,4.5 L1.5,9 L4,10 L4,11 L0,10 L-4,11 L-4,10 L-1.5,9 L-2,4.5 L-11,1 L-11,-1 L-2,-3 Z" fill="#ff3333" stroke="#aa0000" stroke-width="0.7"/></g></svg>`);
 const ICON_AIRCRAFT_GROUND = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><g transform="translate(16,16)"><path d="M0,-7 L1,-2 L7,-0.5 L7,0.5 L1,3 L0.5,6 L2.5,7 L2.5,7.5 L0,7 L-2.5,7.5 L-2.5,7 L-0.5,6 L-1,3 L-7,0.5 L-7,-0.5 L-1,-2 Z" fill="#666" stroke="#444" stroke-width="0.5" opacity="0.5"/></g></svg>`);
 
-// Vessel — classic ship silhouette
-const ICON_VESSEL_CIVIL = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><g transform="translate(16,16)"><path d="M0,-10 L6,2 L5,7 C3,9 -3,9 -5,7 L-6,2 Z" fill="#3388cc" stroke="#1a5588" stroke-width="0.8"/><line x1="0" y1="-10" x2="0" y2="5" stroke="#1a5588" stroke-width="0.6" opacity="0.4"/></g></svg>`);
-const ICON_VESSEL_MILITARY = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><g transform="translate(16,16)"><path d="M0,-10 L6,2 L5,7 C3,9 -3,9 -5,7 L-6,2 Z" fill="#556677" stroke="#333" stroke-width="0.8"/><line x1="0" y1="-10" x2="0" y2="5" stroke="#333" stroke-width="1"/><rect x="-2.5" y="-1" width="5" height="4" rx="0.5" fill="#445566" stroke="#333" stroke-width="0.3"/></g></svg>`);
-const ICON_VESSEL_HOSTILE = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><g transform="translate(16,16)"><path d="M0,-10 L6,2 L5,7 C3,9 -3,9 -5,7 L-6,2 Z" fill="#dd3333" stroke="#880000" stroke-width="0.8"/><line x1="0" y1="-10" x2="0" y2="5" stroke="#880000" stroke-width="1"/></g></svg>`);
+// Vessel — emoji-based for clarity
+const ICON_VESSEL_CIVIL = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40"><text x="20" y="28" text-anchor="middle" font-size="26">🚢</text></svg>`);
+const ICON_VESSEL_MILITARY = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40"><text x="20" y="28" text-anchor="middle" font-size="26">⚓</text></svg>`);
+const ICON_VESSEL_HOSTILE = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40"><circle cx="20" cy="20" r="18" fill="#ff000030" stroke="#ff0000" stroke-width="1.5"/><text x="20" y="28" text-anchor="middle" font-size="24">🚢</text></svg>`);
 
 // Conflicts
 const ICON_EXPLOSION = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><g transform="translate(24,24)"><polygon points="0,-16 4,-6 14,-10 8,-2 18,2 8,6 12,16 2,10 0,18 -2,10 -12,16 -8,6 -18,2 -8,-2 -14,-10 -4,-6" fill="#ff3300" stroke="#ff6600" stroke-width="1"/><circle cx="0" cy="0" r="5" fill="#ffcc00" opacity="0.9"/></g></svg>`);
@@ -88,13 +88,16 @@ const ICON_CYBER_SCANNER = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg"
 const ICON_CYBER_EXPLOIT = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><g transform="translate(16,16)"><circle cx="0" cy="0" r="10" fill="#cc2266" opacity="0.8" stroke="#aa0044" stroke-width="1"/><text x="0" y="5" text-anchor="middle" font-size="13" fill="#fff">⚡</text></g></svg>`);
 
 // Military bases by type
-const ICON_BASE_AIR = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><g transform="translate(16,16)"><rect x="-11" y="-11" width="22" height="22" rx="2" fill="#cc2222" opacity="0.85" stroke="#880000" stroke-width="1"/><path d="M0,-7 L2,-1 L8,0 L2,2 L0,7 L-2,2 L-8,0 L-2,-1 Z" fill="#fff" opacity="0.9"/></g></svg>`);
-const ICON_BASE_NAVAL = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><g transform="translate(16,16)"><rect x="-11" y="-11" width="22" height="22" rx="2" fill="#224488" opacity="0.85" stroke="#112244" stroke-width="1"/><text x="0" y="5" text-anchor="middle" font-size="15" fill="#fff">⚓</text></g></svg>`);
-const ICON_BASE_ARMY = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><g transform="translate(16,16)"><rect x="-11" y="-11" width="22" height="22" rx="2" fill="#556b2f" opacity="0.85" stroke="#333" stroke-width="1"/><text x="0" y="5" text-anchor="middle" font-size="14" fill="#fff">🎖</text></g></svg>`);
-const ICON_BASE_JOINT = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><g transform="translate(16,16)"><rect x="-11" y="-11" width="22" height="22" rx="2" fill="#884422" opacity="0.85" stroke="#553311" stroke-width="1"/><text x="0" y="6" text-anchor="middle" font-size="11" font-family="monospace" fill="#fff" font-weight="bold">QG</text></g></svg>`);
+const ICON_BASE_AIR = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40"><rect x="2" y="2" width="36" height="36" rx="4" fill="#cc2222" opacity="0.85" stroke="#880000" stroke-width="1.5"/><text x="20" y="29" text-anchor="middle" font-size="24">✈️</text></svg>`);
+const ICON_BASE_NAVAL = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40"><rect x="2" y="2" width="36" height="36" rx="4" fill="#224488" opacity="0.85" stroke="#112244" stroke-width="1.5"/><text x="20" y="29" text-anchor="middle" font-size="24">🚢</text></svg>`);
+const ICON_BASE_ARMY = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40"><rect x="2" y="2" width="36" height="36" rx="4" fill="#556b2f" opacity="0.85" stroke="#333" stroke-width="1.5"/><text x="20" y="29" text-anchor="middle" font-size="24">🎖️</text></svg>`);
+const ICON_BASE_JOINT = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40"><rect x="2" y="2" width="36" height="36" rx="4" fill="#884422" opacity="0.85" stroke="#553311" stroke-width="1.5"/><text x="20" y="28" text-anchor="middle" font-size="16" font-family="monospace" fill="#fff" font-weight="bold">QG</text></svg>`);
 
 // Nuclear
-const ICON_NUCLEAR = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><g transform="translate(16,16)"><path d="M-4,10 L-4,-2 C-4,-6 -2,-8 0,-10 C2,-8 4,-6 4,-2 L4,10 Z" fill="#888" stroke="#555" stroke-width="0.8"/><ellipse cx="0" cy="-10" rx="6" ry="3" fill="#ccc" opacity="0.6"/><ellipse cx="0" cy="-12" rx="4" ry="2" fill="#ddd" opacity="0.5"/><rect x="-6" y="8" width="12" height="4" rx="1" fill="#666" stroke="#444" stroke-width="0.5"/></g></svg>`);
+const ICON_NUCLEAR = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40"><circle cx="20" cy="20" r="17" fill="#eab308" opacity="0.2" stroke="#eab308" stroke-width="1.5"/><text x="20" y="29" text-anchor="middle" font-size="26">☢️</text></svg>`);
+
+// Satellite
+const ICON_SATELLITE = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36"><text x="18" y="26" text-anchor="middle" font-size="24">🛰️</text></svg>`);
 
 // Cable company color map
 const CABLE_COMPANY_COLORS: Record<string, [number, number, number, number]> = {};
@@ -411,7 +414,10 @@ export default function DeckGLMap({
           );
         }
         const color = AFFILIATION_COLORS[affiliation] ?? [128, 128, 128];
-        const size = isSelected ? 28 : e.type === "aircraft" && (e as Aircraft).metadata.onGround ? 14 : 22;
+        const size = isSelected ? 32
+          : e.type === "aircraft" && (e as Aircraft).metadata.onGround ? 14
+          : e.type === "aircraft" ? 22
+          : 30;
         const angle = e.type === "aircraft"
           ? -((e as Aircraft).metadata.trueTrack ?? 0)
           : e.type === "vessel"
@@ -799,12 +805,16 @@ export default function DeckGLMap({
           id: "entities",
           data: entityLayerData,
           getPosition: (d) => d.position,
-          getIcon: (d) => ({ url: d.icon, width: 32, height: 32, anchorY: 16 }),
+          getIcon: (d) => {
+            const e = d.entity as Entity;
+            const w = e.type === "vessel" ? 40 : 32;
+            return { url: d.icon, width: w, height: w, anchorY: w / 2 };
+          },
           getSize: (d) => d.size,
           getAngle: (d) => d.angle,
           sizeScale: 1,
-          sizeMinPixels: 8,
-          sizeMaxPixels: 28,
+          sizeMinPixels: 10,
+          sizeMaxPixels: 34,
           pickable: true,
           autoHighlight: true,
           highlightColor: [255, 255, 255, 80],
@@ -859,16 +869,16 @@ export default function DeckGLMap({
 
     if (satLayerData.length > 0) {
       l.push(
-        new ScatterplotLayer({
+        new IconLayer({
           id: "satellites",
           data: satLayerData,
           getPosition: (d) => d.position,
-          getRadius: (d) => d.radius * 100,
-          getFillColor: (d) => d.color,
-          radiusMinPixels: 2,
-          radiusMaxPixels: 6,
+          getIcon: () => ({ url: ICON_SATELLITE, width: 36, height: 36, anchorY: 18 }),
+          getSize: 24,
+          sizeMinPixels: 12,
+          sizeMaxPixels: 28,
           pickable: true,
-        })
+        }) as unknown as Layer
       );
     }
 
@@ -921,10 +931,10 @@ export default function DeckGLMap({
           data: conflictEvents,
           getPosition: (d: ConflictEvent) => [d.lng, d.lat] as [number, number],
           getIcon: (d: ConflictEvent) => ({ url: getConflictIcon(d.eventType), width: 48, height: 48, anchorY: 24 }),
-          getSize: (d: ConflictEvent) => Math.max(20, Math.min(d.fatalities * 2, 48)),
+          getSize: (d: ConflictEvent) => Math.max(32, Math.min(d.fatalities * 3 + 32, 64)),
           sizeScale: 1,
-          sizeMinPixels: 16,
-          sizeMaxPixels: 48,
+          sizeMinPixels: 28,
+          sizeMaxPixels: 64,
           pickable: true,
           onClick: (info) => {
             if (info.object) onSelectMapItem?.({ type: "conflict", data: info.object as ConflictEvent });
@@ -957,9 +967,9 @@ export default function DeckGLMap({
           data: fireHotspots,
           getPosition: (d: FireHotspot) => [d.lng, d.lat] as [number, number],
           getIcon: () => ({ url: ICON_FIRE, width: 48, height: 48, anchorY: 24 }),
-          getSize: (d: FireHotspot) => Math.max(18, Math.min(d.frp * 2, 40)),
-          sizeMinPixels: 14,
-          sizeMaxPixels: 40,
+          getSize: (d: FireHotspot) => Math.max(28, Math.min(d.frp * 3 + 28, 56)),
+          sizeMinPixels: 24,
+          sizeMaxPixels: 56,
           pickable: true,
           onClick: (info) => {
             if (info.object) onSelectMapItem?.({ type: "fire", data: info.object as FireHotspot });
@@ -997,9 +1007,9 @@ export default function DeckGLMap({
           data: naturalDisasters,
           getPosition: (d: NaturalDisaster) => [d.lng, d.lat] as [number, number],
           getIcon: (d: NaturalDisaster) => ({ url: getDisasterIcon(d.eventType), width: 48, height: 48, anchorY: 24 }),
-          getSize: (d: NaturalDisaster) => d.severity === "red" ? 36 : d.severity === "orange" ? 28 : 22,
-          sizeMinPixels: 16,
-          sizeMaxPixels: 44,
+          getSize: (d: NaturalDisaster) => d.severity === "red" ? 52 : d.severity === "orange" ? 40 : 32,
+          sizeMinPixels: 28,
+          sizeMaxPixels: 60,
           pickable: true,
           onClick: (info) => {
             if (info.object) onSelectMapItem?.({ type: "disaster", data: info.object as NaturalDisaster });
@@ -1034,9 +1044,9 @@ export default function DeckGLMap({
             data: geoThreats,
             getPosition: (d: CyberThreat) => [d.lng!, d.lat!] as [number, number],
             getIcon: (d: CyberThreat) => ({ url: getCyberIcon(d.threatCategory), width: 32, height: 32, anchorY: 16 }),
-            getSize: 24,
-            sizeMinPixels: 14,
-            sizeMaxPixels: 28,
+            getSize: 32,
+            sizeMinPixels: 22,
+            sizeMaxPixels: 44,
             pickable: true,
             onClick: (info) => {
               if (info.object) onSelectMapItem?.({ type: "cyber", data: info.object as CyberThreat });
@@ -1129,10 +1139,10 @@ export default function DeckGLMap({
           id: "military-bases",
           data: militaryBases,
           getPosition: (d: MilitaryBase) => [d.lng, d.lat] as [number, number],
-          getIcon: (d: MilitaryBase) => ({ url: getBaseIcon(d.type), width: 32, height: 32, anchorY: 16 }),
-          getSize: 24,
-          sizeMinPixels: 12,
-          sizeMaxPixels: 28,
+          getIcon: (d: MilitaryBase) => ({ url: getBaseIcon(d.type), width: 40, height: 40, anchorY: 20 }),
+          getSize: 32,
+          sizeMinPixels: 20,
+          sizeMaxPixels: 40,
           pickable: true,
           onClick: (info) => {
             if (info.object) onSelectMapItem?.({ type: "base", data: info.object as MilitaryBase });
@@ -1151,10 +1161,10 @@ export default function DeckGLMap({
           id: "nuclear-facilities",
           data: nuclearFacilities,
           getPosition: (d: NuclearFacility) => [d.lng, d.lat] as [number, number],
-          getIcon: () => ({ url: ICON_NUCLEAR, width: 32, height: 32, anchorY: 16 }),
-          getSize: 24,
-          sizeMinPixels: 12,
-          sizeMaxPixels: 28,
+          getIcon: () => ({ url: ICON_NUCLEAR, width: 40, height: 40, anchorY: 20 }),
+          getSize: 32,
+          sizeMinPixels: 20,
+          sizeMaxPixels: 40,
           pickable: true,
           onClick: (info) => {
             if (info.object) onSelectMapItem?.({ type: "nuclear", data: info.object as NuclearFacility });
