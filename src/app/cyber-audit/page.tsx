@@ -406,7 +406,15 @@ export default function CyberAuditPage() {
                     { icon: "🔒", label: "TLS/SSL" },
                     { icon: "🌐", label: "Headers HTTP" },
                     { icon: "🔌", label: "Ports" },
+                    { icon: "💉", label: "Injections" },
+                    { icon: "📡", label: "DNS" },
+                    { icon: "📧", label: "Email SPF/DKIM" },
+                    { icon: "🔎", label: "Subdomains" },
+                    { icon: "🔐", label: "Auth / Brute" },
+                    { icon: "🍪", label: "Cookies" },
+                    { icon: "🛡️", label: "Session/JWT" },
                     { icon: "📋", label: "Conformite" },
+                    { icon: "💣", label: "Stress Test" },
                   ].map(f => (
                     <div key={f.label} className="text-center py-3 border border-argos-border/20 rounded">
                       <span className="text-lg">{f.icon}</span>

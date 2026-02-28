@@ -424,11 +424,11 @@ export default function StressTestPage() {
                 <h2 className="text-xl font-bold text-argos-text mb-2">Test de Resilience Infrastructure</h2>
                 <p className="text-sm text-argos-text-dim max-w-lg leading-relaxed">
                   Evaluez la capacite de votre infrastructure a resister a une attaque coordonnee.
-                  Brute force sur l&apos;authentification, flood des endpoints critiques, et montee en charge progressive
+                  Brute force, flood, montee en charge progressive et attaque Slowloris
                   pour identifier le point de rupture.
                 </p>
               </div>
-              <div className="grid grid-cols-3 gap-4 max-w-lg">
+              <div className="grid grid-cols-4 gap-3 max-w-2xl">
                 <div className="bg-argos-surface border border-argos-border/20 rounded-lg p-4 text-center">
                   <p className="text-2xl mb-2">🔐</p>
                   <p className="text-[10px] font-bold text-red-400">Phase 1</p>
@@ -443,6 +443,11 @@ export default function StressTestPage() {
                   <p className="text-2xl mb-2">📈</p>
                   <p className="text-[10px] font-bold text-yellow-400">Phase 3</p>
                   <p className="text-[8px] text-argos-text-dim mt-1">Montee en charge 10 a {intensity} req/s</p>
+                </div>
+                <div className="bg-argos-surface border border-argos-border/20 rounded-lg p-4 text-center">
+                  <p className="text-2xl mb-2">🐌</p>
+                  <p className="text-[10px] font-bold text-purple-400">Phase 4</p>
+                  <p className="text-[8px] text-argos-text-dim mt-1">Slowloris — connexions lentes pour epuiser le serveur</p>
                 </div>
               </div>
             </div>
