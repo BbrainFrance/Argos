@@ -814,7 +814,7 @@ export default function ThreeGlobe({
 
         {/* ═══ CCTV PANEL ═══ */}
         {showCCTV && (
-          <div className={`absolute top-40 right-4 z-50 bg-black/95 border border-cyan-900/40 p-3 ${selectedCCTV ? "w-80" : "w-64"}`} style={{ pointerEvents: "auto", maxHeight: "calc(100vh - 200px)", overflowY: "auto" }}>
+          <div className={`absolute top-28 right-4 z-50 bg-black/95 border border-cyan-900/40 p-3 ${selectedCCTV ? "w-80" : "w-64"}`} style={{ pointerEvents: "auto", maxHeight: "calc(100vh - 220px)", overflowY: "auto" }}>
             <div className="flex items-center justify-between mb-3">
               <p className="text-[10px] font-mono text-cyan-300 tracking-wider">📹 CCTV — {activeCity.toUpperCase()}</p>
               <button onClick={() => { setShowCCTV(false); setSelectedCCTV(null); }} className="text-cyan-600/50 hover:text-cyan-300 text-xs cursor-pointer">✕</button>
@@ -946,7 +946,7 @@ export default function ThreeGlobe({
         </div>
 
         {/* ═══ BOTTOM LEFT - MGRS + Coordinates ═══ */}
-        <div className="absolute bottom-16 left-4 z-40 pointer-events-none font-mono">
+        <div className="absolute bottom-3 left-4 z-30 pointer-events-none font-mono">
           <p className="text-[9px] text-cyan-400/50 tracking-wider">┗ MGRS: {latLonToMGRS(cameraLat, cameraLng)}</p>
           <p className="text-[9px] text-cyan-400/60 mt-0.5">  {formatDMS(cameraLat, true)} {formatDMS(cameraLng, false)}</p>
         </div>

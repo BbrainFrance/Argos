@@ -162,6 +162,9 @@ export default function ArgosPage() {
   const [showGeoRadius, setShowGeoRadius] = useState(true);
   const [nearbyCount, setNearbyCount] = useState({ events: 0, entities: 0, fires: 0, disasters: 0 });
   const geoInitDone = useRef(false);
+  const [userIp, setUserIp] = useState<string | null>(null);
+  const [userAddress, setUserAddress] = useState<string | null>(null);
+  const [flyToTrigger, setFlyToTrigger] = useState<{ lat: number; lng: number; zoom: number; ts: number } | null>(null);
 
   const [filters, setFilters] = useState<FilterState>({
     search: "",
@@ -273,6 +276,7 @@ export default function ArgosPage() {
   }, [fetchData, timelineActive]);
 
   useEffect(() => {
+    fetch("https://api.ipify.org?format=json").then(r => r.json()).then(d => setUserIp(d.ip)).catch(() => {});
     if (!("geolocation" in navigator)) return;
     const watchId = navigator.geolocation.watchPosition(
       (pos) => {
@@ -280,7 +284,9 @@ export default function ArgosPage() {
         setUserLocation(loc);
         if (!geoInitDone.current) {
           geoInitDone.current = true;
-          setViewState(prev => ({ ...prev, center: [loc.lat, loc.lng], zoom: 10 }));
+          setFlyToTrigger({ lat: loc.lat, lng: loc.lng, zoom: 10, ts: Date.now() });
+          fetch(`https://nominatim.openstreetmap.org/reverse?lat=${loc.lat}&lon=${loc.lng}&format=json&accept-language=fr`)
+            .then(r => r.json()).then(d => { if (d.display_name) setUserAddress(d.display_name); }).catch(() => {});
         }
       },
       () => {},
@@ -868,6 +874,7 @@ export default function ArgosPage() {
         }
         case "clear_markers":
           setOperationalMarkers([]);
+          fetch("/api/ops-markers", { method: "DELETE" }).catch(() => {});
           break;
         case "generate_brief":
         case "analyze_entity":
@@ -908,7 +915,7 @@ export default function ArgosPage() {
         placeMarkerMode={placeMarkerMode}
         onTogglePlaceMarker={() => { setPlaceMarkerMode((p) => !p); setDrawMode(false); setMeasureMode(false); setMissionPlanMode(false); }}
         operationalMarkerCount={operationalMarkers.length}
-        onClearMarkers={() => setOperationalMarkers([])}
+        onClearMarkers={() => { setOperationalMarkers([]); fetch("/api/ops-markers", { method: "DELETE" }).catch(() => {}); }}
         missionPlanMode={missionPlanMode}
         onToggleMissionPlan={() => { setMissionPlanMode((p) => !p); setDrawMode(false); setMeasureMode(false); setPlaceMarkerMode(false); }}
         missionRouteCount={missionRoutes.length}
@@ -1063,18 +1070,17 @@ export default function ArgosPage() {
                 sigintTraces={sigintTraces}
                 userLocation={userLocation}
                 geoRadius={geoRadius}
+                flyToTrigger={flyToTrigger}
                 />
 
                 {/* ─── Geolocation widget ─── */}
                 {userLocation && (
                   <div className="absolute bottom-14 left-4 z-40">
                     {showGeoRadius ? (
-                      <div className="bg-argos-panel/90 border border-argos-border/50 rounded-lg px-3 py-2 space-y-2" style={{ minWidth: 200 }}>
+                      <div className="bg-argos-panel/90 border border-argos-border/50 rounded-lg px-3 py-2 space-y-2" style={{ minWidth: 220 }}>
                         <div className="flex items-center justify-between">
                           <button
-                            onClick={() => {
-                              setViewState(prev => ({ ...prev, center: [userLocation.lat, userLocation.lng], zoom: 10 }));
-                            }}
+                            onClick={() => setFlyToTrigger({ lat: userLocation.lat, lng: userLocation.lng, zoom: 12, ts: Date.now() })}
                             className="flex items-center gap-2 cursor-pointer hover:opacity-80"
                           >
                             <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
@@ -1083,6 +1089,8 @@ export default function ArgosPage() {
                           <button onClick={() => setShowGeoRadius(false)} className="text-argos-text-dim hover:text-argos-text text-xs cursor-pointer">▾</button>
                         </div>
                         <p className="text-[8px] font-mono text-argos-text-dim">{userLocation.lat.toFixed(4)}, {userLocation.lng.toFixed(4)}</p>
+                        {userIp && <p className="text-[8px] font-mono text-argos-text-dim">IP: <span className="text-argos-accent">{userIp}</span></p>}
+                        {userAddress && <p className="text-[7px] font-mono text-argos-text-dim leading-tight">{userAddress}</p>}
                         <div className="flex items-center gap-2">
                           <input type="range" min={5} max={500} value={geoRadius} onChange={e => setGeoRadius(Number(e.target.value))} className="flex-1 h-1 accent-cyan-500" />
                           <span className="text-[8px] font-mono text-argos-accent w-12 text-right">{geoRadius} km</span>
@@ -1098,7 +1106,7 @@ export default function ArgosPage() {
                       <button
                         onClick={() => {
                           setShowGeoRadius(true);
-                          setViewState(prev => ({ ...prev, center: [userLocation.lat, userLocation.lng], zoom: 10 }));
+                          setFlyToTrigger({ lat: userLocation.lat, lng: userLocation.lng, zoom: 12, ts: Date.now() });
                         }}
                         className="bg-argos-panel/90 border border-argos-border/50 rounded-lg px-3 py-2 flex items-center gap-2 cursor-pointer hover:border-argos-accent/40"
                       >

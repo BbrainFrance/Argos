@@ -111,26 +111,47 @@ function SeverityBadge({ severity }: { severity: string }) {
 }
 
 function ConflictDetail({ d }: { d: ConflictEvent }) {
+  const typeLabels: Record<string, { label: string; icon: string }> = {
+    battles: { label: "COMBATS", icon: "⚔️" },
+    explosions: { label: "EXPLOSIONS", icon: "💥" },
+    protests: { label: "MANIFESTATIONS", icon: "✊" },
+    riots: { label: "EMEUTES", icon: "🔥" },
+    violence_against_civilians: { label: "VIOLENCES CIVILS", icon: "⚠️" },
+    strategic_developments: { label: "STRAT. DEVPT", icon: "🎯" },
+  };
+  const t = typeLabels[d.eventType] ?? { label: d.eventType.replace("_", " ").toUpperCase(), icon: "⚡" };
+  const searchQuery = encodeURIComponent(`${d.actor1} ${d.country} ${d.eventDate}`);
+
   return (
     <>
       <div className="flex items-center gap-2 mb-1">
-        <h3 className="text-xs font-semibold text-argos-accent">{d.eventType.replace("_", " ").toUpperCase()}</h3>
-        {d.fatalities > 0 && <span className="text-[9px] font-bold text-red-400">{d.fatalities} mort{d.fatalities > 1 ? "s" : ""}</span>}
+        <span className="text-sm">{t.icon}</span>
+        <h3 className="text-xs font-semibold text-argos-accent">{t.label}</h3>
+        {d.fatalities > 0 && <span className="text-[9px] font-bold text-red-400 bg-red-500/10 px-1.5 py-0.5 rounded">{d.fatalities} mort{d.fatalities > 1 ? "s" : ""}</span>}
       </div>
+      {d.subEventType && <Row label="Sous-type" value={d.subEventType} />}
       <Row label="Date" value={d.eventDate} />
-      <Row label="Sous-type" value={d.subEventType || "—"} />
       <Row label="Acteur 1" value={d.actor1} />
-      <Row label="Acteur 2" value={d.actor2 ?? "—"} />
+      {d.actor2 && <Row label="Acteur 2" value={d.actor2} />}
       <Row label="Pays" value={d.country} />
       <Row label="Region" value={d.region} />
-      <Row label="Victimes" value={String(d.fatalities)} highlight={d.fatalities > 0} />
       <Row label="Position" value={`${d.lat.toFixed(4)}°N ${d.lng.toFixed(4)}°E`} />
-      <Row label="Source" value={d.source} />
+      <Row label="Source" value={`${d.source} (${d.sourceScale})`} />
       {d.notes && (
         <div className="mt-2 p-2 rounded bg-argos-panel/50 border border-argos-border/10">
-          <p className="text-[9px] text-argos-text-dim leading-relaxed">{d.notes.slice(0, 300)}</p>
+          <p className="text-[9px] text-argos-text-dim leading-relaxed">{d.notes.slice(0, 400)}</p>
         </div>
       )}
+      <div className="mt-2 pt-2 border-t border-argos-border/20 space-y-1">
+        <p className="text-[8px] font-mono text-argos-text-dim uppercase tracking-wider">Couverture Media</p>
+        <div className="flex flex-wrap gap-1">
+          <a href={`https://news.google.com/search?q=${searchQuery}`} target="_blank" rel="noopener noreferrer" className="text-[8px] font-mono px-2 py-0.5 bg-blue-500/10 text-blue-300 border border-blue-500/20 rounded hover:bg-blue-500/20">Google News ↗</a>
+          <a href={`https://www.aljazeera.com/search/${searchQuery}`} target="_blank" rel="noopener noreferrer" className="text-[8px] font-mono px-2 py-0.5 bg-orange-500/10 text-orange-300 border border-orange-500/20 rounded hover:bg-orange-500/20">Al Jazeera ↗</a>
+          <a href={`https://www.reuters.com/search/news?query=${searchQuery}`} target="_blank" rel="noopener noreferrer" className="text-[8px] font-mono px-2 py-0.5 bg-sky-500/10 text-sky-300 border border-sky-500/20 rounded hover:bg-sky-500/20">Reuters ↗</a>
+          <a href={`https://www.bbc.co.uk/search?q=${searchQuery}`} target="_blank" rel="noopener noreferrer" className="text-[8px] font-mono px-2 py-0.5 bg-red-500/10 text-red-300 border border-red-500/20 rounded hover:bg-red-500/20">BBC ↗</a>
+          <a href={`https://www.youtube.com/results?search_query=${searchQuery}+live`} target="_blank" rel="noopener noreferrer" className="text-[8px] font-mono px-2 py-0.5 bg-rose-500/10 text-rose-300 border border-rose-500/20 rounded hover:bg-rose-500/20">YouTube Live ↗</a>
+        </div>
+      </div>
     </>
   );
 }

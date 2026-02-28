@@ -50,6 +50,7 @@ interface MapContainerProps {
   sigintTraces?: SIGINTTrace[];
   userLocation?: { lat: number; lng: number } | null;
   geoRadius?: number;
+  flyToTrigger?: { lat: number; lng: number; zoom: number; ts: number } | null;
 }
 
 export default function MapContainer({
@@ -94,6 +95,7 @@ export default function MapContainer({
   sigintTraces,
   userLocation,
   geoRadius,
+  flyToTrigger,
 }: MapContainerProps) {
   return (
     <div className="relative w-full h-full">
@@ -118,6 +120,7 @@ export default function MapContainer({
         />
       ) : (
         <DeckGLMap
+          flyToTrigger={flyToTrigger}
           entities={entities}
           infrastructure={infrastructure}
           zones={zones}

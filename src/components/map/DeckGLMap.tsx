@@ -52,43 +52,88 @@ function svgToDataUrl(svg: string): string {
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 }
 
-const ICON_AIRCRAFT_CIVIL = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><g transform="translate(24,24)"><path d="M0,-18 L4,-6 L18,-2 L18,2 L4,8 L3,16 L8,18 L8,20 L0,19 L-8,20 L-8,18 L-3,16 L-4,8 L-18,2 L-18,-2 L-4,-6 Z" fill="#ffffff" stroke="#333" stroke-width="1"/></g></svg>`);
+// Aircraft — thin silhouette, small
+const ICON_AIRCRAFT_CIVIL = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><g transform="translate(16,16)"><path d="M0,-10 L1.5,-3 L10,-1 L10,0.5 L1.5,4 L1,8 L3.5,9.5 L3.5,10.5 L0,9.5 L-3.5,10.5 L-3.5,9.5 L-1,8 L-1.5,4 L-10,0.5 L-10,-1 L-1.5,-3 Z" fill="#e0e0e0" stroke="#999" stroke-width="0.5"/></g></svg>`);
+const ICON_AIRCRAFT_MILITARY = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><g transform="translate(16,16)"><path d="M0,-11 L2,-3 L11,-1 L11,1 L2,4.5 L1.5,9 L4,10 L4,11 L0,10 L-4,11 L-4,10 L-1.5,9 L-2,4.5 L-11,1 L-11,-1 L-2,-3 Z" fill="#5a8a44" stroke="#3a5a2a" stroke-width="0.7"/></g></svg>`);
+const ICON_AIRCRAFT_HOSTILE = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><g transform="translate(16,16)"><path d="M0,-11 L2,-3 L11,-1 L11,1 L2,4.5 L1.5,9 L4,10 L4,11 L0,10 L-4,11 L-4,10 L-1.5,9 L-2,4.5 L-11,1 L-11,-1 L-2,-3 Z" fill="#ff3333" stroke="#aa0000" stroke-width="0.7"/></g></svg>`);
+const ICON_AIRCRAFT_GROUND = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><g transform="translate(16,16)"><path d="M0,-7 L1,-2 L7,-0.5 L7,0.5 L1,3 L0.5,6 L2.5,7 L2.5,7.5 L0,7 L-2.5,7.5 L-2.5,7 L-0.5,6 L-1,3 L-7,0.5 L-7,-0.5 L-1,-2 Z" fill="#666" stroke="#444" stroke-width="0.5" opacity="0.5"/></g></svg>`);
 
-const ICON_AIRCRAFT_MILITARY = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><g transform="translate(24,24)"><path d="M0,-18 L5,-4 L20,-1 L20,2 L5,8 L4,16 L9,18 L9,20 L0,19 L-9,20 L-9,18 L-4,16 L-5,8 L-20,2 L-20,-1 L-5,-4 Z" fill="#4a7a3d" stroke="#2d4a25" stroke-width="1.5"/><path d="M0,-14 L3,-4 L14,0 L3,6 L0,14 L-3,6 L-14,0 L-3,-4 Z" fill="#5c8a4e" opacity="0.6"/></g></svg>`);
+// Vessel — classic ship silhouette
+const ICON_VESSEL_CIVIL = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><g transform="translate(16,16)"><path d="M0,-10 L6,2 L5,7 C3,9 -3,9 -5,7 L-6,2 Z" fill="#3388cc" stroke="#1a5588" stroke-width="0.8"/><line x1="0" y1="-10" x2="0" y2="5" stroke="#1a5588" stroke-width="0.6" opacity="0.4"/></g></svg>`);
+const ICON_VESSEL_MILITARY = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><g transform="translate(16,16)"><path d="M0,-10 L6,2 L5,7 C3,9 -3,9 -5,7 L-6,2 Z" fill="#556677" stroke="#333" stroke-width="0.8"/><line x1="0" y1="-10" x2="0" y2="5" stroke="#333" stroke-width="1"/><rect x="-2.5" y="-1" width="5" height="4" rx="0.5" fill="#445566" stroke="#333" stroke-width="0.3"/></g></svg>`);
+const ICON_VESSEL_HOSTILE = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><g transform="translate(16,16)"><path d="M0,-10 L6,2 L5,7 C3,9 -3,9 -5,7 L-6,2 Z" fill="#dd3333" stroke="#880000" stroke-width="0.8"/><line x1="0" y1="-10" x2="0" y2="5" stroke="#880000" stroke-width="1"/></g></svg>`);
 
-const ICON_AIRCRAFT_HOSTILE = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><g transform="translate(24,24)"><path d="M0,-18 L5,-4 L20,-1 L20,2 L5,8 L4,16 L9,18 L9,20 L0,19 L-9,20 L-9,18 L-4,16 L-5,8 L-20,2 L-20,-1 L-5,-4 Z" fill="#ff4444" stroke="#aa0000" stroke-width="1.5"/></g></svg>`);
-
-const ICON_AIRCRAFT_GROUND = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><g transform="translate(24,24)"><path d="M0,-12 L3,-4 L14,-1 L14,1 L3,5 L2,10 L6,12 L6,13 L0,12 L-6,13 L-6,12 L-2,10 L-3,5 L-14,1 L-14,-1 L-3,-4 Z" fill="#888888" stroke="#555" stroke-width="1" opacity="0.6"/></g></svg>`);
-
-const ICON_VESSEL_CIVIL = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><g transform="translate(24,24)"><path d="M0,-14 L10,4 L8,10 L-8,10 L-10,4 Z" fill="#4488cc" stroke="#2266aa" stroke-width="1.5"/><line x1="0" y1="-14" x2="0" y2="10" stroke="#2266aa" stroke-width="1" opacity="0.5"/></g></svg>`);
-
-const ICON_VESSEL_MILITARY = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><g transform="translate(24,24)"><path d="M0,-14 L10,4 L8,10 L-8,10 L-10,4 Z" fill="#667788" stroke="#444" stroke-width="1.5"/><line x1="0" y1="-14" x2="0" y2="10" stroke="#444" stroke-width="1.5"/><rect x="-4" y="-2" width="8" height="6" rx="1" fill="#445566" stroke="#333" stroke-width="0.5"/></g></svg>`);
-
-const ICON_VESSEL_HOSTILE = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><g transform="translate(24,24)"><path d="M0,-14 L10,4 L8,10 L-8,10 L-10,4 Z" fill="#ff4444" stroke="#aa0000" stroke-width="1.5"/><line x1="0" y1="-14" x2="0" y2="10" stroke="#aa0000" stroke-width="1.5"/></g></svg>`);
-
+// Conflicts
 const ICON_EXPLOSION = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><g transform="translate(24,24)"><polygon points="0,-16 4,-6 14,-10 8,-2 18,2 8,6 12,16 2,10 0,18 -2,10 -12,16 -8,6 -18,2 -8,-2 -14,-10 -4,-6" fill="#ff3300" stroke="#ff6600" stroke-width="1"/><circle cx="0" cy="0" r="5" fill="#ffcc00" opacity="0.9"/></g></svg>`);
+const ICON_GUNFIRE = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><g transform="translate(24,24)"><circle cx="0" cy="0" r="6" fill="#ff4400" opacity="0.7"/><line x1="0" y1="-14" x2="0" y2="-6" stroke="#ffaa00" stroke-width="2" stroke-linecap="round"/><line x1="10" y1="-10" x2="5" y2="-5" stroke="#ffaa00" stroke-width="2" stroke-linecap="round"/><line x1="14" y1="0" x2="6" y2="0" stroke="#ffaa00" stroke-width="2" stroke-linecap="round"/><line x1="-14" y1="0" x2="-6" y2="0" stroke="#ffaa00" stroke-width="2" stroke-linecap="round"/><line x1="-10" y1="-10" x2="-5" y2="-5" stroke="#ffaa00" stroke-width="2" stroke-linecap="round"/></g></svg>`);
+const ICON_PROTEST = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><g transform="translate(24,24)"><circle cx="0" cy="0" r="12" fill="#ffdd00" opacity="0.8" stroke="#cc9900" stroke-width="1"/><text x="0" y="6" text-anchor="middle" font-size="18" fill="#333" font-weight="bold">✊</text></g></svg>`);
+const ICON_RIOT = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><g transform="translate(24,24)"><circle cx="0" cy="0" r="12" fill="#ff8800" opacity="0.8" stroke="#aa5500" stroke-width="1.5"/><path d="M-6,-6 L6,6 M6,-6 L-6,6" stroke="#fff" stroke-width="3" stroke-linecap="round"/></g></svg>`);
+const ICON_VIOLENCE = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><g transform="translate(24,24)"><circle cx="0" cy="0" r="12" fill="#cc0000" opacity="0.7" stroke="#880000" stroke-width="1"/><path d="M0,-8 L2,-2 L8,0 L2,2 L0,8 L-2,2 L-8,0 L-2,-2 Z" fill="#fff" opacity="0.9"/></g></svg>`);
+const ICON_STRATEGIC = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><g transform="translate(24,24)"><rect x="-10" y="-10" width="20" height="20" rx="2" fill="#6644aa" opacity="0.8" stroke="#442288" stroke-width="1"/><circle cx="0" cy="0" r="4" fill="none" stroke="#fff" stroke-width="1.5"/><line x1="0" y1="-8" x2="0" y2="-4" stroke="#fff" stroke-width="1"/><line x1="0" y1="4" x2="0" y2="8" stroke="#fff" stroke-width="1"/><line x1="-8" y1="0" x2="-4" y2="0" stroke="#fff" stroke-width="1"/><line x1="4" y1="0" x2="8" y2="0" stroke="#fff" stroke-width="1"/></g></svg>`);
 
-const ICON_GUNFIRE = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><g transform="translate(24,24)"><circle cx="0" cy="0" r="8" fill="#ff4400" opacity="0.7"/><line x1="0" y1="-14" x2="0" y2="-6" stroke="#ffaa00" stroke-width="2.5" stroke-linecap="round"/><line x1="12" y1="-7" x2="7" y2="-3" stroke="#ffaa00" stroke-width="2.5" stroke-linecap="round"/><line x1="14" y1="0" x2="8" y2="0" stroke="#ffaa00" stroke-width="2.5" stroke-linecap="round"/><line x1="-14" y1="0" x2="-8" y2="0" stroke="#ffaa00" stroke-width="2.5" stroke-linecap="round"/><line x1="-12" y1="-7" x2="-7" y2="-3" stroke="#ffaa00" stroke-width="2.5" stroke-linecap="round"/></g></svg>`);
-
-const ICON_PROTEST = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><g transform="translate(24,24)"><circle cx="0" cy="2" r="10" fill="#ffcc00" opacity="0.8" stroke="#cc9900" stroke-width="1"/><text x="0" y="7" text-anchor="middle" font-size="16" fill="#333" font-weight="bold">!</text></g></svg>`);
-
+// Fires & disasters
 const ICON_FIRE = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><g transform="translate(24,24)"><path d="M0,-16 C4,-10 10,-8 8,-2 C12,-6 14,0 10,6 C14,2 16,8 8,14 C4,16 -4,16 -8,14 C-16,8 -14,2 -10,6 C-14,0 -12,-6 -8,-2 C-10,-8 -4,-10 0,-16Z" fill="#ff6600" stroke="#ff3300" stroke-width="0.5"/><path d="M0,-8 C2,-4 6,-2 4,4 C2,0 -2,0 -4,4 C-6,-2 -2,-4 0,-8Z" fill="#ffcc00" opacity="0.9"/></g></svg>`);
-
-const ICON_WAVE = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><g transform="translate(24,24)"><path d="M-16,0 C-12,-6 -8,-6 -4,0 C0,6 4,6 8,0 C12,-6 16,-6 18,0" fill="none" stroke="#0088ff" stroke-width="3" stroke-linecap="round"/><path d="M-16,8 C-12,2 -8,2 -4,8 C0,14 4,14 8,8 C12,2 16,2 18,8" fill="none" stroke="#0066cc" stroke-width="2.5" stroke-linecap="round"/><path d="M-14,-8 C-10,-14 -6,-14 -2,-8 C2,-2 6,-2 10,-8 C14,-14 16,-14 18,-8" fill="none" stroke="#00aaff" stroke-width="2" stroke-linecap="round" opacity="0.6"/></g></svg>`);
-
-const ICON_EARTHQUAKE = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><g transform="translate(24,24)"><path d="M-14,0 L-8,-10 L-4,4 L0,-14 L4,6 L8,-8 L14,0" fill="none" stroke="#ff4444" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><circle cx="0" cy="0" r="14" fill="none" stroke="#ff4444" stroke-width="1" opacity="0.4"/><circle cx="0" cy="0" r="10" fill="none" stroke="#ff6666" stroke-width="1" opacity="0.3"/></g></svg>`);
-
+const ICON_WAVE = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><g transform="translate(24,24)"><path d="M-16,0 C-12,-6 -8,-6 -4,0 C0,6 4,6 8,0 C12,-6 16,-6 18,0" fill="none" stroke="#0088ff" stroke-width="3" stroke-linecap="round"/><path d="M-16,8 C-12,2 -8,2 -4,8 C0,14 4,14 8,8 C12,2 16,2 18,8" fill="none" stroke="#0066cc" stroke-width="2.5" stroke-linecap="round"/></g></svg>`);
+const ICON_EARTHQUAKE = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><g transform="translate(24,24)"><path d="M-14,0 L-8,-10 L-4,4 L0,-14 L4,6 L8,-8 L14,0" fill="none" stroke="#ff4444" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><circle cx="0" cy="0" r="14" fill="none" stroke="#ff4444" stroke-width="1" opacity="0.4"/></g></svg>`);
 const ICON_CYCLONE = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><g transform="translate(24,24)"><path d="M0,-14 A14,14 0 0,1 14,0" fill="none" stroke="#00ccff" stroke-width="3" stroke-linecap="round"/><path d="M14,0 A14,14 0 0,1 0,14" fill="none" stroke="#0099cc" stroke-width="2.5" stroke-linecap="round"/><path d="M0,14 A14,14 0 0,1 -14,0" fill="none" stroke="#0077aa" stroke-width="2" stroke-linecap="round"/><path d="M-14,0 A14,14 0 0,1 0,-14" fill="none" stroke="#005588" stroke-width="1.5" stroke-linecap="round"/><circle cx="0" cy="0" r="3" fill="#00ddff"/></g></svg>`);
+const ICON_VOLCANO = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><g transform="translate(24,24)"><polygon points="0,-10 -12,12 12,12" fill="#8B4513" stroke="#654321" stroke-width="1.5"/><polygon points="0,-10 -4,-4 4,-4" fill="#ff4400"/><circle cx="-2" cy="-14" r="2" fill="#ff6600" opacity="0.8"/><circle cx="3" cy="-16" r="1.5" fill="#ffaa00" opacity="0.7"/></g></svg>`);
 
-const ICON_VOLCANO = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><g transform="translate(24,24)"><polygon points="0,-10 -12,12 12,12" fill="#8B4513" stroke="#654321" stroke-width="1.5"/><polygon points="0,-10 -4,-4 4,-4" fill="#ff4400"/><circle cx="-2" cy="-14" r="2" fill="#ff6600" opacity="0.8"/><circle cx="3" cy="-16" r="1.5" fill="#ffaa00" opacity="0.7"/><circle cx="-4" cy="-16" r="1" fill="#ff8800" opacity="0.6"/></g></svg>`);
+// Cyber threats by type
+const ICON_CYBER_MALWARE = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><g transform="translate(16,16)"><circle cx="0" cy="0" r="10" fill="#7722cc" opacity="0.8" stroke="#5500aa" stroke-width="1"/><text x="0" y="5" text-anchor="middle" font-size="13" fill="#fff">🦠</text></g></svg>`);
+const ICON_CYBER_BOTNET = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><g transform="translate(16,16)"><circle cx="0" cy="0" r="10" fill="#8833dd" opacity="0.8" stroke="#6611bb" stroke-width="1"/><text x="0" y="5" text-anchor="middle" font-size="13" fill="#fff">🤖</text></g></svg>`);
+const ICON_CYBER_PHISHING = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><g transform="translate(16,16)"><circle cx="0" cy="0" r="10" fill="#9944ee" opacity="0.8" stroke="#7722cc" stroke-width="1"/><text x="0" y="5" text-anchor="middle" font-size="13" fill="#fff">🎣</text></g></svg>`);
+const ICON_CYBER_C2 = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><g transform="translate(16,16)"><circle cx="0" cy="0" r="10" fill="#6600aa" opacity="0.8" stroke="#440088" stroke-width="1"/><text x="0" y="5" text-anchor="middle" font-size="13" fill="#fff">💀</text></g></svg>`);
+const ICON_CYBER_RANSOM = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><g transform="translate(16,16)"><circle cx="0" cy="0" r="10" fill="#aa0055" opacity="0.8" stroke="#880044" stroke-width="1"/><text x="0" y="5" text-anchor="middle" font-size="13" fill="#fff">🔒</text></g></svg>`);
+const ICON_CYBER_SCANNER = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><g transform="translate(16,16)"><circle cx="0" cy="0" r="10" fill="#5533aa" opacity="0.8" stroke="#3311aa" stroke-width="1"/><text x="0" y="5" text-anchor="middle" font-size="13" fill="#fff">🔍</text></g></svg>`);
+const ICON_CYBER_EXPLOIT = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><g transform="translate(16,16)"><circle cx="0" cy="0" r="10" fill="#cc2266" opacity="0.8" stroke="#aa0044" stroke-width="1"/><text x="0" y="5" text-anchor="middle" font-size="13" fill="#fff">⚡</text></g></svg>`);
+
+// Military bases by type
+const ICON_BASE_AIR = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><g transform="translate(16,16)"><rect x="-11" y="-11" width="22" height="22" rx="2" fill="#cc2222" opacity="0.85" stroke="#880000" stroke-width="1"/><path d="M0,-7 L2,-1 L8,0 L2,2 L0,7 L-2,2 L-8,0 L-2,-1 Z" fill="#fff" opacity="0.9"/></g></svg>`);
+const ICON_BASE_NAVAL = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><g transform="translate(16,16)"><rect x="-11" y="-11" width="22" height="22" rx="2" fill="#224488" opacity="0.85" stroke="#112244" stroke-width="1"/><text x="0" y="5" text-anchor="middle" font-size="15" fill="#fff">⚓</text></g></svg>`);
+const ICON_BASE_ARMY = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><g transform="translate(16,16)"><rect x="-11" y="-11" width="22" height="22" rx="2" fill="#556b2f" opacity="0.85" stroke="#333" stroke-width="1"/><text x="0" y="5" text-anchor="middle" font-size="14" fill="#fff">🎖</text></g></svg>`);
+const ICON_BASE_JOINT = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><g transform="translate(16,16)"><rect x="-11" y="-11" width="22" height="22" rx="2" fill="#884422" opacity="0.85" stroke="#553311" stroke-width="1"/><text x="0" y="6" text-anchor="middle" font-size="11" font-family="monospace" fill="#fff" font-weight="bold">QG</text></g></svg>`);
+
+// Nuclear
+const ICON_NUCLEAR = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><g transform="translate(16,16)"><path d="M-4,10 L-4,-2 C-4,-6 -2,-8 0,-10 C2,-8 4,-6 4,-2 L4,10 Z" fill="#888" stroke="#555" stroke-width="0.8"/><ellipse cx="0" cy="-10" rx="6" ry="3" fill="#ccc" opacity="0.6"/><ellipse cx="0" cy="-12" rx="4" ry="2" fill="#ddd" opacity="0.5"/><rect x="-6" y="8" width="12" height="4" rx="1" fill="#666" stroke="#444" stroke-width="0.5"/></g></svg>`);
+
+// Cable company color map
+const CABLE_COMPANY_COLORS: Record<string, [number, number, number, number]> = {};
+let cableColorIdx = 0;
+const CABLE_PALETTE: [number, number, number][] = [
+  [14, 165, 233], [236, 72, 153], [34, 197, 94], [245, 158, 11], [168, 85, 247],
+  [239, 68, 68], [6, 182, 212], [132, 204, 22], [251, 146, 60], [99, 102, 241],
+  [244, 114, 182], [20, 184, 166], [234, 179, 8], [59, 130, 246], [192, 132, 252],
+];
+function getCableColor(owners: string[]): [number, number, number, number] {
+  const key = owners.slice(0, 2).sort().join("|") || "unknown";
+  if (!CABLE_COMPANY_COLORS[key]) {
+    const c = CABLE_PALETTE[cableColorIdx % CABLE_PALETTE.length];
+    CABLE_COMPANY_COLORS[key] = [c[0], c[1], c[2], 160];
+    cableColorIdx++;
+  }
+  return CABLE_COMPANY_COLORS[key];
+}
+
+function isMilitaryCallsign(callsign: string | null): boolean {
+  if (!callsign) return false;
+  const cs = callsign.toUpperCase();
+  const MIL_PREFIXES = [
+    "CTM", "FAF", "FNY", "GAM", "COTAM", "RFR", "FAB", "RRR", "RAF",
+    "MMF", "IAM", "GAF", "SAM", "BAF", "HAF", "PAF", "DAF", "NAF",
+    "RSD", "SHF", "CNV", "RCH", "DUKE", "REACH", "EVAC", "JAKE",
+    "TOPCAT", "LION", "VIPER", "SWORD", "HAWK", "COBRA", "WOLF",
+  ];
+  return MIL_PREFIXES.some(p => cs.startsWith(p));
+}
 
 function getEntityIcon(entity: Entity): string {
   if (entity.type === "aircraft") {
     const ac = entity as Aircraft;
     if (ac.metadata.onGround) return ICON_AIRCRAFT_GROUND;
+    if (ac.metadata.squawk === "7700" || ac.metadata.squawk === "7600" || ac.metadata.squawk === "7500") return ICON_AIRCRAFT_HOSTILE;
+    if (isMilitaryCallsign(ac.metadata.callsign)) return ICON_AIRCRAFT_MILITARY;
     const aff = getAircraftAffiliation(ac.metadata.originCountry, ac.metadata.squawk);
     if (aff === "hostile" || aff === "suspect") return ICON_AIRCRAFT_HOSTILE;
-    if (aff === "friendly") return ICON_AIRCRAFT_MILITARY;
     return ICON_AIRCRAFT_CIVIL;
   }
   const v = entity as Vessel;
@@ -102,7 +147,10 @@ function getEntityIcon(entity: Entity): string {
 function getConflictIcon(eventType: string): string {
   if (eventType === "explosions") return ICON_EXPLOSION;
   if (eventType === "battles") return ICON_GUNFIRE;
-  if (eventType === "protests" || eventType === "riots") return ICON_PROTEST;
+  if (eventType === "protests") return ICON_PROTEST;
+  if (eventType === "riots") return ICON_RIOT;
+  if (eventType === "violence_against_civilians") return ICON_VIOLENCE;
+  if (eventType === "strategic_developments") return ICON_STRATEGIC;
   return ICON_EXPLOSION;
 }
 
@@ -113,6 +161,24 @@ function getDisasterIcon(eventType: string): string {
   if (eventType === "volcano") return ICON_VOLCANO;
   if (eventType === "wildfire") return ICON_FIRE;
   return ICON_WAVE;
+}
+
+function getCyberIcon(cat: string): string {
+  if (cat === "malware") return ICON_CYBER_MALWARE;
+  if (cat === "botnet") return ICON_CYBER_BOTNET;
+  if (cat === "phishing") return ICON_CYBER_PHISHING;
+  if (cat === "c2") return ICON_CYBER_C2;
+  if (cat === "ransomware") return ICON_CYBER_RANSOM;
+  if (cat === "scanner") return ICON_CYBER_SCANNER;
+  if (cat === "exploit") return ICON_CYBER_EXPLOIT;
+  return ICON_CYBER_MALWARE;
+}
+
+function getBaseIcon(type: string): string {
+  if (type === "air_base") return ICON_BASE_AIR;
+  if (type === "naval_base") return ICON_BASE_NAVAL;
+  if (type === "army_base" || type === "training") return ICON_BASE_ARMY;
+  return ICON_BASE_JOINT;
 }
 
 function hexToRgb(hex: string): [number, number, number] {
@@ -173,6 +239,7 @@ export interface DeckGLMapProps {
   sigintTraces?: SIGINTTrace[];
   userLocation?: { lat: number; lng: number } | null;
   geoRadius?: number;
+  flyToTrigger?: { lat: number; lng: number; zoom: number; ts: number } | null;
 }
 
 export default function DeckGLMap({
@@ -216,6 +283,7 @@ export default function DeckGLMap({
   sigintTraces = [],
   userLocation,
   geoRadius = 20,
+  flyToTrigger,
 }: DeckGLMapProps) {
   const [ivs, setIvs] = useState(INITIAL_VIEW);
   const vsRef = useRef(INITIAL_VIEW);
@@ -234,6 +302,12 @@ export default function DeckGLMap({
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
   }, []);
+
+  useEffect(() => {
+    if (flyToTrigger) {
+      setIvs(prev => ({ ...prev, longitude: flyToTrigger.lng, latitude: flyToTrigger.lat, zoom: flyToTrigger.zoom }));
+    }
+  }, [flyToTrigger]);
 
   const onViewStateChange = useCallback(
     (params: { viewState: Record<string, unknown> }) => {
@@ -337,7 +411,7 @@ export default function DeckGLMap({
           );
         }
         const color = AFFILIATION_COLORS[affiliation] ?? [128, 128, 128];
-        const size = isSelected ? 40 : e.type === "aircraft" && (e as Aircraft).metadata.onGround ? 20 : 32;
+        const size = isSelected ? 28 : e.type === "aircraft" && (e as Aircraft).metadata.onGround ? 14 : 22;
         const angle = e.type === "aircraft"
           ? -((e as Aircraft).metadata.trueTrack ?? 0)
           : e.type === "vessel"
@@ -725,12 +799,12 @@ export default function DeckGLMap({
           id: "entities",
           data: entityLayerData,
           getPosition: (d) => d.position,
-          getIcon: (d) => ({ url: d.icon, width: 48, height: 48, anchorY: 24 }),
+          getIcon: (d) => ({ url: d.icon, width: 32, height: 32, anchorY: 16 }),
           getSize: (d) => d.size,
           getAngle: (d) => d.angle,
           sizeScale: 1,
-          sizeMinPixels: 14,
-          sizeMaxPixels: 40,
+          sizeMinPixels: 8,
+          sizeMaxPixels: 28,
           pickable: true,
           autoHighlight: true,
           highlightColor: [255, 255, 255, 80],
@@ -943,13 +1017,26 @@ export default function DeckGLMap({
       if (geoThreats.length > 0) {
         l.push(
           new ScatterplotLayer({
+            id: "cyber-glow",
+            data: geoThreats,
+            getPosition: (d: CyberThreat) => [d.lng!, d.lat!] as [number, number],
+            getRadius: 600 * pulseInv,
+            getFillColor: [168, 85, 247, Math.round(40 * pulse)] as [number, number, number, number],
+            radiusMinPixels: 6,
+            radiusMaxPixels: 16,
+            pickable: false,
+            updateTriggers: { getRadius: [animPhase], getFillColor: [animPhase] },
+          })
+        );
+        l.push(
+          new IconLayer({
             id: "cyber-threats",
             data: geoThreats,
             getPosition: (d: CyberThreat) => [d.lng!, d.lat!] as [number, number],
-            getRadius: 400,
-            getFillColor: [168, 85, 247, 180] as [number, number, number, number],
-            radiusMinPixels: 3,
-            radiusMaxPixels: 8,
+            getIcon: (d: CyberThreat) => ({ url: getCyberIcon(d.threatCategory), width: 32, height: 32, anchorY: 16 }),
+            getSize: 24,
+            sizeMinPixels: 14,
+            sizeMaxPixels: 28,
             pickable: true,
             onClick: (info) => {
               if (info.object) onSelectMapItem?.({ type: "cyber", data: info.object as CyberThreat });
@@ -958,7 +1045,7 @@ export default function DeckGLMap({
               setHoverInfo(
                 info.picked ? { x: info.x!, y: info.y!, object: { cyber: info.object } } : null
               ),
-          })
+          }) as unknown as Layer
         );
       }
     }
@@ -995,7 +1082,7 @@ export default function DeckGLMap({
           id: "submarine-cables",
           data: submarineCables,
           getPath: (d: SubmarineCable) => d.coordinates.map(([lat, lng]) => [lng, lat] as [number, number]),
-          getColor: [14, 165, 233, 120] as [number, number, number, number],
+          getColor: (d: SubmarineCable) => getCableColor(d.owners),
           getWidth: 2,
           widthMinPixels: 1,
           pickable: true,
@@ -1038,17 +1125,14 @@ export default function DeckGLMap({
 
     if (militaryBases.length > 0) {
       l.push(
-        new ScatterplotLayer({
+        new IconLayer({
           id: "military-bases",
           data: militaryBases,
           getPosition: (d: MilitaryBase) => [d.lng, d.lat] as [number, number],
-          getRadius: 500,
-          getFillColor: [220, 38, 38, 200] as [number, number, number, number],
-          getLineColor: [255, 255, 255, 120] as [number, number, number, number],
-          getLineWidth: 1,
-          lineWidthMinPixels: 0.5,
-          radiusMinPixels: 4,
-          radiusMaxPixels: 10,
+          getIcon: (d: MilitaryBase) => ({ url: getBaseIcon(d.type), width: 32, height: 32, anchorY: 16 }),
+          getSize: 24,
+          sizeMinPixels: 12,
+          sizeMaxPixels: 28,
           pickable: true,
           onClick: (info) => {
             if (info.object) onSelectMapItem?.({ type: "base", data: info.object as MilitaryBase });
@@ -1057,23 +1141,20 @@ export default function DeckGLMap({
             setHoverInfo(
               info.picked ? { x: info.x!, y: info.y!, object: { base: info.object } } : null
             ),
-        })
+        }) as unknown as Layer
       );
     }
 
     if (nuclearFacilities.length > 0) {
       l.push(
-        new ScatterplotLayer({
+        new IconLayer({
           id: "nuclear-facilities",
           data: nuclearFacilities,
           getPosition: (d: NuclearFacility) => [d.lng, d.lat] as [number, number],
-          getRadius: 500,
-          getFillColor: [234, 179, 8, 200] as [number, number, number, number],
-          getLineColor: [255, 255, 255, 120] as [number, number, number, number],
-          getLineWidth: 1,
-          lineWidthMinPixels: 0.5,
-          radiusMinPixels: 4,
-          radiusMaxPixels: 10,
+          getIcon: () => ({ url: ICON_NUCLEAR, width: 32, height: 32, anchorY: 16 }),
+          getSize: 24,
+          sizeMinPixels: 12,
+          sizeMaxPixels: 28,
           pickable: true,
           onClick: (info) => {
             if (info.object) onSelectMapItem?.({ type: "nuclear", data: info.object as NuclearFacility });
@@ -1082,7 +1163,7 @@ export default function DeckGLMap({
             setHoverInfo(
               info.picked ? { x: info.x!, y: info.y!, object: { nuclear: info.object } } : null
             ),
-        })
+        }) as unknown as Layer
       );
     }
 
