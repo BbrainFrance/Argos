@@ -648,33 +648,26 @@ async function checkBruteForce(baseUrl: string): Promise<VulnCheck[]> {
     return vulns;
   }
 
-  // Detect NextAuth and resolve real auth endpoint
+  // Detect NextAuth by probing /api/auth/csrf (HTML content is unreliable for SSR/React apps)
   let authEndpoint = loginUrl;
   let csrfToken = "";
   let isNextAuth = false;
   const loginOrigin = new URL(loginUrl).origin;
 
   try {
-    const loginBody = await (await fetch(loginUrl, {
+    const csrfRes = await fetch(`${loginOrigin}/api/auth/csrf`, {
       headers: { "User-Agent": "ARGOS-SecurityAudit/1.0" },
       signal: AbortSignal.timeout(5000),
-    })).text();
-    isNextAuth = /csrfToken|callbackUrl|next-auth|nextauth|__Host-next-auth|__Secure-next-auth/i.test(loginBody);
-  } catch { /* ignore */ }
-
-  if (isNextAuth) {
-    try {
-      const csrfRes = await fetch(`${loginOrigin}/api/auth/csrf`, {
-        headers: { "User-Agent": "ARGOS-SecurityAudit/1.0" },
-        signal: AbortSignal.timeout(5000),
-      });
-      if (csrfRes.ok) {
-        const csrfJson = await csrfRes.json();
-        csrfToken = csrfJson.csrfToken || "";
+    });
+    if (csrfRes.ok) {
+      const csrfJson = await csrfRes.json();
+      if (csrfJson.csrfToken) {
+        isNextAuth = true;
+        csrfToken = csrfJson.csrfToken;
+        authEndpoint = `${loginOrigin}/api/auth/callback/credentials`;
       }
-    } catch { /* ignore */ }
-    authEndpoint = `${loginOrigin}/api/auth/callback/credentials`;
-  }
+    }
+  } catch { /* not NextAuth */ }
 
   function buildAuthBody(username: string, password: string): string {
     const params = new URLSearchParams();

@@ -135,24 +135,25 @@ async function findLoginPage(baseUrl: string): Promise<LoginPageInfo | null> {
 
         const foundOrigin = new URL(`${origin}${path}`).origin;
         const loginUrl = `${origin}${path}`;
-        const isNextAuth = /csrfToken|callbackUrl|next-auth|nextauth|__Host-next-auth|__Secure-next-auth/i.test(body);
 
+        let isNextAuth = false;
         let csrfToken = "";
         let authEndpoint = loginUrl;
 
-        if (isNextAuth) {
-          authEndpoint = `${foundOrigin}/api/auth/callback/credentials`;
-          try {
-            const csrfRes = await fetch(`${foundOrigin}/api/auth/csrf`, {
-              headers: { "User-Agent": "ARGOS-StressTest/1.0" },
-              signal: AbortSignal.timeout(5000),
-            });
-            if (csrfRes.ok) {
-              const csrfJson = await csrfRes.json();
-              csrfToken = csrfJson.csrfToken || "";
+        try {
+          const csrfRes = await fetch(`${foundOrigin}/api/auth/csrf`, {
+            headers: { "User-Agent": "ARGOS-StressTest/1.0" },
+            signal: AbortSignal.timeout(5000),
+          });
+          if (csrfRes.ok) {
+            const csrfJson = await csrfRes.json();
+            if (csrfJson.csrfToken) {
+              isNextAuth = true;
+              csrfToken = csrfJson.csrfToken;
+              authEndpoint = `${foundOrigin}/api/auth/callback/credentials`;
             }
-          } catch { /* ignore */ }
-        }
+          }
+        } catch { /* not NextAuth */ }
 
         return { loginUrl, authEndpoint, isNextAuth, csrfToken };
       } catch { /* skip */ }
