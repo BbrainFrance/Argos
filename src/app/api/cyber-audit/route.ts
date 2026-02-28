@@ -506,7 +506,7 @@ function isCloudflare(serverHeader: string | undefined, headers: Headers): boole
 
 async function checkBruteForce(baseUrl: string): Promise<VulnCheck[]> {
   const vulns: VulnCheck[] = [];
-  const loginPaths = ["/login", "/signin", "/auth/login", "/wp-login.php", "/admin/login", "/user/login", "/api/auth/signin"];
+  const loginPaths = ["/login", "/signin", "/auth/signin", "/auth/login", "/auth/sign-in", "/wp-login.php", "/admin/login", "/user/login", "/api/auth/signin", "/api/auth/callback/credentials", "/account/login", "/connect/login", "/session/new"];
   let loginUrl: string | null = null;
   let loginStatus = 0;
 

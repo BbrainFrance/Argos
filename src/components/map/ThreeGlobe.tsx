@@ -147,18 +147,16 @@ const POI_LANDMARKS: Record<string, { name: string; lat: number; lng: number }[]
 interface CCTVCamera {
   id: string; name: string; city: string; lat: number; lng: number; hdg: number; fov: number;
   embedUrl?: string;
-  snapshotUrl?: string;
-  sourceUrl?: string;
+  liveUrl: string;
 }
 const CCTV_CAMERAS: CCTVCamera[] = [
-  { id: "cctv-par-1", name: "Tour Eiffel HD", city: "Paris", lat: 48.8584, lng: 2.2945, hdg: 180, fov: 90, embedUrl: "https://www.youtube.com/embed/iZipA1LL_sU?autoplay=1&mute=1", sourceUrl: "https://www.youtube.com/watch?v=iZipA1LL_sU" },
-  { id: "cctv-par-2", name: "Sacre-Coeur Montmartre", city: "Paris", lat: 48.8867, lng: 2.3431, hdg: 180, fov: 70, embedUrl: "https://www.youtube.com/embed/vPbRHswf7JI?autoplay=1&mute=1", sourceUrl: "https://www.youtube.com/watch?v=vPbRHswf7JI" },
-  { id: "cctv-nyc-1", name: "Times Square 4K", city: "New York", lat: 40.758, lng: -73.9855, hdg: 180, fov: 75, embedUrl: "https://www.youtube.com/embed/QTTTY_ra2Tg?autoplay=1&mute=1", sourceUrl: "https://www.youtube.com/watch?v=QTTTY_ra2Tg" },
-  { id: "cctv-nyc-2", name: "Manhattan Skyline", city: "New York", lat: 40.7128, lng: -74.006, hdg: 90, fov: 80, embedUrl: "https://www.youtube.com/embed/1-iS7LArMPA?autoplay=1&mute=1", sourceUrl: "https://www.youtube.com/watch?v=1-iS7LArMPA" },
-  { id: "cctv-tok-1", name: "Shibuya Crossing", city: "Tokyo", lat: 35.6595, lng: 139.7004, hdg: 0, fov: 90, embedUrl: "https://www.youtube.com/embed/3q5Eoqhc4oc?autoplay=1&mute=1", sourceUrl: "https://www.youtube.com/watch?v=3q5Eoqhc4oc" },
-  { id: "cctv-lon-1", name: "Abbey Road Crossing", city: "London", lat: 51.532, lng: -0.1779, hdg: 0, fov: 80, embedUrl: "https://www.youtube.com/embed/S5hCqMGz6XA?autoplay=1&mute=1", sourceUrl: "https://www.youtube.com/watch?v=S5hCqMGz6XA" },
-  { id: "cctv-iss-1", name: "ISS Station Spatiale", city: "Orbite LEO", lat: 0, lng: 0, hdg: 0, fov: 180, embedUrl: "https://www.youtube.com/embed/P9C25Un7xaM?autoplay=1&mute=1", sourceUrl: "https://www.youtube.com/watch?v=P9C25Un7xaM" },
-  { id: "cctv-jax-1", name: "Jacksonville Beach", city: "Jacksonville", lat: 30.2947, lng: -81.3931, hdg: 90, fov: 80, embedUrl: "https://www.youtube.com/embed/Hu5a5sGN6XE?autoplay=1&mute=1", sourceUrl: "https://www.youtube.com/watch?v=Hu5a5sGN6XE" },
+  { id: "cctv-par-1", name: "Tour Eiffel — Trocadero", city: "Paris", lat: 48.8584, lng: 2.2945, hdg: 180, fov: 90, liveUrl: "https://www.skylinewebcams.com/en/webcam/france/ile-de-france/paris/paris-tour-eiffel.html", embedUrl: "https://www.skylinewebcams.com/en/webcam/france/ile-de-france/paris/paris-tour-eiffel.html" },
+  { id: "cctv-par-2", name: "Champs-Elysees", city: "Paris", lat: 48.8698, lng: 2.3075, hdg: 315, fov: 70, liveUrl: "https://www.skylinewebcams.com/en/webcam/france/ile-de-france/paris/champs-elysees.html", embedUrl: "https://www.skylinewebcams.com/en/webcam/france/ile-de-france/paris/champs-elysees.html" },
+  { id: "cctv-nyc-1", name: "Times Square 4K", city: "New York", lat: 40.758, lng: -73.9855, hdg: 180, fov: 75, liveUrl: "https://www.earthcam.com/usa/newyork/timessquare/?cam=tsstreet", embedUrl: "https://www.earthcam.com/usa/newyork/timessquare/?cam=tsstreet" },
+  { id: "cctv-nyc-2", name: "World Trade Center", city: "New York", lat: 40.7128, lng: -74.006, hdg: 90, fov: 80, liveUrl: "https://www.earthcam.com/usa/newyork/skyline/?cam=skyline_g", embedUrl: "https://www.earthcam.com/usa/newyork/skyline/?cam=skyline_g" },
+  { id: "cctv-tok-1", name: "Shibuya Crossing", city: "Tokyo", lat: 35.6595, lng: 139.7004, hdg: 0, fov: 90, liveUrl: "https://www.youtube.com/watch?v=3q5Eoqhc4oc", embedUrl: "https://www.youtube-nocookie.com/embed/3q5Eoqhc4oc?autoplay=1&mute=1" },
+  { id: "cctv-lon-1", name: "Abbey Road", city: "London", lat: 51.532, lng: -0.1779, hdg: 0, fov: 80, liveUrl: "https://www.earthcam.com/world/england/london/abbeyroad/?cam=abbeyroad_702", embedUrl: "https://www.earthcam.com/world/england/london/abbeyroad/?cam=abbeyroad_702" },
+  { id: "cctv-lon-2", name: "Tower Bridge", city: "London", lat: 51.5055, lng: -0.0754, hdg: 270, fov: 80, liveUrl: "https://www.skylinewebcams.com/en/webcam/united-kingdom/england/london/tower-bridge.html", embedUrl: "https://www.skylinewebcams.com/en/webcam/united-kingdom/england/london/tower-bridge.html" },
 ];
 
 // ─── Error Boundary ──────────────────────────────────────────────────────────
@@ -574,18 +572,33 @@ export default function ThreeGlobe({
           outlineColor: isExplosion ? Color.fromCssColorString("#ff6600") : Color.fromCssColorString("#ffcc00"),
           outlineWidth: 2,
           heightReference: HeightReference.NONE,
-          scaleByDistance: new NearFarScalar(1e3, 3, 5e6, 0.4),
+          scaleByDistance: new NearFarScalar(1e3, 3, 2e7, 0.3),
           disableDepthTestDistance: Number.POSITIVE_INFINITY,
         },
         label: {
-          text: `${icons[ev.eventType] || "💥"} ${ev.actor1}${ev.fatalities > 0 ? ` (${ev.fatalities})` : ""}`,
-          font: "12px sans-serif",
+          text: icons[ev.eventType] || "💥",
+          font: "20px sans-serif",
+          fillColor: Color.WHITE,
+          style: LabelStyle.FILL,
+          verticalOrigin: VerticalOrigin.CENTER,
+          horizontalOrigin: HorizontalOrigin.CENTER,
+          pixelOffset: new Cartesian2(0, -18),
+          scaleByDistance: new NearFarScalar(1e3, 1.4, 2e7, 0.3),
+          disableDepthTestDistance: Number.POSITIVE_INFINITY,
+        },
+      });
+      // detail label only when zoomed in
+      viewer.entities.add({
+        position: Cartesian3.fromDegrees(ev.lng, ev.lat, 100),
+        label: {
+          text: `${ev.actor1}${ev.fatalities > 0 ? ` (${ev.fatalities})` : ""}`,
+          font: "11px monospace",
           fillColor: Color.fromCssColorString("#ff6666"),
           outlineColor: Color.BLACK, outlineWidth: 3,
           style: LabelStyle.FILL_AND_OUTLINE,
           verticalOrigin: VerticalOrigin.BOTTOM,
           pixelOffset: new Cartesian2(14, -8),
-          scaleByDistance: new NearFarScalar(1e3, 1.2, 2e6, 0),
+          scaleByDistance: new NearFarScalar(1e3, 1, 5e5, 0),
           disableDepthTestDistance: Number.POSITIVE_INFINITY,
         },
       });
@@ -603,15 +616,18 @@ export default function ThreeGlobe({
           outlineColor: Color.fromCssColorString("#ff4400"),
           outlineWidth: 2,
           heightReference: HeightReference.NONE,
-          scaleByDistance: new NearFarScalar(1000, 2, 500000, 0.4),
+          scaleByDistance: new NearFarScalar(1e3, 2.5, 2e7, 0.3),
           disableDepthTestDistance: Number.POSITIVE_INFINITY,
         },
         label: {
           text: "🔥",
-          font: "14px sans-serif",
+          font: "18px sans-serif",
+          fillColor: Color.WHITE,
+          style: LabelStyle.FILL,
           verticalOrigin: VerticalOrigin.CENTER,
-          pixelOffset: new Cartesian2(0, -14),
-          scaleByDistance: new NearFarScalar(1e3, 1.2, 2e6, 0),
+          horizontalOrigin: HorizontalOrigin.CENTER,
+          pixelOffset: new Cartesian2(0, -16),
+          scaleByDistance: new NearFarScalar(1e3, 1.4, 2e7, 0.25),
           disableDepthTestDistance: Number.POSITIVE_INFINITY,
         },
       });
@@ -631,18 +647,33 @@ export default function ThreeGlobe({
           outlineColor: Color.fromCssColorString(d.severity === "red" ? "#ff4444" : "#ffaa00"),
           outlineWidth: 2,
           heightReference: HeightReference.NONE,
-          scaleByDistance: new NearFarScalar(1000, 2.5, 1000000, 0.5),
+          scaleByDistance: new NearFarScalar(1e3, 2.5, 2e7, 0.3),
           disableDepthTestDistance: Number.POSITIVE_INFINITY,
         },
         label: {
-          text: `${icons[d.eventType] || "⚠"} ${d.title}`,
+          text: icons[d.eventType] || "⚠",
+          font: "20px sans-serif",
+          fillColor: Color.WHITE,
+          style: LabelStyle.FILL,
+          verticalOrigin: VerticalOrigin.CENTER,
+          horizontalOrigin: HorizontalOrigin.CENTER,
+          pixelOffset: new Cartesian2(0, -18),
+          scaleByDistance: new NearFarScalar(1e3, 1.4, 2e7, 0.3),
+          disableDepthTestDistance: Number.POSITIVE_INFINITY,
+        },
+      });
+      // detail label when zoomed in
+      viewer.entities.add({
+        position: Cartesian3.fromDegrees(d.lng, d.lat, 100),
+        label: {
+          text: d.title,
           font: "10px monospace",
           fillColor: Color.fromCssColorString(colors[d.severity] || "#00cc66"),
           outlineColor: Color.BLACK, outlineWidth: 2,
           style: LabelStyle.FILL_AND_OUTLINE,
           verticalOrigin: VerticalOrigin.BOTTOM,
           pixelOffset: new Cartesian2(14, -8),
-          scaleByDistance: new NearFarScalar(1e3, 1.2, 2e6, 0),
+          scaleByDistance: new NearFarScalar(1e3, 1, 5e5, 0),
           disableDepthTestDistance: Number.POSITIVE_INFINITY,
         },
       });
@@ -662,18 +693,33 @@ export default function ThreeGlobe({
           outlineColor: Color.fromCssColorString("#7722cc"),
           outlineWidth: 2,
           heightReference: HeightReference.NONE,
-          scaleByDistance: new NearFarScalar(1000, 2, 500000, 0.4),
+          scaleByDistance: new NearFarScalar(1e3, 2, 2e7, 0.3),
           disableDepthTestDistance: Number.POSITIVE_INFINITY,
         },
         label: {
-          text: `${cyberIcons[c.threatCategory] || "🦠"} ${c.threatCategory}`,
+          text: cyberIcons[c.threatCategory] || "🦠",
+          font: "18px sans-serif",
+          fillColor: Color.WHITE,
+          style: LabelStyle.FILL,
+          verticalOrigin: VerticalOrigin.CENTER,
+          horizontalOrigin: HorizontalOrigin.CENTER,
+          pixelOffset: new Cartesian2(0, -14),
+          scaleByDistance: new NearFarScalar(1e3, 1.4, 2e7, 0.25),
+          disableDepthTestDistance: Number.POSITIVE_INFINITY,
+        },
+      });
+      // detail label when zoomed in
+      viewer.entities.add({
+        position: Cartesian3.fromDegrees(c.lng!, c.lat!, 60),
+        label: {
+          text: c.threatCategory,
           font: "9px monospace",
           fillColor: Color.fromCssColorString("#a855f7"),
           outlineColor: Color.BLACK, outlineWidth: 2,
           style: LabelStyle.FILL_AND_OUTLINE,
           verticalOrigin: VerticalOrigin.BOTTOM,
           pixelOffset: new Cartesian2(12, -6),
-          scaleByDistance: new NearFarScalar(1e3, 1.2, 2e6, 0),
+          scaleByDistance: new NearFarScalar(1e3, 1, 5e5, 0),
           disableDepthTestDistance: Number.POSITIVE_INFINITY,
         },
       });
@@ -879,7 +925,7 @@ export default function ThreeGlobe({
 
         {/* ═══ CCTV PANEL — filtered by activeCity, anchored bottom-right ═══ */}
         {showCCTV && visibleCCTVs.length > 0 && (
-          <div className="absolute bottom-4 right-4 z-50 bg-black/95 border border-cyan-900/40 p-3" style={{ pointerEvents: "auto", width: selectedCCTV?.embedUrl ? 400 : 240 }}>
+          <div className="absolute bottom-4 right-4 z-50 bg-black/95 border border-cyan-900/40 p-3" style={{ pointerEvents: "auto", width: 260 }}>
             <div className="flex items-center justify-between mb-2">
               <p className="text-[10px] font-mono text-cyan-300 tracking-wider">📹 {activeCity} ({visibleCCTVs.length})</p>
               <button onClick={() => { setShowCCTV(false); setSelectedCCTV(null); }} className="text-cyan-600/50 hover:text-cyan-300 text-xs cursor-pointer">✕</button>
@@ -914,25 +960,26 @@ export default function ThreeGlobe({
 
             {selectedCCTV && (
               <div className="pt-2 border-t border-cyan-400/30 space-y-2">
-                {selectedCCTV.embedUrl && (
-                  <div className="relative w-full bg-black border border-cyan-900/30" style={{ aspectRatio: "16/9" }}>
-                    <iframe
-                      src={selectedCCTV.embedUrl}
-                      className="w-full h-full"
-                      allow="autoplay; encrypted-media; picture-in-picture"
-                      allowFullScreen
-                      referrerPolicy="no-referrer"
-                      style={{ border: "none" }}
-                    />
-                    <div className="absolute top-1 left-1 px-1.5 py-0.5 bg-red-600 text-white text-[7px] font-bold tracking-wider rounded-sm">● LIVE</div>
+                <div className="bg-argos-panel/40 rounded p-2 space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                    <span className="text-[9px] font-mono text-cyan-200">{selectedCCTV.name}</span>
                   </div>
-                )}
-                <div className="flex items-center justify-between text-[8px] font-mono text-cyan-500/70">
-                  <span>HDG {selectedCCTV.hdg}° | FOV {selectedCCTV.fov}°</span>
-                  {selectedCCTV.sourceUrl && (
-                    <a href={selectedCCTV.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-cyan-300 hover:text-cyan-100">Ouvrir ↗</a>
-                  )}
+                  <div className="grid grid-cols-2 gap-x-4 text-[8px] font-mono text-cyan-500/70">
+                    <span>HDG {selectedCCTV.hdg}°</span>
+                    <span>FOV {selectedCCTV.fov}°</span>
+                    <span>LAT {selectedCCTV.lat.toFixed(4)}</span>
+                    <span>LNG {selectedCCTV.lng.toFixed(4)}</span>
+                  </div>
                 </div>
+                <a
+                  href={selectedCCTV.liveUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block w-full text-center px-3 py-2 bg-cyan-500/20 border border-cyan-400/40 text-cyan-200 text-[10px] font-mono tracking-wider hover:bg-cyan-500/30 transition-colors"
+                >
+                  ● OUVRIR LE FLUX LIVE ↗
+                </a>
               </div>
             )}
           </div>
