@@ -1092,24 +1092,35 @@ export default function ArgosPage() {
                 />
 
                 {/* ─── Geolocation compact indicator ─── */}
-                {userLocation && (
-                  <div className="absolute bottom-3 left-4 z-40">
-                    <button
-                      onClick={() => {
+                <div className="absolute bottom-3 left-4 z-40">
+                  <button
+                    onClick={() => {
+                      if (userLocation) {
                         setFlyToTrigger({ lat: userLocation.lat, lng: userLocation.lng, zoom: 12, ts: Date.now() });
                         handleSelectMapItem({
                           type: "position",
                           data: { lat: userLocation.lat, lng: userLocation.lng, address: userAddress || undefined, ip: userIp || undefined, nearbyCount, geoRadius },
                         });
-                      }}
-                      className="bg-argos-panel/90 border border-argos-border/50 rounded-lg px-3 py-1.5 flex items-center gap-2 cursor-pointer hover:border-argos-accent/40 transition-all"
-                    >
-                      <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
-                      <span className="text-[9px] font-mono text-argos-accent tracking-wider">MA POSITION</span>
-                      {userAddress && <span className="text-[8px] font-mono text-argos-text-dim truncate max-w-[160px]">{userAddress}</span>}
-                    </button>
-                  </div>
-                )}
+                      } else if ("geolocation" in navigator) {
+                        navigator.geolocation.getCurrentPosition(
+                          (pos) => {
+                            const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+                            setUserLocation(loc);
+                            setFlyToTrigger({ lat: loc.lat, lng: loc.lng, zoom: 12, ts: Date.now() });
+                          },
+                          () => { alert("Geolocalisation refusee ou indisponible. Autorisez la localisation dans les parametres de votre navigateur."); },
+                          { enableHighAccuracy: true, timeout: 10000 }
+                        );
+                      }
+                    }}
+                    className="bg-argos-panel/90 border border-argos-border/50 rounded-lg px-3 py-1.5 flex items-center gap-2 cursor-pointer hover:border-argos-accent/40 transition-all"
+                  >
+                    <span className={`w-2 h-2 rounded-full ${userLocation ? "bg-cyan-400 animate-pulse" : "bg-gray-500"}`} />
+                    <span className="text-[9px] font-mono text-argos-accent tracking-wider">MA POSITION</span>
+                    {userLocation && userAddress && <span className="text-[8px] font-mono text-argos-text-dim truncate max-w-[160px]">{userAddress}</span>}
+                    {!userLocation && <span className="text-[8px] font-mono text-argos-text-dim">Cliquez pour localiser</span>}
+                  </button>
+                </div>
 
                 {drawMode && (
                   <div className="absolute top-3 left-1/2 -translate-x-1/2 z-50 px-4 py-2 bg-argos-warning/10 border border-argos-warning/40 rounded-lg backdrop-blur-sm">

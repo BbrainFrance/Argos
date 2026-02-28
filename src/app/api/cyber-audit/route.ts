@@ -448,31 +448,73 @@ async function checkAdminPaths(baseUrl: string): Promise<VulnCheck[]> {
   const vulns: VulnCheck[] = [];
   const found: string[] = [];
 
+  // Soft-404 baseline: fetch a random path to get the "not found" page signature
+  let baseline404Size = -1;
+  let baseline404Hash = "";
+  try {
+    const rnd = await fetch(`${baseUrl}/argos-probe-${Date.now()}-nonexistent`, {
+      redirect: "manual",
+      headers: { "User-Agent": "ARGOS-SecurityAudit/1.0" },
+      signal: AbortSignal.timeout(5000),
+    });
+    if (rnd.status === 200) {
+      const body = await rnd.text();
+      baseline404Size = body.length;
+      baseline404Hash = body.slice(0, 500).replace(/\d+/g, "").trim();
+    }
+  } catch { /* ignore */ }
+
+  const SENSITIVE_CONTENT: Record<string, RegExp> = {
+    "/.env": /^[A-Z_]+=|DB_|SECRET|PASSWORD|API_KEY/m,
+    "/.git/config": /\[core\]|\[remote|\[branch/,
+    "/.htaccess": /RewriteEngine|RewriteRule|Deny from|AuthType/i,
+    "/server-status": /Apache Server Status|Server Version:|Total Accesses/i,
+  };
+
   const batchSize = 5;
   for (let i = 0; i < ADMIN_PATHS.length; i += batchSize) {
     const batch = ADMIN_PATHS.slice(i, i + batchSize);
     const promises = batch.map(async (path) => {
       try {
+        const isSensitive = path.includes(".env") || path.includes(".git") || path.includes(".htaccess") || path.includes("server-status");
+        const method = isSensitive ? "GET" : "HEAD";
         const res = await fetch(`${baseUrl}${path}`, {
-          method: "HEAD",
+          method,
           redirect: "manual",
           headers: { "User-Agent": "ARGOS-SecurityAudit/1.0" },
           signal: AbortSignal.timeout(5000),
         });
         if (res.status === 200 || res.status === 301 || res.status === 302) {
-          const isSensitive = path.includes(".env") || path.includes(".git") || path.includes(".htaccess") || path.includes("server-status");
           if (isSensitive && res.status === 200) {
+            const body = await res.text();
+            // Soft-404 detection: if the response matches the baseline "not found" page, skip
+            const bodyHash = body.slice(0, 500).replace(/\d+/g, "").trim();
+            if (baseline404Size > 0 && (
+              Math.abs(body.length - baseline404Size) < 200 ||
+              bodyHash === baseline404Hash
+            )) {
+              return; // soft 404 — skip
+            }
+            // Content verification: check if the body actually looks like the sensitive file
+            const contentPattern = SENSITIVE_CONTENT[path];
+            if (contentPattern && !contentPattern.test(body)) {
+              return; // body doesn't match expected content — likely a custom error page
+            }
+            // Reject if it's clearly an HTML page (not a config file)
+            if (body.trimStart().startsWith("<!DOCTYPE") || body.trimStart().startsWith("<html")) {
+              return; // HTML page, not a real .env / .git / .htaccess
+            }
             vulns.push({
               id: `vuln-exposed-${path.replace(/[^a-z0-9]/g, "")}`,
               title: `Fichier sensible accessible: ${path}`,
               severity: "critical",
               category: "Exposition de fichiers",
-              description: `Le fichier ${path} est accessible publiquement. Il peut contenir des secrets, des identifiants ou des informations de configuration.`,
+              description: `Le fichier ${path} est accessible publiquement et contient du contenu coherent avec un fichier de configuration. Il peut exposer des secrets.`,
               remediation: `Bloquer l'acces a ${path} via la configuration du serveur web. Verifier qu'aucun secret n'a ete compromis.`,
               affectedComponent: "Configuration serveur",
               cvss: 9.0,
             });
-          } else {
+          } else if (!isSensitive) {
             found.push(`${path} (${res.status})`);
           }
         }
@@ -481,13 +523,19 @@ async function checkAdminPaths(baseUrl: string): Promise<VulnCheck[]> {
     await Promise.all(promises);
   }
 
-  if (found.length > 0) {
+  // filter admin paths against soft-404 baseline
+  const realFound = found.filter(f => {
+    if (baseline404Size <= 0) return true;
+    return true; // HEAD requests can't be compared by body; keep them
+  });
+
+  if (realFound.length > 0) {
     vulns.push({
       id: "vuln-admin-paths",
-      title: `${found.length} chemin(s) d'administration detecte(s)`,
+      title: `${realFound.length} chemin(s) d'administration detecte(s)`,
       severity: "low",
       category: "Reconnaissance",
-      description: `Chemins accessibles: ${found.join(", ")}. Ces endpoints sont des cibles potentielles pour les attaquants.`,
+      description: `Chemins accessibles: ${realFound.join(", ")}. Ces endpoints sont des cibles potentielles pour les attaquants.`,
       remediation: "Restreindre l'acces aux interfaces d'administration par IP, VPN ou authentification forte (MFA).",
       affectedComponent: "Endpoints",
     });
@@ -510,15 +558,39 @@ async function checkBruteForce(baseUrl: string): Promise<VulnCheck[]> {
   let loginUrl: string | null = null;
   let loginStatus = 0;
 
+  // Soft-404 baseline for this origin
+  let baseline404Size = -1;
+  try {
+    const rnd = await fetch(`${baseUrl}/argos-bf-probe-${Date.now()}-xyz`, {
+      redirect: "manual",
+      headers: { "User-Agent": "ARGOS-SecurityAudit/1.0" },
+      signal: AbortSignal.timeout(4000),
+    });
+    if (rnd.status === 200) {
+      const body = await rnd.text();
+      baseline404Size = body.length;
+    }
+  } catch { /* ignore */ }
+
   for (const path of loginPaths) {
     try {
       const res = await fetch(`${baseUrl}${path}`, {
-        method: "HEAD",
         redirect: "manual",
         headers: { "User-Agent": "ARGOS-SecurityAudit/1.0" },
         signal: AbortSignal.timeout(4000),
       });
       if (res.status === 200 || res.status === 302 || res.status === 301) {
+        // Read body to validate it's a real login page, not a soft 404
+        const body = await res.text();
+        if (res.status === 200 && baseline404Size > 0 && Math.abs(body.length - baseline404Size) < 200) {
+          continue; // soft 404
+        }
+        // Verify the page actually contains a login form
+        const hasLoginForm = /<form[\s\S]*?(?:password|login|sign.?in|connexion|mot.?de.?passe)/i.test(body)
+          || /<input[^>]*type\s*=\s*["']password["']/i.test(body);
+        if (res.status === 200 && !hasLoginForm) {
+          continue; // not a real login page
+        }
         loginUrl = `${baseUrl}${path}`;
         loginStatus = res.status;
         break;

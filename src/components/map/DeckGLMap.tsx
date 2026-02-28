@@ -315,8 +315,13 @@ export default function DeckGLMap({
 
   useEffect(() => {
     let frame: number;
-    const tick = () => {
-      setAnimPhase(Date.now() % 3000 / 3000);
+    let last = 0;
+    const tick = (now: number) => {
+      // Throttle to ~20fps for Safari compatibility
+      if (now - last > 50) {
+        last = now;
+        setAnimPhase(Date.now() % 3000 / 3000);
+      }
       frame = requestAnimationFrame(tick);
     };
     frame = requestAnimationFrame(tick);
