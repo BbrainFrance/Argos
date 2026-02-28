@@ -142,20 +142,25 @@ const POI_LANDMARKS: Record<string, { name: string; lat: number; lng: number }[]
 };
 
 // ─── CCTV camera data (public traffic cameras) ──────────────────────────────
-const CCTV_CAMERAS: { id: string; name: string; city: string; lat: number; lng: number; hdg: number; fov: number; url?: string }[] = [
-  { id: "cctv-par-1", name: "Champs-Elysees / George V", city: "Paris", lat: 48.8698, lng: 2.3013, hdg: 45, fov: 60, url: "https://www.viewsurf.com/univers/ville/vue/17518-france-ile-de-france-paris-champs-elysees" },
-  { id: "cctv-par-2", name: "Place de la Concorde", city: "Paris", lat: 48.8656, lng: 2.3212, hdg: 180, fov: 90 },
-  { id: "cctv-par-3", name: "Tour Eiffel / Trocadero", city: "Paris", lat: 48.8616, lng: 2.2886, hdg: 135, fov: 70 },
-  { id: "cctv-lon-1", name: "Tower Bridge", city: "London", lat: 51.5055, lng: -0.0754, hdg: 270, fov: 65 },
-  { id: "cctv-lon-2", name: "Trafalgar Square", city: "London", lat: 51.508, lng: -0.1281, hdg: 0, fov: 80 },
-  { id: "cctv-nyc-1", name: "Times Square", city: "New York", lat: 40.758, lng: -73.9855, hdg: 180, fov: 75, url: "https://www.earthcam.com/usa/newyork/timessquare/" },
-  { id: "cctv-nyc-2", name: "Brooklyn Bridge", city: "New York", lat: 40.7061, lng: -73.9969, hdg: 90, fov: 60 },
-  { id: "cctv-dc-1", name: "National Mall", city: "Washington DC", lat: 38.8895, lng: -77.0235, hdg: 270, fov: 80 },
-  { id: "cctv-tok-1", name: "Shibuya Crossing", city: "Tokyo", lat: 35.6595, lng: 139.7004, hdg: 0, fov: 90, url: "https://www.youtube.com/watch?v=3q6Gu6mJR8s" },
-  { id: "cctv-dub-1", name: "Burj Khalifa View", city: "Dubai", lat: 25.1972, lng: 55.2744, hdg: 45, fov: 60 },
-  { id: "cctv-sf-1", name: "Golden Gate", city: "San Francisco", lat: 37.8199, lng: -122.4783, hdg: 180, fov: 70, url: "https://www.earthcam.com/usa/california/sanfrancisco/goldengate/" },
-  { id: "cctv-aus-1", name: "6th St / Congress Ave", city: "Austin", lat: 30.2672, lng: -97.7396, hdg: 225, fov: 66 },
-  { id: "cctv-aus-2", name: "San Jacinto / 7th St", city: "Austin", lat: 30.269, lng: -97.7382, hdg: 135, fov: 54 },
+interface CCTVCamera {
+  id: string; name: string; city: string; lat: number; lng: number; hdg: number; fov: number;
+  embedUrl?: string;
+  sourceUrl?: string;
+}
+const CCTV_CAMERAS: CCTVCamera[] = [
+  { id: "cctv-par-1", name: "Champs-Elysees / Arc de Triomphe", city: "Paris", lat: 48.8738, lng: 2.2950, hdg: 45, fov: 60, embedUrl: "https://www.youtube.com/embed/cGwfyYJjw_Q?autoplay=1&mute=1", sourceUrl: "https://www.youtube.com/watch?v=cGwfyYJjw_Q" },
+  { id: "cctv-par-2", name: "Tour Eiffel Live", city: "Paris", lat: 48.8584, lng: 2.2945, hdg: 180, fov: 90, embedUrl: "https://www.youtube.com/embed/vEov7PFQIBo?autoplay=1&mute=1", sourceUrl: "https://www.youtube.com/watch?v=vEov7PFQIBo" },
+  { id: "cctv-par-3", name: "Sacre-Coeur / Montmartre", city: "Paris", lat: 48.8867, lng: 2.3431, hdg: 135, fov: 70, embedUrl: "https://www.youtube.com/embed/6ObbP0k1FrA?autoplay=1&mute=1", sourceUrl: "https://www.youtube.com/watch?v=6ObbP0k1FrA" },
+  { id: "cctv-lon-1", name: "London Eye / Thames", city: "London", lat: 51.5033, lng: -0.1196, hdg: 270, fov: 65, embedUrl: "https://www.youtube.com/embed/54-8p8_ZWJQ?autoplay=1&mute=1", sourceUrl: "https://www.youtube.com/watch?v=54-8p8_ZWJQ" },
+  { id: "cctv-lon-2", name: "Abbey Road Crossing", city: "London", lat: 51.5320, lng: -0.1779, hdg: 0, fov: 80, embedUrl: "https://www.youtube.com/embed/rhiMbAkgJns?autoplay=1&mute=1", sourceUrl: "https://www.youtube.com/watch?v=rhiMbAkgJns" },
+  { id: "cctv-nyc-1", name: "Times Square 4K", city: "New York", lat: 40.758, lng: -73.9855, hdg: 180, fov: 75, embedUrl: "https://www.youtube.com/embed/eJ7ZkQ5TC08?autoplay=1&mute=1", sourceUrl: "https://www.youtube.com/watch?v=eJ7ZkQ5TC08" },
+  { id: "cctv-nyc-2", name: "Statue of Liberty", city: "New York", lat: 40.6892, lng: -74.0445, hdg: 90, fov: 60, embedUrl: "https://www.youtube.com/embed/2VFsN-MY6dM?autoplay=1&mute=1", sourceUrl: "https://www.youtube.com/watch?v=2VFsN-MY6dM" },
+  { id: "cctv-tok-1", name: "Shibuya Crossing", city: "Tokyo", lat: 35.6595, lng: 139.7004, hdg: 0, fov: 90, embedUrl: "https://www.youtube.com/embed/3q6Gu6mJR8s?autoplay=1&mute=1", sourceUrl: "https://www.youtube.com/watch?v=3q6Gu6mJR8s" },
+  { id: "cctv-tok-2", name: "Tokyo Tower", city: "Tokyo", lat: 35.6586, lng: 139.7454, hdg: 180, fov: 70, embedUrl: "https://www.youtube.com/embed/DnqZoAligWE?autoplay=1&mute=1", sourceUrl: "https://www.youtube.com/watch?v=DnqZoAligWE" },
+  { id: "cctv-dub-1", name: "Dubai - Burj Khalifa", city: "Dubai", lat: 25.1972, lng: 55.2744, hdg: 45, fov: 60, embedUrl: "https://www.youtube.com/embed/JVJMBFmiYTk?autoplay=1&mute=1", sourceUrl: "https://www.youtube.com/watch?v=JVJMBFmiYTk" },
+  { id: "cctv-dc-1", name: "Washington DC Live", city: "Washington DC", lat: 38.8895, lng: -77.0235, hdg: 270, fov: 80, embedUrl: "https://www.youtube.com/embed/HCkEILshUyA?autoplay=1&mute=1", sourceUrl: "https://www.youtube.com/watch?v=HCkEILshUyA" },
+  { id: "cctv-ist-1", name: "Istanbul - Bosphorus", city: "Istanbul", lat: 41.0422, lng: 29.0083, hdg: 90, fov: 75, embedUrl: "https://www.youtube.com/embed/LbRMrSOkuRY?autoplay=1&mute=1", sourceUrl: "https://www.youtube.com/watch?v=LbRMrSOkuRY" },
+  { id: "cctv-rom-1", name: "Rome - Colosseum", city: "Rome", lat: 41.8902, lng: 12.4922, hdg: 180, fov: 70, embedUrl: "https://www.youtube.com/embed/F6Tfjg0Mzb0?autoplay=1&mute=1", sourceUrl: "https://www.youtube.com/watch?v=F6Tfjg0Mzb0" },
 ];
 
 // ─── Error Boundary ──────────────────────────────────────────────────────────
@@ -246,7 +251,7 @@ export default function ThreeGlobe({
   const [cameraLng, setCameraLng] = useState(2.3);
   const [cameraAlt, setCameraAlt] = useState(3000000);
   const [showCCTV, setShowCCTV] = useState(false);
-  const [selectedCCTV, setSelectedCCTV] = useState<typeof CCTV_CAMERAS[0] | null>(null);
+  const [selectedCCTV, setSelectedCCTV] = useState<CCTVCamera | null>(null);
   const [showDataLayers, setShowDataLayers] = useState(false);
   const [panopticSrc, setPanopticSrc] = useState(0);
   const [startTime] = useState(Date.now());
@@ -714,10 +719,10 @@ export default function ThreeGlobe({
                         : "border-transparent hover:bg-cyan-900/20"
                     }`}
                   >
-                    <span className={`w-2 h-2 rounded-full ${selectedCCTV?.id === cam.id ? "bg-cyan-300 animate-pulse" : cam.url ? "bg-green-600" : "bg-cyan-700"}`} />
+                    <span className={`w-2 h-2 rounded-full ${selectedCCTV?.id === cam.id ? "bg-cyan-300 animate-pulse" : cam.embedUrl ? "bg-green-600" : "bg-cyan-700"}`} />
                     <div className="flex-1 min-w-0">
                       <p className="text-[9px] font-mono text-cyan-300/90 truncate">{cam.name}</p>
-                      <p className="text-[7px] font-mono text-cyan-600/40">HDG {cam.hdg}° | FOV {cam.fov}°{cam.url ? " | LIVE" : ""}</p>
+                      <p className="text-[7px] font-mono text-cyan-600/40">HDG {cam.hdg}° | FOV {cam.fov}°{cam.embedUrl ? " | LIVE" : ""}</p>
                     </div>
                   </button>
                 ))}
@@ -738,7 +743,7 @@ export default function ThreeGlobe({
                     <p className="text-cyan-500/70">FOV</p>
                     <p className="text-cyan-300/90">{selectedCCTV.fov}°</p>
                     <p className="text-cyan-500/70">STATUS</p>
-                    <p className={`${selectedCCTV.url ? "text-green-400" : "text-yellow-500"}`}>{selectedCCTV.url ? "● EN LIGNE" : "○ HORS LIGNE"}</p>
+                    <p className={`${selectedCCTV.embedUrl ? "text-green-400" : "text-yellow-500"}`}>{selectedCCTV.embedUrl ? "● EN LIGNE" : "○ HORS LIGNE"}</p>
                     <p className="text-cyan-500/70">VILLE</p>
                     <p className="text-cyan-300/90">{selectedCCTV.city}</p>
                     <p className="text-cyan-500/70">RESEAU</p>
@@ -746,7 +751,7 @@ export default function ThreeGlobe({
                   </div>
                 </div>
 
-                {selectedCCTV.url && (
+                {selectedCCTV.embedUrl && (
                   <>
                     <div className="border border-cyan-800/30 bg-black">
                       <div className="flex items-center justify-between px-2 py-1 border-b border-cyan-900/30 bg-cyan-900/10">
@@ -754,35 +759,28 @@ export default function ThreeGlobe({
                         <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
                       </div>
                       <div className="relative w-full" style={{ paddingBottom: "56.25%" }}>
-                        {selectedCCTV.url.includes("youtube.com") ? (
-                          <iframe
-                            src={selectedCCTV.url.replace("watch?v=", "embed/") + "?autoplay=1&mute=1"}
-                            className="absolute inset-0 w-full h-full"
-                            allow="autoplay; encrypted-media"
-                            allowFullScreen
-                            title={selectedCCTV.name}
-                          />
-                        ) : (
-                          <iframe
-                            src={selectedCCTV.url}
-                            className="absolute inset-0 w-full h-full"
-                            title={selectedCCTV.name}
-                            sandbox="allow-scripts allow-same-origin"
-                          />
-                        )}
+                        <iframe
+                          src={selectedCCTV.embedUrl}
+                          className="absolute inset-0 w-full h-full border-0"
+                          allow="autoplay; encrypted-media; accelerometer; gyroscope"
+                          allowFullScreen
+                          title={selectedCCTV.name}
+                        />
                       </div>
                     </div>
-                    <a
-                      href={selectedCCTV.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="block text-center text-[8px] font-mono px-3 py-1 border border-cyan-900/40 text-cyan-500/70 hover:text-cyan-300 hover:border-cyan-500/40 cursor-pointer"
-                    >
-                      OUVRIR DANS UN NOUVEL ONGLET ↗
-                    </a>
+                    {selectedCCTV.sourceUrl && (
+                      <a
+                        href={selectedCCTV.sourceUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block text-center text-[8px] font-mono px-3 py-1 border border-cyan-900/40 text-cyan-500/70 hover:text-cyan-300 hover:border-cyan-500/40 cursor-pointer"
+                      >
+                        OUVRIR DANS UN NOUVEL ONGLET ↗
+                      </a>
+                    )}
                   </>
                 )}
-                {!selectedCCTV.url && (
+                {!selectedCCTV.embedUrl && (
                   <div className="text-center py-3 border border-dashed border-cyan-900/30">
                     <p className="text-[8px] font-mono text-cyan-600/40">AUCUN FLUX PUBLIC DISPONIBLE</p>
                     <p className="text-[7px] font-mono text-cyan-600/30 mt-1">Camera reference uniquement</p>

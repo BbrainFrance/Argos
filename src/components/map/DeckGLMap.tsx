@@ -152,6 +152,17 @@ export default function DeckGLMap({
   const containerRef = useRef<HTMLDivElement>(null);
   const [drawPoints, setDrawPoints] = useState<[number, number][]>([]);
   const [measurePoints, setMeasurePoints] = useState<[number, number][]>([]);
+  const [animPhase, setAnimPhase] = useState(0);
+
+  useEffect(() => {
+    let frame: number;
+    const tick = () => {
+      setAnimPhase(Date.now() % 3000 / 3000);
+      frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, []);
 
   const onViewStateChange = useCallback(
     (params: { viewState: Record<string, unknown> }) => {
@@ -731,8 +742,28 @@ export default function DeckGLMap({
       );
     }
 
-    // Phase 3 — World Monitor layers
+    // Phase 3 — World Monitor layers (animated)
+    const pulse = 0.6 + 0.4 * Math.sin(animPhase * Math.PI * 2);
+    const pulseInv = 1.4 - 0.4 * Math.sin(animPhase * Math.PI * 2);
+
     if (conflictEvents.length > 0) {
+      l.push(
+        new ScatterplotLayer({
+          id: "conflicts-glow",
+          data: conflictEvents,
+          getPosition: (d: ConflictEvent) => [d.lng, d.lat] as [number, number],
+          getRadius: (d: ConflictEvent) => Math.max(5, Math.min(d.fatalities * 3, 40)) * 300 * pulseInv,
+          getFillColor: (d: ConflictEvent) => {
+            const a = Math.round(60 * pulse);
+            if (d.eventType === "battles" || d.eventType === "explosions") return [255, 40, 0, a] as [number, number, number, number];
+            return [255, 160, 0, a] as [number, number, number, number];
+          },
+          radiusMinPixels: 8,
+          radiusMaxPixels: 35,
+          pickable: false,
+          updateTriggers: { getRadius: [animPhase], getFillColor: [animPhase] },
+        })
+      );
       l.push(
         new ScatterplotLayer({
           id: "conflicts",
@@ -740,14 +771,14 @@ export default function DeckGLMap({
           getPosition: (d: ConflictEvent) => [d.lng, d.lat] as [number, number],
           getRadius: (d: ConflictEvent) => Math.max(3, Math.min(d.fatalities * 2, 30)) * 200,
           getFillColor: (d: ConflictEvent) => {
-            if (d.eventType === "battles") return [255, 40, 40, 180] as [number, number, number, number];
-            if (d.eventType === "explosions") return [255, 120, 0, 180] as [number, number, number, number];
-            if (d.eventType === "protests") return [255, 220, 50, 160] as [number, number, number, number];
-            if (d.eventType === "riots") return [255, 160, 0, 170] as [number, number, number, number];
-            return [200, 80, 80, 140] as [number, number, number, number];
+            if (d.eventType === "battles") return [255, 40, 40, 220] as [number, number, number, number];
+            if (d.eventType === "explosions") return [255, 100, 0, 220] as [number, number, number, number];
+            if (d.eventType === "protests") return [255, 220, 50, 180] as [number, number, number, number];
+            if (d.eventType === "riots") return [255, 160, 0, 200] as [number, number, number, number];
+            return [200, 80, 80, 160] as [number, number, number, number];
           },
-          radiusMinPixels: 3,
-          radiusMaxPixels: 16,
+          radiusMinPixels: 4,
+          radiusMaxPixels: 18,
           pickable: true,
           onClick: (info) => {
             if (info.object) onSelectMapItem?.({ type: "conflict", data: info.object as ConflictEvent });
@@ -763,13 +794,26 @@ export default function DeckGLMap({
     if (fireHotspots.length > 0) {
       l.push(
         new ScatterplotLayer({
+          id: "fires-glow",
+          data: fireHotspots,
+          getPosition: (d: FireHotspot) => [d.lng, d.lat] as [number, number],
+          getRadius: (d: FireHotspot) => d.frp * 80 * pulseInv,
+          getFillColor: [255, 80, 0, Math.round(50 * pulse)] as [number, number, number, number],
+          radiusMinPixels: 6,
+          radiusMaxPixels: 20,
+          pickable: false,
+          updateTriggers: { getRadius: [animPhase], getFillColor: [animPhase] },
+        })
+      );
+      l.push(
+        new ScatterplotLayer({
           id: "fires",
           data: fireHotspots,
           getPosition: (d: FireHotspot) => [d.lng, d.lat] as [number, number],
           getRadius: (d: FireHotspot) => d.frp * 50,
-          getFillColor: [255, 120, 0, 200] as [number, number, number, number],
-          radiusMinPixels: 2,
-          radiusMaxPixels: 10,
+          getFillColor: [255, 120, 0, 220] as [number, number, number, number],
+          radiusMinPixels: 3,
+          radiusMaxPixels: 12,
           pickable: true,
           onClick: (info) => {
             if (info.object) onSelectMapItem?.({ type: "fire", data: info.object as FireHotspot });
@@ -785,14 +829,32 @@ export default function DeckGLMap({
     if (naturalDisasters.length > 0) {
       l.push(
         new ScatterplotLayer({
+          id: "disasters-glow",
+          data: naturalDisasters,
+          getPosition: (d: NaturalDisaster) => [d.lng, d.lat] as [number, number],
+          getRadius: 1200 * pulseInv,
+          getFillColor: (d: NaturalDisaster) => {
+            const a = Math.round(50 * pulse);
+            if (d.severity === "red") return [255, 0, 0, a] as [number, number, number, number];
+            if (d.severity === "orange") return [255, 160, 0, a] as [number, number, number, number];
+            return [0, 200, 100, a] as [number, number, number, number];
+          },
+          radiusMinPixels: 10,
+          radiusMaxPixels: 30,
+          pickable: false,
+          updateTriggers: { getRadius: [animPhase], getFillColor: [animPhase] },
+        })
+      );
+      l.push(
+        new ScatterplotLayer({
           id: "disasters",
           data: naturalDisasters,
           getPosition: (d: NaturalDisaster) => [d.lng, d.lat] as [number, number],
           getRadius: 800,
           getFillColor: (d: NaturalDisaster) => {
-            if (d.severity === "red") return [255, 0, 0, 200] as [number, number, number, number];
-            if (d.severity === "orange") return [255, 160, 0, 200] as [number, number, number, number];
-            return [0, 200, 100, 160] as [number, number, number, number];
+            if (d.severity === "red") return [255, 0, 0, 220] as [number, number, number, number];
+            if (d.severity === "orange") return [255, 160, 0, 220] as [number, number, number, number];
+            return [0, 200, 100, 180] as [number, number, number, number];
           },
           radiusMinPixels: 6,
           radiusMaxPixels: 20,
@@ -1087,6 +1149,7 @@ export default function DeckGLMap({
     nuclearFacilities,
     drawPoints,
     measurePoints,
+    animPhase,
   ]);
 
   const interactionBlocked = placeMarkerMode || missionPlanMode || drawMode || measureMode;
@@ -1106,62 +1169,188 @@ export default function DeckGLMap({
 
       {hoverInfo?.object != null && (
         <div
-          className="fixed z-50 px-2 py-1 text-xs font-mono bg-[#1a2332ee] text-argos-text border border-argos-border rounded pointer-events-none"
-          style={{ left: hoverInfo.x + 12, top: hoverInfo.y + 12 }}
+          className="fixed z-50 pointer-events-none"
+          style={{ left: hoverInfo.x + 16, top: hoverInfo.y + 16 }}
         >
           {(() => {
             const o = hoverInfo.object as Record<string, unknown>;
             if (o.entity) {
               const e = o.entity as Entity;
-              return <span>{e.label}</span>;
-            }
-            if (o.marker) {
-              const m = o.marker as OperationalMarker;
-              return <span>{m.label} — {m.category}</span>;
-            }
-            if (o.infra) {
-              const i = o.infra as Infrastructure;
-              return <span>{i.metadata.name}</span>;
-            }
-            if (o.tower) {
-              const t = o.tower as CellTower;
-              return <span>{t.radio} — {t.operator || "N/A"}</span>;
+              const isAircraft = e.type === "aircraft";
+              const meta = e.metadata as Record<string, unknown>;
+              return (
+                <div className="bg-[#0d1520f0] border border-argos-border rounded-lg p-3 min-w-[200px] max-w-[280px] space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">{isAircraft ? "✈" : "🚢"}</span>
+                    <div>
+                      <p className="text-xs font-mono text-argos-accent font-bold">{e.label}</p>
+                      <p className="text-[9px] font-mono text-argos-text-dim">{isAircraft ? (meta.originCountry as string) : (meta.shipType as string) || "N/A"}</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-[8px] font-mono">
+                    {e.position ? <><p className="text-argos-text-dim">POS</p><p className="text-argos-text">{e.position.lat.toFixed(3)}, {e.position.lng.toFixed(3)}</p></> : null}
+                    {meta.velocity ? <><p className="text-argos-text-dim">VIT</p><p className="text-argos-text">{(meta.velocity as number).toFixed(0)} m/s</p></> : null}
+                    {e.position?.alt ? <><p className="text-argos-text-dim">ALT</p><p className="text-argos-text">{e.position.alt.toFixed(0)} m</p></> : null}
+                    {meta.callsign ? <><p className="text-argos-text-dim">CALL</p><p className="text-argos-text">{String(meta.callsign)}</p></> : null}
+                  </div>
+                </div>
+              );
             }
             if (o.conflict) {
               const c = o.conflict as ConflictEvent;
-              return <span>💥 {c.eventType} — {c.actor1}{c.fatalities > 0 ? ` (${c.fatalities} morts)` : ""}</span>;
+              const typeLabel: Record<string, string> = { battles: "COMBAT", explosions: "EXPLOSION", protests: "MANIFESTATION", riots: "EMEUTE", violence_against_civilians: "VIOLENCE CIVILE", strategic_developments: "STRAT." };
+              return (
+                <div className="bg-[#1a0505f0] border border-red-800/60 rounded-lg p-3 min-w-[220px] max-w-[300px] space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg event-explosion">💥</span>
+                    <div>
+                      <p className="text-xs font-mono text-red-400 font-bold">{typeLabel[c.eventType] || c.eventType.toUpperCase()}</p>
+                      <p className="text-[9px] font-mono text-red-300/70">{c.country} — {c.region}</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-[8px] font-mono">
+                    <p className="text-red-400/60">ACTEUR</p><p className="text-red-200">{c.actor1}</p>
+                    {c.actor2 && <><p className="text-red-400/60">VS</p><p className="text-red-200">{c.actor2}</p></>}
+                    <p className="text-red-400/60">DATE</p><p className="text-red-200">{c.eventDate}</p>
+                    {c.fatalities > 0 && <><p className="text-red-400/60">VICTIMES</p><p className="text-red-100 font-bold">{c.fatalities}</p></>}
+                    <p className="text-red-400/60">SOURCE</p><p className="text-red-200 truncate">{c.source}</p>
+                  </div>
+                  {c.notes && <p className="text-[7px] font-mono text-red-300/50 line-clamp-2">{c.notes}</p>}
+                </div>
+              );
             }
             if (o.fire) {
               const f = o.fire as FireHotspot;
-              return <span>🔥 FRP:{f.frp.toFixed(0)} — {f.satellite} {f.confidence}</span>;
+              return (
+                <div className="bg-[#1a0d05f0] border border-orange-800/60 rounded-lg p-3 min-w-[200px] space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg event-fire">🔥</span>
+                    <div>
+                      <p className="text-xs font-mono text-orange-400 font-bold">FEU DETECTE</p>
+                      <p className="text-[9px] font-mono text-orange-300/70">{f.country || "N/A"}</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-[8px] font-mono">
+                    <p className="text-orange-400/60">FRP</p><p className="text-orange-200">{f.frp.toFixed(1)} MW</p>
+                    <p className="text-orange-400/60">SAT</p><p className="text-orange-200">{f.satellite}</p>
+                    <p className="text-orange-400/60">CONF</p><p className="text-orange-200">{f.confidence}</p>
+                    <p className="text-orange-400/60">POS</p><p className="text-orange-200">{f.lat.toFixed(3)}, {f.lng.toFixed(3)}</p>
+                  </div>
+                </div>
+              );
             }
             if (o.disaster) {
               const d = o.disaster as NaturalDisaster;
-              return <span>🌊 {d.title}</span>;
+              const icons: Record<string, string> = { earthquake: "🌍", flood: "🌊", cyclone: "🌀", volcano: "🌋", drought: "☀", wildfire: "🔥", tsunami: "🌊" };
+              return (
+                <div className="bg-[#0a1a10f0] border border-emerald-800/60 rounded-lg p-3 min-w-[220px] space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg event-seismic">{icons[d.eventType] || "⚠"}</span>
+                    <div>
+                      <p className="text-xs font-mono text-emerald-400 font-bold">{d.title}</p>
+                      <p className="text-[9px] font-mono text-emerald-300/70">{d.eventType.toUpperCase()}</p>
+                    </div>
+                  </div>
+                  <p className="text-[8px] font-mono text-emerald-200/80 line-clamp-2">{d.description}</p>
+                  <div className="flex gap-2 text-[8px] font-mono">
+                    <span className={`px-1.5 py-0.5 rounded ${d.severity === "red" ? "bg-red-900/50 text-red-300" : d.severity === "orange" ? "bg-orange-900/50 text-orange-300" : "bg-green-900/50 text-green-300"}`}>
+                      {d.severity.toUpperCase()}
+                    </span>
+                  </div>
+                </div>
+              );
             }
             if (o.cyber) {
               const c = o.cyber as CyberThreat;
-              return <span>🛡 {c.threatCategory} — {c.iocValue.slice(0, 40)}</span>;
+              return (
+                <div className="bg-[#0d0520f0] border border-purple-800/60 rounded-lg p-3 min-w-[200px] space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg event-cyber">🛡</span>
+                    <div>
+                      <p className="text-xs font-mono text-purple-400 font-bold">{c.threatCategory.toUpperCase()}</p>
+                      <p className="text-[9px] font-mono text-purple-300/70">{c.iocType} — {c.source}</p>
+                    </div>
+                  </div>
+                  <p className="text-[8px] font-mono text-purple-200/80 break-all">{c.iocValue.slice(0, 50)}</p>
+                </div>
+              );
             }
             if (o.outage) {
               const ou = o.outage as InternetOutage;
-              return <span>📵 {ou.country} — {ou.severity}</span>;
+              return (
+                <div className="bg-[#1a0a0af0] border border-rose-800/60 rounded-lg p-3 min-w-[200px] space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg event-outage">📵</span>
+                    <div>
+                      <p className="text-xs font-mono text-rose-400 font-bold">COUPURE INTERNET</p>
+                      <p className="text-[9px] font-mono text-rose-300/70">{ou.country}</p>
+                    </div>
+                  </div>
+                  <span className={`text-[8px] font-mono px-1.5 py-0.5 rounded ${ou.severity === "major" ? "bg-red-900/50 text-red-300" : "bg-yellow-900/50 text-yellow-300"}`}>{ou.severity.toUpperCase()}</span>
+                </div>
+              );
+            }
+            if (o.marker) {
+              const m = o.marker as OperationalMarker;
+              return (
+                <div className="bg-[#0d1520f0] border border-argos-border rounded-lg p-2 min-w-[160px]">
+                  <p className="text-xs font-mono text-argos-accent font-bold">{m.label}</p>
+                  <p className="text-[9px] font-mono text-argos-text-dim">{m.category} — {m.affiliation}</p>
+                </div>
+              );
+            }
+            if (o.infra) {
+              const i = o.infra as Infrastructure;
+              return (
+                <div className="bg-[#0d1520f0] border border-argos-border rounded-lg p-2 min-w-[160px]">
+                  <p className="text-xs font-mono text-argos-accent font-bold">{i.metadata.name}</p>
+                  <p className="text-[9px] font-mono text-argos-text-dim">{i.type}</p>
+                </div>
+              );
+            }
+            if (o.tower) {
+              const t = o.tower as CellTower;
+              return (
+                <div className="bg-[#0d1520f0] border border-argos-border rounded-lg p-2 min-w-[160px]">
+                  <p className="text-xs font-mono text-argos-accent">{t.radio} — {t.operator || "N/A"}</p>
+                </div>
+              );
             }
             if (o.cable) {
               const c = o.cable as SubmarineCable;
-              return <span>🔌 {c.name} ({c.lengthKm?.toLocaleString()} km)</span>;
+              return (
+                <div className="bg-[#0d1520f0] border border-argos-border rounded-lg p-2 min-w-[160px]">
+                  <p className="text-xs font-mono text-blue-400">🔌 {c.name}</p>
+                  <p className="text-[9px] font-mono text-argos-text-dim">{c.lengthKm?.toLocaleString()} km</p>
+                </div>
+              );
             }
             if (o.pipeline) {
               const p = o.pipeline as Pipeline;
-              return <span>🛢 {p.name} — {p.type}</span>;
+              return (
+                <div className="bg-[#0d1520f0] border border-argos-border rounded-lg p-2 min-w-[160px]">
+                  <p className="text-xs font-mono text-yellow-400">🛢 {p.name}</p>
+                  <p className="text-[9px] font-mono text-argos-text-dim">{p.type}</p>
+                </div>
+              );
             }
             if (o.base) {
               const b = o.base as MilitaryBase;
-              return <span>🎖 {b.name} ({b.country})</span>;
+              return (
+                <div className="bg-[#0d1520f0] border border-argos-border rounded-lg p-2 min-w-[160px]">
+                  <p className="text-xs font-mono text-green-400">🎖 {b.name}</p>
+                  <p className="text-[9px] font-mono text-argos-text-dim">{b.country}</p>
+                </div>
+              );
             }
             if (o.nuclear) {
               const n = o.nuclear as NuclearFacility;
-              return <span>☢ {n.name} — {n.type} ({n.status})</span>;
+              return (
+                <div className="bg-[#1a1a05f0] border border-yellow-800/60 rounded-lg p-2 min-w-[160px]">
+                  <p className="text-xs font-mono text-yellow-400">☢ {n.name}</p>
+                  <p className="text-[9px] font-mono text-argos-text-dim">{n.type} — {n.status}</p>
+                </div>
+              );
             }
             return null;
           })()}

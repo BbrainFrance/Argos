@@ -129,3 +129,69 @@ body {
 .argos-popup .leaflet-popup-tip {
   background: #0d1520 !important;
 }
+
+/* ─── Event Animations ─────────────────────────────────────── */
+
+@keyframes explosion-pulse {
+  0% { transform: scale(0.5); opacity: 0.9; }
+  50% { transform: scale(1.8); opacity: 0.3; }
+  100% { transform: scale(0.5); opacity: 0.9; }
+}
+
+@keyframes explosion-ring {
+  0% { transform: scale(0.3); opacity: 0.8; border-width: 3px; }
+  100% { transform: scale(3); opacity: 0; border-width: 1px; }
+}
+
+@keyframes fire-flicker {
+  0%, 100% { transform: scaleY(1) scaleX(1); opacity: 0.9; }
+  25% { transform: scaleY(1.3) scaleX(0.9); opacity: 1; }
+  50% { transform: scaleY(0.8) scaleX(1.1); opacity: 0.7; }
+  75% { transform: scaleY(1.2) scaleX(0.85); opacity: 0.95; }
+}
+
+@keyframes seismic-wave {
+  0% { transform: scale(0.5); opacity: 0.7; }
+  100% { transform: scale(4); opacity: 0; }
+}
+
+@keyframes cyber-glitch {
+  0%, 100% { opacity: 1; transform: translate(0); }
+  20% { opacity: 0.8; transform: translate(-1px, 1px); }
+  40% { opacity: 0.6; transform: translate(1px, -1px); }
+  60% { opacity: 0.9; transform: translate(-1px, 0); }
+  80% { opacity: 0.7; transform: translate(1px, 1px); }
+}
+
+@keyframes outage-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.2; }
+}
+
+@keyframes protest-wave {
+  0% { transform: rotate(-5deg) scale(1); }
+  50% { transform: rotate(5deg) scale(1.1); }
+  100% { transform: rotate(-5deg) scale(1); }
+}
+
+.event-explosion {
+  animation: explosion-pulse 1.5s ease-in-out infinite;
+}
+.event-explosion-ring {
+  animation: explosion-ring 2s ease-out infinite;
+}
+.event-fire {
+  animation: fire-flicker 0.6s ease-in-out infinite;
+}
+.event-seismic {
+  animation: seismic-wave 2.5s ease-out infinite;
+}
+.event-cyber {
+  animation: cyber-glitch 0.8s steps(5) infinite;
+}
+.event-outage {
+  animation: outage-blink 1.2s ease-in-out infinite;
+}
+.event-protest {
+  animation: protest-wave 1.5s ease-in-out infinite;
+}
