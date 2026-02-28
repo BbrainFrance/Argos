@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import DeckGL, { ScatterplotLayer, PathLayer, SolidPolygonLayer } from "deck.gl";
+import DeckGL, { ScatterplotLayer, PathLayer, SolidPolygonLayer, IconLayer } from "deck.gl";
 import { TileLayer } from "@deck.gl/geo-layers";
 import { BitmapLayer } from "@deck.gl/layers";
 import { Map } from "react-map-gl/maplibre";
@@ -47,6 +47,73 @@ const AFFILIATION_COLORS: Record<string, [number, number, number]> = {
   unknown: [255, 255, 128],
   suspect: [255, 176, 96],
 };
+
+function svgToDataUrl(svg: string): string {
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+}
+
+const ICON_AIRCRAFT_CIVIL = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><g transform="translate(24,24)"><path d="M0,-18 L4,-6 L18,-2 L18,2 L4,8 L3,16 L8,18 L8,20 L0,19 L-8,20 L-8,18 L-3,16 L-4,8 L-18,2 L-18,-2 L-4,-6 Z" fill="#ffffff" stroke="#333" stroke-width="1"/></g></svg>`);
+
+const ICON_AIRCRAFT_MILITARY = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><g transform="translate(24,24)"><path d="M0,-18 L5,-4 L20,-1 L20,2 L5,8 L4,16 L9,18 L9,20 L0,19 L-9,20 L-9,18 L-4,16 L-5,8 L-20,2 L-20,-1 L-5,-4 Z" fill="#4a7a3d" stroke="#2d4a25" stroke-width="1.5"/><path d="M0,-14 L3,-4 L14,0 L3,6 L0,14 L-3,6 L-14,0 L-3,-4 Z" fill="#5c8a4e" opacity="0.6"/></g></svg>`);
+
+const ICON_AIRCRAFT_HOSTILE = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><g transform="translate(24,24)"><path d="M0,-18 L5,-4 L20,-1 L20,2 L5,8 L4,16 L9,18 L9,20 L0,19 L-9,20 L-9,18 L-4,16 L-5,8 L-20,2 L-20,-1 L-5,-4 Z" fill="#ff4444" stroke="#aa0000" stroke-width="1.5"/></g></svg>`);
+
+const ICON_AIRCRAFT_GROUND = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><g transform="translate(24,24)"><path d="M0,-12 L3,-4 L14,-1 L14,1 L3,5 L2,10 L6,12 L6,13 L0,12 L-6,13 L-6,12 L-2,10 L-3,5 L-14,1 L-14,-1 L-3,-4 Z" fill="#888888" stroke="#555" stroke-width="1" opacity="0.6"/></g></svg>`);
+
+const ICON_VESSEL_CIVIL = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><g transform="translate(24,24)"><path d="M0,-14 L10,4 L8,10 L-8,10 L-10,4 Z" fill="#4488cc" stroke="#2266aa" stroke-width="1.5"/><line x1="0" y1="-14" x2="0" y2="10" stroke="#2266aa" stroke-width="1" opacity="0.5"/></g></svg>`);
+
+const ICON_VESSEL_MILITARY = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><g transform="translate(24,24)"><path d="M0,-14 L10,4 L8,10 L-8,10 L-10,4 Z" fill="#667788" stroke="#444" stroke-width="1.5"/><line x1="0" y1="-14" x2="0" y2="10" stroke="#444" stroke-width="1.5"/><rect x="-4" y="-2" width="8" height="6" rx="1" fill="#445566" stroke="#333" stroke-width="0.5"/></g></svg>`);
+
+const ICON_VESSEL_HOSTILE = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><g transform="translate(24,24)"><path d="M0,-14 L10,4 L8,10 L-8,10 L-10,4 Z" fill="#ff4444" stroke="#aa0000" stroke-width="1.5"/><line x1="0" y1="-14" x2="0" y2="10" stroke="#aa0000" stroke-width="1.5"/></g></svg>`);
+
+const ICON_EXPLOSION = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><g transform="translate(24,24)"><polygon points="0,-16 4,-6 14,-10 8,-2 18,2 8,6 12,16 2,10 0,18 -2,10 -12,16 -8,6 -18,2 -8,-2 -14,-10 -4,-6" fill="#ff3300" stroke="#ff6600" stroke-width="1"/><circle cx="0" cy="0" r="5" fill="#ffcc00" opacity="0.9"/></g></svg>`);
+
+const ICON_GUNFIRE = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><g transform="translate(24,24)"><circle cx="0" cy="0" r="8" fill="#ff4400" opacity="0.7"/><line x1="0" y1="-14" x2="0" y2="-6" stroke="#ffaa00" stroke-width="2.5" stroke-linecap="round"/><line x1="12" y1="-7" x2="7" y2="-3" stroke="#ffaa00" stroke-width="2.5" stroke-linecap="round"/><line x1="14" y1="0" x2="8" y2="0" stroke="#ffaa00" stroke-width="2.5" stroke-linecap="round"/><line x1="-14" y1="0" x2="-8" y2="0" stroke="#ffaa00" stroke-width="2.5" stroke-linecap="round"/><line x1="-12" y1="-7" x2="-7" y2="-3" stroke="#ffaa00" stroke-width="2.5" stroke-linecap="round"/></g></svg>`);
+
+const ICON_PROTEST = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><g transform="translate(24,24)"><circle cx="0" cy="2" r="10" fill="#ffcc00" opacity="0.8" stroke="#cc9900" stroke-width="1"/><text x="0" y="7" text-anchor="middle" font-size="16" fill="#333" font-weight="bold">!</text></g></svg>`);
+
+const ICON_FIRE = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><g transform="translate(24,24)"><path d="M0,-16 C4,-10 10,-8 8,-2 C12,-6 14,0 10,6 C14,2 16,8 8,14 C4,16 -4,16 -8,14 C-16,8 -14,2 -10,6 C-14,0 -12,-6 -8,-2 C-10,-8 -4,-10 0,-16Z" fill="#ff6600" stroke="#ff3300" stroke-width="0.5"/><path d="M0,-8 C2,-4 6,-2 4,4 C2,0 -2,0 -4,4 C-6,-2 -2,-4 0,-8Z" fill="#ffcc00" opacity="0.9"/></g></svg>`);
+
+const ICON_WAVE = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><g transform="translate(24,24)"><path d="M-16,0 C-12,-6 -8,-6 -4,0 C0,6 4,6 8,0 C12,-6 16,-6 18,0" fill="none" stroke="#0088ff" stroke-width="3" stroke-linecap="round"/><path d="M-16,8 C-12,2 -8,2 -4,8 C0,14 4,14 8,8 C12,2 16,2 18,8" fill="none" stroke="#0066cc" stroke-width="2.5" stroke-linecap="round"/><path d="M-14,-8 C-10,-14 -6,-14 -2,-8 C2,-2 6,-2 10,-8 C14,-14 16,-14 18,-8" fill="none" stroke="#00aaff" stroke-width="2" stroke-linecap="round" opacity="0.6"/></g></svg>`);
+
+const ICON_EARTHQUAKE = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><g transform="translate(24,24)"><path d="M-14,0 L-8,-10 L-4,4 L0,-14 L4,6 L8,-8 L14,0" fill="none" stroke="#ff4444" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><circle cx="0" cy="0" r="14" fill="none" stroke="#ff4444" stroke-width="1" opacity="0.4"/><circle cx="0" cy="0" r="10" fill="none" stroke="#ff6666" stroke-width="1" opacity="0.3"/></g></svg>`);
+
+const ICON_CYCLONE = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><g transform="translate(24,24)"><path d="M0,-14 A14,14 0 0,1 14,0" fill="none" stroke="#00ccff" stroke-width="3" stroke-linecap="round"/><path d="M14,0 A14,14 0 0,1 0,14" fill="none" stroke="#0099cc" stroke-width="2.5" stroke-linecap="round"/><path d="M0,14 A14,14 0 0,1 -14,0" fill="none" stroke="#0077aa" stroke-width="2" stroke-linecap="round"/><path d="M-14,0 A14,14 0 0,1 0,-14" fill="none" stroke="#005588" stroke-width="1.5" stroke-linecap="round"/><circle cx="0" cy="0" r="3" fill="#00ddff"/></g></svg>`);
+
+const ICON_VOLCANO = svgToDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><g transform="translate(24,24)"><polygon points="0,-10 -12,12 12,12" fill="#8B4513" stroke="#654321" stroke-width="1.5"/><polygon points="0,-10 -4,-4 4,-4" fill="#ff4400"/><circle cx="-2" cy="-14" r="2" fill="#ff6600" opacity="0.8"/><circle cx="3" cy="-16" r="1.5" fill="#ffaa00" opacity="0.7"/><circle cx="-4" cy="-16" r="1" fill="#ff8800" opacity="0.6"/></g></svg>`);
+
+function getEntityIcon(entity: Entity): string {
+  if (entity.type === "aircraft") {
+    const ac = entity as Aircraft;
+    if (ac.metadata.onGround) return ICON_AIRCRAFT_GROUND;
+    const aff = getAircraftAffiliation(ac.metadata.originCountry, ac.metadata.squawk);
+    if (aff === "hostile" || aff === "suspect") return ICON_AIRCRAFT_HOSTILE;
+    if (aff === "friendly") return ICON_AIRCRAFT_MILITARY;
+    return ICON_AIRCRAFT_CIVIL;
+  }
+  const v = entity as Vessel;
+  const aff = getVesselAffiliation(v.metadata.flag, v.metadata.shipType);
+  if (aff === "hostile" || aff === "suspect") return ICON_VESSEL_HOSTILE;
+  const st = (v.metadata.shipType || "").toLowerCase();
+  if (st.includes("military") || st.includes("navy") || st.includes("war") || st.includes("patrol") || st.includes("coast guard")) return ICON_VESSEL_MILITARY;
+  return ICON_VESSEL_CIVIL;
+}
+
+function getConflictIcon(eventType: string): string {
+  if (eventType === "explosions") return ICON_EXPLOSION;
+  if (eventType === "battles") return ICON_GUNFIRE;
+  if (eventType === "protests" || eventType === "riots") return ICON_PROTEST;
+  return ICON_EXPLOSION;
+}
+
+function getDisasterIcon(eventType: string): string {
+  if (eventType === "earthquake") return ICON_EARTHQUAKE;
+  if (eventType === "flood" || eventType === "tsunami") return ICON_WAVE;
+  if (eventType === "cyclone") return ICON_CYCLONE;
+  if (eventType === "volcano") return ICON_VOLCANO;
+  if (eventType === "wildfire") return ICON_FIRE;
+  return ICON_WAVE;
+}
 
 function hexToRgb(hex: string): [number, number, number] {
   const m = hex.match(/^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i);
@@ -270,12 +337,19 @@ export default function DeckGLMap({
           );
         }
         const color = AFFILIATION_COLORS[affiliation] ?? [128, 128, 128];
-        const size = isSelected ? 12 : e.type === "aircraft" && (e as Aircraft).metadata.onGround ? 5 : 8;
+        const size = isSelected ? 40 : e.type === "aircraft" && (e as Aircraft).metadata.onGround ? 20 : 32;
+        const angle = e.type === "aircraft"
+          ? -((e as Aircraft).metadata.trueTrack ?? 0)
+          : e.type === "vessel"
+            ? -((e as Vessel).metadata.heading ?? (e as Vessel).metadata.course ?? 0)
+            : 0;
         return {
           id: e.id,
           position: [e.position!.lng, e.position!.lat],
           color: [...color, 255],
-          radius: size,
+          size,
+          angle,
+          icon: getEntityIcon(e),
           entity: e,
         };
       });
@@ -647,17 +721,16 @@ export default function DeckGLMap({
 
     if (entityLayerData.length > 0) {
       l.push(
-        new ScatterplotLayer({
+        new IconLayer({
           id: "entities",
           data: entityLayerData,
           getPosition: (d) => d.position,
-          getRadius: (d) => d.radius * 100,
-          getFillColor: (d) => d.color,
-          getLineColor: [255, 255, 255],
-          getLineWidth: 1,
-          lineWidthMinPixels: 0.5,
-          radiusMinPixels: 5,
-          radiusMaxPixels: 28,
+          getIcon: (d) => ({ url: d.icon, width: 48, height: 48, anchorY: 24 }),
+          getSize: (d) => d.size,
+          getAngle: (d) => d.angle,
+          sizeScale: 1,
+          sizeMinPixels: 14,
+          sizeMaxPixels: 40,
           pickable: true,
           autoHighlight: true,
           highlightColor: [255, 255, 255, 80],
@@ -667,7 +740,7 @@ export default function DeckGLMap({
             if (obj?.entity) onSelectEntity(obj.entity);
           },
           onHover: (info) => setHoverInfo(info.picked ? { x: info.x!, y: info.y!, object: info.object } : null),
-        })
+        }) as unknown as Layer
       );
     }
 
@@ -769,20 +842,15 @@ export default function DeckGLMap({
         })
       );
       l.push(
-        new ScatterplotLayer({
+        new IconLayer({
           id: "conflicts",
           data: conflictEvents,
           getPosition: (d: ConflictEvent) => [d.lng, d.lat] as [number, number],
-          getRadius: (d: ConflictEvent) => Math.max(3, Math.min(d.fatalities * 2, 30)) * 200,
-          getFillColor: (d: ConflictEvent) => {
-            if (d.eventType === "battles") return [255, 40, 40, 220] as [number, number, number, number];
-            if (d.eventType === "explosions") return [255, 100, 0, 220] as [number, number, number, number];
-            if (d.eventType === "protests") return [255, 220, 50, 180] as [number, number, number, number];
-            if (d.eventType === "riots") return [255, 160, 0, 200] as [number, number, number, number];
-            return [200, 80, 80, 160] as [number, number, number, number];
-          },
-          radiusMinPixels: 4,
-          radiusMaxPixels: 18,
+          getIcon: (d: ConflictEvent) => ({ url: getConflictIcon(d.eventType), width: 48, height: 48, anchorY: 24 }),
+          getSize: (d: ConflictEvent) => Math.max(20, Math.min(d.fatalities * 2, 48)),
+          sizeScale: 1,
+          sizeMinPixels: 16,
+          sizeMaxPixels: 48,
           pickable: true,
           onClick: (info) => {
             if (info.object) onSelectMapItem?.({ type: "conflict", data: info.object as ConflictEvent });
@@ -791,7 +859,7 @@ export default function DeckGLMap({
             setHoverInfo(
               info.picked ? { x: info.x!, y: info.y!, object: { conflict: info.object } } : null
             ),
-        })
+        }) as unknown as Layer
       );
     }
 
@@ -810,14 +878,14 @@ export default function DeckGLMap({
         })
       );
       l.push(
-        new ScatterplotLayer({
+        new IconLayer({
           id: "fires",
           data: fireHotspots,
           getPosition: (d: FireHotspot) => [d.lng, d.lat] as [number, number],
-          getRadius: (d: FireHotspot) => d.frp * 50,
-          getFillColor: [255, 120, 0, 220] as [number, number, number, number],
-          radiusMinPixels: 3,
-          radiusMaxPixels: 12,
+          getIcon: () => ({ url: ICON_FIRE, width: 48, height: 48, anchorY: 24 }),
+          getSize: (d: FireHotspot) => Math.max(18, Math.min(d.frp * 2, 40)),
+          sizeMinPixels: 14,
+          sizeMaxPixels: 40,
           pickable: true,
           onClick: (info) => {
             if (info.object) onSelectMapItem?.({ type: "fire", data: info.object as FireHotspot });
@@ -826,7 +894,7 @@ export default function DeckGLMap({
             setHoverInfo(
               info.picked ? { x: info.x!, y: info.y!, object: { fire: info.object } } : null
             ),
-        })
+        }) as unknown as Layer
       );
     }
 
@@ -850,18 +918,14 @@ export default function DeckGLMap({
         })
       );
       l.push(
-        new ScatterplotLayer({
+        new IconLayer({
           id: "disasters",
           data: naturalDisasters,
           getPosition: (d: NaturalDisaster) => [d.lng, d.lat] as [number, number],
-          getRadius: 800,
-          getFillColor: (d: NaturalDisaster) => {
-            if (d.severity === "red") return [255, 0, 0, 220] as [number, number, number, number];
-            if (d.severity === "orange") return [255, 160, 0, 220] as [number, number, number, number];
-            return [0, 200, 100, 180] as [number, number, number, number];
-          },
-          radiusMinPixels: 6,
-          radiusMaxPixels: 20,
+          getIcon: (d: NaturalDisaster) => ({ url: getDisasterIcon(d.eventType), width: 48, height: 48, anchorY: 24 }),
+          getSize: (d: NaturalDisaster) => d.severity === "red" ? 36 : d.severity === "orange" ? 28 : 22,
+          sizeMinPixels: 16,
+          sizeMaxPixels: 44,
           pickable: true,
           onClick: (info) => {
             if (info.object) onSelectMapItem?.({ type: "disaster", data: info.object as NaturalDisaster });
@@ -870,7 +934,7 @@ export default function DeckGLMap({
             setHoverInfo(
               info.picked ? { x: info.x!, y: info.y!, object: { disaster: info.object } } : null
             ),
-        })
+        }) as unknown as Layer
       );
     }
 

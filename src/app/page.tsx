@@ -1066,27 +1066,47 @@ export default function ArgosPage() {
                 />
 
                 {/* ─── Geolocation widget ─── */}
-                {userLocation && showGeoRadius && (
-                  <div className="absolute bottom-14 left-4 z-40 bg-argos-panel/90 border border-argos-border/50 rounded-lg px-3 py-2 space-y-2" style={{ minWidth: 200 }}>
-                    <div className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-                      <p className="text-[9px] font-mono text-argos-accent tracking-wider">MA POSITION</p>
-                    </div>
-                    <p className="text-[8px] font-mono text-argos-text-dim">{userLocation.lat.toFixed(4)}, {userLocation.lng.toFixed(4)}</p>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="range" min={5} max={500} value={geoRadius}
-                        onChange={e => setGeoRadius(Number(e.target.value))}
-                        className="flex-1 h-1 accent-cyan-500"
-                      />
-                      <span className="text-[8px] font-mono text-argos-accent w-12 text-right">{geoRadius} km</span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-[8px] font-mono">
-                      <p className="text-argos-text-dim">Entites</p><p className="text-argos-text">{nearbyCount.entities}</p>
-                      <p className="text-argos-text-dim">Conflits</p><p className="text-red-400">{nearbyCount.events}</p>
-                      <p className="text-argos-text-dim">Feux</p><p className="text-orange-400">{nearbyCount.fires}</p>
-                      <p className="text-argos-text-dim">Catastrophes</p><p className="text-emerald-400">{nearbyCount.disasters}</p>
-                    </div>
+                {userLocation && (
+                  <div className="absolute bottom-14 left-4 z-40">
+                    {showGeoRadius ? (
+                      <div className="bg-argos-panel/90 border border-argos-border/50 rounded-lg px-3 py-2 space-y-2" style={{ minWidth: 200 }}>
+                        <div className="flex items-center justify-between">
+                          <button
+                            onClick={() => {
+                              setViewState(prev => ({ ...prev, center: [userLocation.lat, userLocation.lng], zoom: 10 }));
+                            }}
+                            className="flex items-center gap-2 cursor-pointer hover:opacity-80"
+                          >
+                            <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+                            <p className="text-[9px] font-mono text-argos-accent tracking-wider">MA POSITION</p>
+                          </button>
+                          <button onClick={() => setShowGeoRadius(false)} className="text-argos-text-dim hover:text-argos-text text-xs cursor-pointer">▾</button>
+                        </div>
+                        <p className="text-[8px] font-mono text-argos-text-dim">{userLocation.lat.toFixed(4)}, {userLocation.lng.toFixed(4)}</p>
+                        <div className="flex items-center gap-2">
+                          <input type="range" min={5} max={500} value={geoRadius} onChange={e => setGeoRadius(Number(e.target.value))} className="flex-1 h-1 accent-cyan-500" />
+                          <span className="text-[8px] font-mono text-argos-accent w-12 text-right">{geoRadius} km</span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-[8px] font-mono">
+                          <p className="text-argos-text-dim">Entites</p><p className="text-argos-text">{nearbyCount.entities}</p>
+                          <p className="text-argos-text-dim">Conflits</p><p className="text-red-400">{nearbyCount.events}</p>
+                          <p className="text-argos-text-dim">Feux</p><p className="text-orange-400">{nearbyCount.fires}</p>
+                          <p className="text-argos-text-dim">Catastrophes</p><p className="text-emerald-400">{nearbyCount.disasters}</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => {
+                          setShowGeoRadius(true);
+                          setViewState(prev => ({ ...prev, center: [userLocation.lat, userLocation.lng], zoom: 10 }));
+                        }}
+                        className="bg-argos-panel/90 border border-argos-border/50 rounded-lg px-3 py-2 flex items-center gap-2 cursor-pointer hover:border-argos-accent/40"
+                      >
+                        <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+                        <p className="text-[9px] font-mono text-argos-accent tracking-wider">📍</p>
+                        <span className="text-argos-text-dim text-xs">▸</span>
+                      </button>
+                    )}
                   </div>
                 )}
 
@@ -1566,12 +1586,6 @@ export default function ArgosPage() {
                   <InstabilityPanel scores={instabilityScores} />
                   <IntelFeedPanel items={intelFeedItems} />
                   <TacticalChat operatorName="OPERATOR" />
-                  <FilterBar
-                    filters={filters}
-                    onUpdate={(f) => setFilters((p) => ({ ...p, ...f }))}
-                    entityCount={entities.length}
-                    filteredCount={filteredEntities.length}
-                  />
                   <EntityList
                     entities={filteredEntities}
                     selectedId={selectedEntityId}

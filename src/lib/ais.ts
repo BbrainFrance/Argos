@@ -342,7 +342,7 @@ function connect() {
     if (s.messageCount === 1) {
       console.log("AIS: First message received — stream active");
     }
-    if (s.messageCount % 100 === 0) {
+    if (s.messageCount % 5000 === 0) {
       console.log(`AIS: ${s.messageCount} messages received, ${s.vesselCache.size} vessels tracked`);
     }
     handleMessage(data.toString());
