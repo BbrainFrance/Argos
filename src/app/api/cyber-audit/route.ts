@@ -624,7 +624,9 @@ async function checkBruteForce(baseUrl: string): Promise<VulnCheck[]> {
         if (baseline404Size > 0 && Math.abs(body.length - baseline404Size) < 200) continue;
         // Must contain a password input or login form
         const hasLoginForm = /<input[^>]*type\s*=\s*["']password["']/i.test(body)
-          || (/<form/i.test(body) && /(?:password|login|sign.?in|connexion|mot.?de.?passe|e.?mail)/i.test(body));
+          || (/<form/i.test(body) && /(?:password|login|sign.?in|connexion|mot.?de.?passe|e.?mail)/i.test(body))
+          || /csrfToken|callbackUrl|credentials|next-auth|nextauth|__Host-next-auth|signIn\(|credential/i.test(body)
+          || (/signin|sign-in|login/i.test(path) && res.status === 200 && body.length > 500);
         if (!hasLoginForm) continue;
         loginUrl = `${origin}${path}`;
         loginStatus = 200;
@@ -946,19 +948,39 @@ async function checkOpenRedirect(baseUrl: string): Promise<VulnCheck[]> {
       });
       if (res.status >= 300 && res.status < 400) {
         const location = res.headers.get("location") || "";
-        if (location.includes("evil-argos-test.example.com")) {
-          vulns.push({
-            id: `vuln-open-redirect-${param}`,
-            title: `Open Redirect via parametre "${param}"`,
-            severity: "medium",
-            category: "Redirection",
-            description: `Le parametre "${param}" permet de rediriger vers un domaine externe. Exploitable pour le phishing.`,
-            remediation: "Valider les URLs de redirection contre une allowlist. Ne jamais rediriger vers des URLs fournies sans validation.",
-            affectedComponent: `Parametre: ${param}`,
-            cvss: 6.1,
-            cve: "CWE-601",
-          });
-        }
+        try {
+          const redirectTarget = new URL(location, baseUrl);
+          const baseHost = new URL(baseUrl).hostname;
+          const targetHost = redirectTarget.hostname;
+          if (targetHost === "evil-argos-test.example.com") {
+            vulns.push({
+              id: `vuln-open-redirect-${param}`,
+              title: `Open Redirect via parametre "${param}"`,
+              severity: "medium",
+              category: "Redirection",
+              description: `Le parametre "${param}" redirige vers le domaine externe ${targetHost}. Exploitable pour le phishing.`,
+              remediation: "Valider les URLs de redirection contre une allowlist. Ne jamais rediriger vers des URLs fournies sans validation.",
+              affectedComponent: `Parametre: ${param}`,
+              cvss: 6.1,
+              cve: "CWE-601",
+            });
+          } else if (!targetHost.endsWith(baseHost) && !baseHost.endsWith(targetHost)) {
+            const hasEvilInQuery = redirectTarget.searchParams.toString().includes("evil-argos-test");
+            if (!hasEvilInQuery) {
+              vulns.push({
+                id: `vuln-open-redirect-${param}`,
+                title: `Open Redirect via parametre "${param}"`,
+                severity: "medium",
+                category: "Redirection",
+                description: `Le parametre "${param}" redirige vers ${targetHost}, un domaine different de ${baseHost}.`,
+                remediation: "Valider les URLs de redirection contre une allowlist.",
+                affectedComponent: `Parametre: ${param}`,
+                cvss: 6.1,
+                cve: "CWE-601",
+              });
+            }
+          }
+        } catch { /* invalid URL in location */ }
       }
     } catch { /* skip */ }
   }

@@ -121,7 +121,9 @@ async function findLoginPage(baseUrl: string): Promise<string | null> {
         if (!res || res.status !== 200) continue;
         const body = await res.text();
         const hasLogin = /<input[^>]*type\s*=\s*["']password["']/i.test(body)
-          || (/<form/i.test(body) && /(?:password|login|sign.?in|connexion|e.?mail)/i.test(body));
+          || (/<form/i.test(body) && /(?:password|login|sign.?in|connexion|e.?mail)/i.test(body))
+          || /csrfToken|callbackUrl|credentials|next-auth|nextauth|__Host-next-auth|signIn\(|credential/i.test(body)
+          || (/signin|sign-in|login/i.test(path) && body.length > 500);
         if (hasLogin) return `${origin}${path}`;
       } catch { /* skip */ }
     }
