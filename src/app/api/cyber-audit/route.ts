@@ -526,7 +526,18 @@ async function checkBruteForce(baseUrl: string): Promise<VulnCheck[]> {
     } catch { /* not found */ }
   }
 
-  if (!loginUrl) return vulns;
+  if (!loginUrl) {
+    vulns.push({
+      id: "vuln-no-login-found",
+      title: "Aucun formulaire de connexion detecte",
+      severity: "info",
+      category: "Authentification",
+      description: `Aucune page de connexion trouvee parmi les chemins testes (${loginPaths.join(", ")}). Les tests de brute force n'ont pas pu etre effectues.`,
+      remediation: "Si un formulaire de connexion existe sur un chemin non standard, specifiez-le manuellement.",
+      affectedComponent: "Pages d'authentification",
+    });
+    return vulns;
+  }
 
   // Test rate limiting with rapid requests (20 attempts)
   let blocked = false;

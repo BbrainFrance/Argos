@@ -151,14 +151,14 @@ interface CCTVCamera {
   sourceUrl?: string;
 }
 const CCTV_CAMERAS: CCTVCamera[] = [
-  { id: "cctv-par-1", name: "Tour Eiffel — Trocadero", city: "Paris", lat: 48.8584, lng: 2.2945, hdg: 180, fov: 90, embedUrl: "https://www.youtube.com/embed/cVsyS0EvIjM?autoplay=1&mute=1", sourceUrl: "https://www.youtube.com/watch?v=cVsyS0EvIjM" },
-  { id: "cctv-par-2", name: "Sacre-Coeur — Montmartre", city: "Paris", lat: 48.8867, lng: 2.3431, hdg: 180, fov: 70, embedUrl: "https://www.youtube.com/embed/cE0O9pYBpGo?autoplay=1&mute=1", sourceUrl: "https://www.youtube.com/watch?v=cE0O9pYBpGo" },
-  { id: "cctv-jax-1", name: "Jacksonville Beach", city: "Jacksonville", lat: 30.2947, lng: -81.3931, hdg: 90, fov: 80, embedUrl: "https://www.youtube.com/embed/Hu5a5sGN6XE?autoplay=1&mute=1", sourceUrl: "https://www.youtube.com/watch?v=Hu5a5sGN6XE" },
-  { id: "cctv-nyc-1", name: "Times Square", city: "New York", lat: 40.758, lng: -73.9855, hdg: 180, fov: 75, embedUrl: "https://www.youtube.com/embed/AdUw5RdyZxI?autoplay=1&mute=1", sourceUrl: "https://www.youtube.com/watch?v=AdUw5RdyZxI" },
+  { id: "cctv-par-1", name: "Tour Eiffel HD", city: "Paris", lat: 48.8584, lng: 2.2945, hdg: 180, fov: 90, embedUrl: "https://www.youtube.com/embed/iZipA1LL_sU?autoplay=1&mute=1", sourceUrl: "https://www.youtube.com/watch?v=iZipA1LL_sU" },
+  { id: "cctv-par-2", name: "Sacre-Coeur Montmartre", city: "Paris", lat: 48.8867, lng: 2.3431, hdg: 180, fov: 70, embedUrl: "https://www.youtube.com/embed/vPbRHswf7JI?autoplay=1&mute=1", sourceUrl: "https://www.youtube.com/watch?v=vPbRHswf7JI" },
+  { id: "cctv-nyc-1", name: "Times Square 4K", city: "New York", lat: 40.758, lng: -73.9855, hdg: 180, fov: 75, embedUrl: "https://www.youtube.com/embed/QTTTY_ra2Tg?autoplay=1&mute=1", sourceUrl: "https://www.youtube.com/watch?v=QTTTY_ra2Tg" },
+  { id: "cctv-nyc-2", name: "Manhattan Skyline", city: "New York", lat: 40.7128, lng: -74.006, hdg: 90, fov: 80, embedUrl: "https://www.youtube.com/embed/1-iS7LArMPA?autoplay=1&mute=1", sourceUrl: "https://www.youtube.com/watch?v=1-iS7LArMPA" },
   { id: "cctv-tok-1", name: "Shibuya Crossing", city: "Tokyo", lat: 35.6595, lng: 139.7004, hdg: 0, fov: 90, embedUrl: "https://www.youtube.com/embed/3q5Eoqhc4oc?autoplay=1&mute=1", sourceUrl: "https://www.youtube.com/watch?v=3q5Eoqhc4oc" },
-  { id: "cctv-iss-1", name: "ISS — Station Spatiale", city: "Orbite LEO", lat: 0, lng: 0, hdg: 0, fov: 180, embedUrl: "https://www.youtube.com/embed/P9C25Un7xaM?autoplay=1&mute=1", sourceUrl: "https://www.youtube.com/watch?v=P9C25Un7xaM" },
-  { id: "cctv-ven-1", name: "Place Saint-Marc", city: "Venise", lat: 45.4341, lng: 12.3388, hdg: 90, fov: 80, embedUrl: "https://www.youtube.com/embed/vPbRHswf7JI?autoplay=1&mute=1", sourceUrl: "https://www.youtube.com/watch?v=vPbRHswf7JI" },
-  { id: "cctv-dub-1", name: "Dubai Marina", city: "Dubai", lat: 25.1972, lng: 55.2744, hdg: 45, fov: 60, embedUrl: "https://www.youtube.com/embed/vLaDwjfMfZI?autoplay=1&mute=1", sourceUrl: "https://www.youtube.com/watch?v=vLaDwjfMfZI" },
+  { id: "cctv-lon-1", name: "Abbey Road Crossing", city: "London", lat: 51.532, lng: -0.1779, hdg: 0, fov: 80, embedUrl: "https://www.youtube.com/embed/S5hCqMGz6XA?autoplay=1&mute=1", sourceUrl: "https://www.youtube.com/watch?v=S5hCqMGz6XA" },
+  { id: "cctv-iss-1", name: "ISS Station Spatiale", city: "Orbite LEO", lat: 0, lng: 0, hdg: 0, fov: 180, embedUrl: "https://www.youtube.com/embed/P9C25Un7xaM?autoplay=1&mute=1", sourceUrl: "https://www.youtube.com/watch?v=P9C25Un7xaM" },
+  { id: "cctv-jax-1", name: "Jacksonville Beach", city: "Jacksonville", lat: 30.2947, lng: -81.3931, hdg: 90, fov: 80, embedUrl: "https://www.youtube.com/embed/Hu5a5sGN6XE?autoplay=1&mute=1", sourceUrl: "https://www.youtube.com/watch?v=Hu5a5sGN6XE" },
 ];
 
 // ─── Error Boundary ──────────────────────────────────────────────────────────
@@ -489,23 +489,28 @@ export default function ThreeGlobe({
         if (!inf.position) continue;
         const cfg = INFRA_ICONS[inf.metadata.category] ?? { icon: "📍", color: "#666" };
         const c = Color.fromCssColorString(cfg.color);
-        viewer.entities.add({
+        const infraId = `infra-${inf.id}`;
+        const cesiumInf = viewer.entities.add({
           position: Cartesian3.fromDegrees(inf.position.lng, inf.position.lat, 0),
           point: {
-            pixelSize: inf.metadata.importance === "critical" ? 8 : 5, color: c,
+            pixelSize: inf.metadata.importance === "critical" ? 10 : 7, color: c,
             outlineColor: Color.BLACK, outlineWidth: 1,
             heightReference: HeightReference.NONE,
             scaleByDistance: new NearFarScalar(1000, 2, 5000000, 0.5),
+            disableDepthTestDistance: Number.POSITIVE_INFINITY,
           },
           label: {
-            text: inf.metadata.name, font: "9px monospace", fillColor: c,
+            text: `${cfg.icon} ${inf.metadata.name}`, font: "10px sans-serif", fillColor: c,
             outlineColor: Color.BLACK, outlineWidth: 2,
             style: LabelStyle.FILL_AND_OUTLINE,
             verticalOrigin: VerticalOrigin.BOTTOM,
             pixelOffset: new Cartesian2(8, -4),
-            scaleByDistance: new NearFarScalar(500, 1, 2000000, 0),
+            scaleByDistance: new NearFarScalar(500, 1, 2e6, 0),
+            disableDepthTestDistance: Number.POSITIVE_INFINITY,
           },
         });
+        (cesiumInf as unknown as Record<string, unknown>)._argosEventId = infraId;
+        eventMapRef.current.set(infraId, { type: "infrastructure", data: inf });
       }
     }
 
@@ -569,18 +574,18 @@ export default function ThreeGlobe({
           outlineColor: isExplosion ? Color.fromCssColorString("#ff6600") : Color.fromCssColorString("#ffcc00"),
           outlineWidth: 2,
           heightReference: HeightReference.NONE,
-          scaleByDistance: new NearFarScalar(1000, 2.5, 1000000, 0.6),
+          scaleByDistance: new NearFarScalar(1e3, 3, 5e6, 0.4),
           disableDepthTestDistance: Number.POSITIVE_INFINITY,
         },
         label: {
           text: `${icons[ev.eventType] || "💥"} ${ev.actor1}${ev.fatalities > 0 ? ` (${ev.fatalities})` : ""}`,
-          font: "11px monospace",
+          font: "12px sans-serif",
           fillColor: Color.fromCssColorString("#ff6666"),
-          outlineColor: Color.BLACK, outlineWidth: 2,
+          outlineColor: Color.BLACK, outlineWidth: 3,
           style: LabelStyle.FILL_AND_OUTLINE,
           verticalOrigin: VerticalOrigin.BOTTOM,
           pixelOffset: new Cartesian2(14, -8),
-          scaleByDistance: new NearFarScalar(1000, 1, 300000, 0),
+          scaleByDistance: new NearFarScalar(1e3, 1.2, 2e6, 0),
           disableDepthTestDistance: Number.POSITIVE_INFINITY,
         },
       });
@@ -603,10 +608,10 @@ export default function ThreeGlobe({
         },
         label: {
           text: "🔥",
-          font: "12px sans-serif",
+          font: "14px sans-serif",
           verticalOrigin: VerticalOrigin.CENTER,
           pixelOffset: new Cartesian2(0, -14),
-          scaleByDistance: new NearFarScalar(1000, 1, 300000, 0),
+          scaleByDistance: new NearFarScalar(1e3, 1.2, 2e6, 0),
           disableDepthTestDistance: Number.POSITIVE_INFINITY,
         },
       });
@@ -637,7 +642,8 @@ export default function ThreeGlobe({
           style: LabelStyle.FILL_AND_OUTLINE,
           verticalOrigin: VerticalOrigin.BOTTOM,
           pixelOffset: new Cartesian2(14, -8),
-          scaleByDistance: new NearFarScalar(1000, 1, 300000, 0),
+          scaleByDistance: new NearFarScalar(1e3, 1.2, 2e6, 0),
+          disableDepthTestDistance: Number.POSITIVE_INFINITY,
         },
       });
       (cesiumD as unknown as Record<string, unknown>)._argosEventId = dId;
@@ -667,7 +673,7 @@ export default function ThreeGlobe({
           style: LabelStyle.FILL_AND_OUTLINE,
           verticalOrigin: VerticalOrigin.BOTTOM,
           pixelOffset: new Cartesian2(12, -6),
-          scaleByDistance: new NearFarScalar(1000, 1, 200000, 0),
+          scaleByDistance: new NearFarScalar(1e3, 1.2, 2e6, 0),
           disableDepthTestDistance: Number.POSITIVE_INFINITY,
         },
       });
@@ -871,16 +877,16 @@ export default function ThreeGlobe({
           )}
         </div>
 
-        {/* ═══ CCTV PANEL ═══ */}
-        {showCCTV && (
-          <div className="absolute top-40 left-64 z-50 bg-black/95 border border-cyan-900/40 p-3" style={{ pointerEvents: "auto", width: selectedCCTV?.embedUrl ? 420 : 260 }}>
+        {/* ═══ CCTV PANEL — filtered by activeCity, anchored bottom-right ═══ */}
+        {showCCTV && visibleCCTVs.length > 0 && (
+          <div className="absolute bottom-4 right-4 z-50 bg-black/95 border border-cyan-900/40 p-3" style={{ pointerEvents: "auto", width: selectedCCTV?.embedUrl ? 400 : 240 }}>
             <div className="flex items-center justify-between mb-2">
-              <p className="text-[10px] font-mono text-cyan-300 tracking-wider">📹 CCTV ({CCTV_CAMERAS.length})</p>
+              <p className="text-[10px] font-mono text-cyan-300 tracking-wider">📹 {activeCity} ({visibleCCTVs.length})</p>
               <button onClick={() => { setShowCCTV(false); setSelectedCCTV(null); }} className="text-cyan-600/50 hover:text-cyan-300 text-xs cursor-pointer">✕</button>
             </div>
 
-            <div className="space-y-1 max-h-[140px] overflow-y-auto mb-2" style={{ scrollbarWidth: "thin" }}>
-              {CCTV_CAMERAS.map(cam => (
+            <div className="space-y-1 mb-2">
+              {visibleCCTVs.map(cam => (
                 <button
                   key={cam.id}
                   onClick={() => {
@@ -894,14 +900,14 @@ export default function ThreeGlobe({
                       });
                     }
                   }}
-                  className={`w-full text-left px-2 py-1 flex items-center gap-2 cursor-pointer text-[9px] font-mono transition-colors ${
+                  className={`w-full text-left px-2 py-1.5 flex items-center gap-2 cursor-pointer text-[9px] font-mono transition-colors ${
                     selectedCCTV?.id === cam.id
-                      ? "bg-cyan-500/20 text-cyan-200"
+                      ? "bg-cyan-500/20 text-cyan-200 border-l-2 border-cyan-400"
                       : "text-cyan-400/70 hover:bg-cyan-900/30 hover:text-cyan-300"
                   }`}
                 >
                   <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${selectedCCTV?.id === cam.id ? "bg-cyan-300 animate-pulse" : "bg-green-600"}`} />
-                  <span className="truncate">{cam.city} — {cam.name}</span>
+                  <span className="truncate">{cam.name}</span>
                 </button>
               ))}
             </div>
@@ -913,21 +919,31 @@ export default function ThreeGlobe({
                     <iframe
                       src={selectedCCTV.embedUrl}
                       className="w-full h-full"
-                      allow="autoplay; encrypted-media"
+                      allow="autoplay; encrypted-media; picture-in-picture"
                       allowFullScreen
+                      referrerPolicy="no-referrer"
                       style={{ border: "none" }}
                     />
                     <div className="absolute top-1 left-1 px-1.5 py-0.5 bg-red-600 text-white text-[7px] font-bold tracking-wider rounded-sm">● LIVE</div>
                   </div>
                 )}
                 <div className="flex items-center justify-between text-[8px] font-mono text-cyan-500/70">
-                  <span>{selectedCCTV.city} | HDG {selectedCCTV.hdg}°</span>
+                  <span>HDG {selectedCCTV.hdg}° | FOV {selectedCCTV.fov}°</span>
                   {selectedCCTV.sourceUrl && (
-                    <a href={selectedCCTV.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-cyan-300 hover:text-cyan-100">Source ↗</a>
+                    <a href={selectedCCTV.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-cyan-300 hover:text-cyan-100">Ouvrir ↗</a>
                   )}
                 </div>
               </div>
             )}
+          </div>
+        )}
+        {showCCTV && visibleCCTVs.length === 0 && (
+          <div className="absolute bottom-4 right-4 z-50 bg-black/95 border border-cyan-900/40 p-3" style={{ pointerEvents: "auto", width: 220 }}>
+            <div className="flex items-center justify-between mb-1">
+              <p className="text-[10px] font-mono text-cyan-300 tracking-wider">📹 CCTV</p>
+              <button onClick={() => setShowCCTV(false)} className="text-cyan-600/50 hover:text-cyan-300 text-xs cursor-pointer">✕</button>
+            </div>
+            <p className="text-[9px] font-mono text-cyan-600/60">Aucune camera pour {activeCity}</p>
           </div>
         )}
 

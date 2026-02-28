@@ -11,6 +11,7 @@ import type {
   FireHotspot,
   NaturalDisaster,
   CellTower,
+  Infrastructure,
 } from "@/types";
 
 export type MapItemType =
@@ -24,6 +25,7 @@ export type MapItemType =
   | "base"
   | "nuclear"
   | "tower"
+  | "infrastructure"
   | "position";
 
 export interface PositionData {
@@ -37,7 +39,7 @@ export interface PositionData {
 
 export interface MapItem {
   type: MapItemType;
-  data: ConflictEvent | CyberThreat | InternetOutage | SubmarineCable | Pipeline | MilitaryBase | NuclearFacility | FireHotspot | NaturalDisaster | CellTower | PositionData;
+  data: ConflictEvent | CyberThreat | InternetOutage | SubmarineCable | Pipeline | MilitaryBase | NuclearFacility | FireHotspot | NaturalDisaster | CellTower | Infrastructure | PositionData;
 }
 
 interface Props {
@@ -56,6 +58,7 @@ const TYPE_META: Record<MapItemType, { label: string; icon: string; color: strin
   base: { label: "BASE MILITAIRE", icon: "🎖", color: "text-red-500" },
   nuclear: { label: "INSTALLATION NUCLEAIRE", icon: "☢", color: "text-yellow-400" },
   tower: { label: "ANTENNE RELAIS", icon: "📡", color: "text-red-400" },
+  infrastructure: { label: "INFRASTRUCTURE", icon: "🏗", color: "text-amber-400" },
   position: { label: "MA POSITION", icon: "📍", color: "text-cyan-400" },
 };
 
@@ -99,6 +102,7 @@ export default function MapItemDetail({ item, onClose }: Props) {
         {item.type === "base" && <BaseDetail d={item.data as MilitaryBase} />}
         {item.type === "nuclear" && <NuclearDetail d={item.data as NuclearFacility} />}
         {item.type === "tower" && <TowerDetail d={item.data as CellTower} />}
+        {item.type === "infrastructure" && <InfrastructureDetail d={item.data as Infrastructure} />}
         {item.type === "position" && <PositionDetail d={item.data as PositionData} />}
       </div>
     </div>
@@ -375,6 +379,28 @@ function TowerDetail({ d }: { d: CellTower }) {
       <Row label="LAC" value={String(d.lac)} />
       <Row label="Portee" value={`${d.range} m`} />
       <Row label="Position" value={`${d.lat.toFixed(4)}°N ${d.lng.toFixed(4)}°E`} />
+    </>
+  );
+}
+
+function InfrastructureDetail({ d }: { d: Infrastructure }) {
+  const catLabels: Record<string, string> = {
+    military_base: "Base Militaire",
+    airport: "Aeroport",
+    nuclear_plant: "Centrale Nucleaire",
+    port: "Port",
+    government: "Gouvernement",
+    energy: "Energie",
+    telecom: "Telecom",
+  };
+  return (
+    <>
+      <h3 className="text-xs font-semibold text-amber-400 mb-1">{d.metadata.name}</h3>
+      <Row label="Categorie" value={catLabels[d.metadata.category] || d.metadata.category} />
+      {d.metadata.operator && <Row label="Operateur" value={d.metadata.operator} />}
+      {d.metadata.status && <Row label="Statut" value={d.metadata.status} />}
+      <Row label="Importance" value={d.metadata.importance} highlight={d.metadata.importance === "critical"} />
+      {d.position && <Row label="Position" value={`${d.position.lat.toFixed(4)}°N ${d.position.lng.toFixed(4)}°E`} />}
     </>
   );
 }

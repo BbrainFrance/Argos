@@ -113,7 +113,7 @@ export default function CyberAuditPage() {
   const [progress, setProgress] = useState(0);
   const [result, setResult] = useState<ScanResult | null>(null);
   const [expandedVuln, setExpandedVuln] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"overview" | "vulns" | "headers" | "ports" | "dns" | "tls" | "cookies" | "compliance">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "vulns" | "headers" | "ports" | "dns" | "tls" | "cookies" | "compliance" | "auth">("overview");
   const [history, setHistory] = useState<ScanResult[]>([]);
 
   const startScan = useCallback(async () => {
@@ -447,6 +447,7 @@ export default function CyberAuditPage() {
                   { id: "tls", label: "TLS/SSL", icon: "🔒" },
                   { id: "dns", label: `DNS (${result.dnsRecords.length})`, icon: "📡" },
                   { id: "cookies", label: `COOKIES (${result.cookies.length})`, icon: "🍪" },
+                  { id: "auth", label: "AUTH / BRUTE FORCE", icon: "🔐" },
                   { id: "compliance", label: "CONFORMITE", icon: "📋" },
                 ] as { id: typeof activeTab; label: string; icon: string }[]).map(tab => (
                   <button
@@ -771,6 +772,60 @@ export default function CyberAuditPage() {
                     ))}
                   </div>
                 )}
+
+                {activeTab === "auth" && (() => {
+                  const authVulns = result.vulnerabilities.filter(v => v.category === "Authentification");
+                  return (
+                    <div className="space-y-4">
+                      <div className="bg-argos-surface border border-argos-border/20 rounded-lg p-4">
+                        <div className="flex items-center gap-3 mb-4">
+                          <span className="text-2xl">🔐</span>
+                          <div>
+                            <p className="text-sm font-bold">Tests d&apos;authentification et brute force</p>
+                            <p className="text-[9px] text-argos-text-dim mt-0.5">{authVulns.length} resultat(s) — detection de formulaire, rate limiting, CAPTCHA, MFA, enumeration de comptes</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {authVulns.length === 0 ? (
+                        <div className="bg-argos-surface border border-argos-border/20 rounded-lg p-6 text-center">
+                          <p className="text-argos-text-dim text-sm">Aucun resultat d&apos;authentification disponible</p>
+                          <p className="text-[9px] text-argos-text-dim mt-1">Les tests de brute force necessitent un formulaire de connexion accessible</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          {authVulns.map(v => (
+                            <div key={v.id} className={`border rounded-lg ${SEVERITY_COLORS[v.severity]}`}>
+                              <button
+                                onClick={() => setExpandedVuln(expandedVuln === v.id ? null : v.id)}
+                                className="w-full text-left p-4 flex items-center gap-3 cursor-pointer"
+                              >
+                                <span className={`text-[8px] font-bold px-2 py-1 rounded ${SEVERITY_BADGE[v.severity]}`}>
+                                  {v.severity.toUpperCase()}
+                                </span>
+                                <span className="flex-1 text-[11px] font-medium">{v.title}</span>
+                                <span className="text-argos-text-dim text-xs">{expandedVuln === v.id ? "▲" : "▼"}</span>
+                              </button>
+                              {expandedVuln === v.id && (
+                                <div className="px-4 pb-4 pt-0 border-t border-argos-border/10 space-y-3">
+                                  <p className="text-[10px] text-argos-text-dim leading-relaxed">{v.description}</p>
+                                  <div className="bg-argos-panel/30 rounded p-3">
+                                    <p className="text-[8px] text-argos-text-dim uppercase tracking-wider mb-1">Remediation</p>
+                                    <p className="text-[10px] leading-relaxed">{v.remediation}</p>
+                                  </div>
+                                  <div className="flex gap-4 text-[9px] text-argos-text-dim">
+                                    <span>Composant: {v.affectedComponent}</span>
+                                    {v.cvss && <span>CVSS: {v.cvss}</span>}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 {activeTab === "compliance" && (
                   <div className="space-y-4">
