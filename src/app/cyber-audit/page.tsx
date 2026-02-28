@@ -266,6 +266,9 @@ export default function CyberAuditPage() {
           {history.length > 0 && (
             <span className="text-[9px] text-argos-text-dim">{history.length} audit{history.length > 1 ? "s" : ""} effectue{history.length > 1 ? "s" : ""}</span>
           )}
+          <Link href="/stress-test" className="text-[10px] px-3 py-1.5 border border-red-500/30 rounded hover:border-red-500/50 text-red-400/70 hover:text-red-400 transition-all">
+            💣 STRESS TEST
+          </Link>
           <Link href="/" className="text-[10px] px-3 py-1.5 border border-argos-border/30 rounded hover:border-argos-accent/40 hover:text-argos-accent transition-all">
             ← RETOUR CARTE
           </Link>
