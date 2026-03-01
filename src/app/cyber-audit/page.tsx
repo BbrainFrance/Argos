@@ -211,51 +211,268 @@ export default function CyberAuditPage() {
     }
   }, [target, template]);
 
-  const exportReport = useCallback(() => {
+  const exportReport = useCallback(async () => {
     if (!result) return;
-    const lines = [
-      "═══════════════════════════════════════════════════════════",
-      "  ARGOS — RAPPORT D'EVALUATION RISQUE NUMERIQUE",
-      "═══════════════════════════════════════════════════════════",
-      "",
-      `Cible: ${result.target}`,
-      `Date: ${new Date(result.scanDate).toLocaleString("fr-FR")}`,
-      `Duree: ${result.duration}s`,
-      `Score de securite: ${result.score}/100`,
-      "",
-      "───── VULNERABILITES ─────",
-      "",
-    ];
-    for (const v of result.vulnerabilities) {
-      lines.push(`[${v.severity.toUpperCase()}] ${v.title}`);
-      lines.push(`  Categorie: ${v.category}`);
-      lines.push(`  Composant: ${v.affectedComponent}`);
-      if (v.cvss) lines.push(`  CVSS: ${v.cvss}`);
-      if (v.cve) lines.push(`  CVE: ${v.cve}`);
-      lines.push(`  Description: ${v.description}`);
-      lines.push(`  Remediation: ${v.remediation}`);
-      lines.push("");
+    const { jsPDF } = await import("jspdf");
+    const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+    const W = 210, M = 15;
+    const CW = W - 2 * M;
+    let y = 0;
+
+    const colors = {
+      bg: [15, 23, 42] as [number, number, number],
+      surface: [30, 41, 59] as [number, number, number],
+      accent: [59, 130, 246] as [number, number, number],
+      text: [226, 232, 240] as [number, number, number],
+      dim: [148, 163, 184] as [number, number, number],
+      critical: [239, 68, 68] as [number, number, number],
+      high: [249, 115, 22] as [number, number, number],
+      medium: [234, 179, 8] as [number, number, number],
+      low: [96, 165, 250] as [number, number, number],
+      green: [34, 197, 94] as [number, number, number],
+      white: [255, 255, 255] as [number, number, number],
+    };
+    const sevColor = (s: Severity) => s === "critical" ? colors.critical : s === "high" ? colors.high : s === "medium" ? colors.medium : s === "low" ? colors.low : colors.dim;
+
+    function newPage() {
+      doc.addPage();
+      doc.setFillColor(...colors.bg);
+      doc.rect(0, 0, W, 297, "F");
+      y = M;
     }
-    lines.push("───── EN-TETES HTTP ─────");
-    lines.push("");
-    for (const h of result.headers) {
-      lines.push(`  ${h.present ? "✓" : "✗"} ${h.name}: ${h.present ? (h.value || "present") : "ABSENT"}`);
-      if (!h.present && h.recommendation) lines.push(`    → ${h.recommendation}`);
-    }
-    lines.push("");
-    lines.push("───── PORTS ─────");
-    lines.push("");
-    for (const p of result.ports) {
-      lines.push(`  Port ${p.port} (${p.service}): ${p.state} [${p.risk.toUpperCase()}]`);
+    function checkPage(needed: number) { if (y + needed > 280) newPage(); }
+    function sectionTitle(title: string) {
+      checkPage(14);
+      doc.setFillColor(...colors.surface);
+      doc.roundedRect(M, y, CW, 8, 1, 1, "F");
+      doc.setFontSize(9); doc.setTextColor(...colors.accent);
+      doc.text(title, M + 3, y + 5.5);
+      y += 12;
     }
 
-    const blob = new Blob([lines.join("\n")], { type: "text/plain" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `argos-audit-${result.target.replace(/[^a-z0-9]/gi, "_")}-${new Date().toISOString().slice(0, 10)}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
+    // ─── Page 1: Cover ───
+    doc.setFillColor(...colors.bg);
+    doc.rect(0, 0, W, 297, "F");
+
+    doc.setFillColor(...colors.accent);
+    doc.roundedRect(M, 20, CW, 40, 2, 2, "F");
+    doc.setFontSize(28); doc.setTextColor(...colors.white);
+    doc.text("ARGOS", M + 6, 38);
+    doc.setFontSize(10);
+    doc.text("RAPPORT D'EVALUATION RISQUE NUMERIQUE", M + 6, 48);
+    doc.setFontSize(7); doc.setTextColor(200, 220, 255);
+    doc.text("AUDIT DE SECURITE — ANALYSE DE VULNERABILITES", M + 6, 55);
+
+    y = 72;
+    doc.setFontSize(8); doc.setTextColor(...colors.dim);
+    const info = [
+      ["Cible", result.target],
+      ["Date", new Date(result.scanDate).toLocaleString("fr-FR")],
+      ["Duree", `${result.duration}s`],
+      ["TLS", result.tlsInfo ? `${result.tlsInfo.version} — Grade ${result.tlsInfo.grade}` : "N/A"],
+    ];
+    for (const [k, v] of info) {
+      doc.setTextColor(...colors.dim); doc.text(k, M, y);
+      doc.setTextColor(...colors.text); doc.text(v, M + 30, y);
+      y += 6;
+    }
+
+    // Score gauge
+    y += 5;
+    const scoreColor = result.score >= 80 ? colors.green : result.score >= 60 ? colors.medium : result.score >= 40 ? colors.high : colors.critical;
+    const scoreLabel = result.score >= 80 ? "BON" : result.score >= 60 ? "MOYEN" : result.score >= 40 ? "FAIBLE" : "CRITIQUE";
+    doc.setFillColor(...colors.surface);
+    doc.roundedRect(M, y, CW, 20, 2, 2, "F");
+    doc.setFontSize(22); doc.setTextColor(...scoreColor);
+    doc.text(`${result.score}/100`, M + 6, y + 13);
+    doc.setFontSize(10);
+    doc.text(scoreLabel, M + 40, y + 13);
+
+    const critC = result.vulnerabilities.filter(v => v.severity === "critical").length;
+    const highC = result.vulnerabilities.filter(v => v.severity === "high").length;
+    const medC = result.vulnerabilities.filter(v => v.severity === "medium").length;
+    const lowC = result.vulnerabilities.filter(v => v.severity === "low").length;
+    doc.setFontSize(7); doc.setTextColor(...colors.dim);
+    doc.text(`${critC} CRITIQUE  |  ${highC} HAUTE  |  ${medC} MOYENNE  |  ${lowC} BASSE`, M + 80, y + 13);
+    y += 28;
+
+    // Summary grid
+    const metrics = [
+      { label: "Ports", value: String(result.ports.length) },
+      { label: "Cookies", value: String(result.cookies.length) },
+      { label: "DNS", value: String(result.dnsRecords.length) },
+      { label: "Fuites", value: result.sourceAudit ? String(result.sourceAudit.exposedFiles) : "0" },
+      { label: "Conformite", value: `${result.compliance.filter(c => c.passed).length}/${result.compliance.length}` },
+    ];
+    const mw = CW / metrics.length;
+    doc.setFillColor(...colors.surface);
+    doc.roundedRect(M, y, CW, 14, 2, 2, "F");
+    for (let i = 0; i < metrics.length; i++) {
+      const mx = M + i * mw + mw / 2;
+      doc.setFontSize(10); doc.setTextColor(...colors.accent);
+      doc.text(metrics[i].value, mx, y + 6, { align: "center" });
+      doc.setFontSize(6); doc.setTextColor(...colors.dim);
+      doc.text(metrics[i].label.toUpperCase(), mx, y + 11, { align: "center" });
+    }
+    y += 22;
+
+    // ─── Vulnerabilities ───
+    sectionTitle("VULNERABILITES");
+    for (const v of result.vulnerabilities) {
+      checkPage(16);
+      const sc = sevColor(v.severity);
+      doc.setFillColor(sc[0], sc[1], sc[2]); doc.rect(M, y, 2, 5, "F");
+      doc.setFontSize(6); doc.setTextColor(...sc);
+      doc.text(v.severity.toUpperCase(), M + 4, y + 3.5);
+      doc.setFontSize(7); doc.setTextColor(...colors.text);
+      const titleLines = doc.splitTextToSize(v.title, CW - 30);
+      doc.text(titleLines, M + 22, y + 3.5);
+      doc.setFontSize(6); doc.setTextColor(...colors.dim);
+      doc.text(v.category, M + CW - doc.getTextWidth(v.category), y + 3.5);
+      y += 5 + (titleLines.length - 1) * 3;
+
+      doc.setFontSize(6); doc.setTextColor(...colors.dim);
+      const descLines = doc.splitTextToSize(v.description, CW - 5);
+      doc.text(descLines, M + 4, y + 3);
+      y += descLines.length * 3 + 1;
+
+      doc.setTextColor(...colors.green);
+      const remLines = doc.splitTextToSize(`→ ${v.remediation}`, CW - 5);
+      doc.text(remLines, M + 4, y + 3);
+      y += remLines.length * 3 + 4;
+    }
+
+    // ─── Headers ───
+    sectionTitle("EN-TETES DE SECURITE HTTP");
+    for (const h of result.headers) {
+      checkPage(8);
+      doc.setFontSize(7);
+      doc.setTextColor(...(h.present ? colors.green : colors.critical));
+      doc.text(h.present ? "[OK]" : "[  X]", M, y + 3);
+      doc.setTextColor(...colors.text);
+      doc.text(h.name, M + 10, y + 3);
+      if (h.present && h.value) {
+        doc.setFontSize(5); doc.setTextColor(...colors.dim);
+        const valLines = doc.splitTextToSize(h.value, CW - 50);
+        doc.text(valLines[0], M + 55, y + 3);
+      }
+      y += 5;
+    }
+
+    // ─── Ports ───
+    sectionTitle("PORTS OUVERTS");
+    for (const p of result.ports) {
+      checkPage(6);
+      doc.setFontSize(7);
+      doc.setTextColor(...sevColor(p.risk));
+      doc.text(`${p.port}`, M + 2, y + 3);
+      doc.setTextColor(...colors.text);
+      doc.text(p.service, M + 18, y + 3);
+      doc.setTextColor(...colors.dim);
+      doc.text(p.state.toUpperCase(), M + 50, y + 3);
+      y += 5;
+    }
+
+    // ─── TLS ───
+    if (result.tlsInfo) {
+      sectionTitle("CERTIFICAT TLS/SSL");
+      const tlsData = [
+        ["Protocole", result.tlsInfo.version],
+        ["Cipher Suite", result.tlsInfo.cipher],
+        ["Grade", result.tlsInfo.grade],
+        ["Sujet", result.tlsInfo.subject || "N/A"],
+        ["Emetteur", result.tlsInfo.issuer],
+        ["Expire le", result.tlsInfo.validTo],
+        ["Jours restants", String(result.tlsInfo.daysUntilExpiry)],
+      ];
+      for (const [k, v] of tlsData) {
+        checkPage(6);
+        doc.setFontSize(6); doc.setTextColor(...colors.dim); doc.text(k, M + 2, y + 3);
+        doc.setFontSize(7); doc.setTextColor(...colors.text); doc.text(v, M + 40, y + 3);
+        y += 5;
+      }
+    }
+
+    // ─── DNS ───
+    sectionTitle("ENREGISTREMENTS DNS");
+    for (const r of result.dnsRecords) {
+      checkPage(6);
+      doc.setFontSize(6); doc.setTextColor(...colors.accent); doc.text(r.type, M + 2, y + 3);
+      doc.setFontSize(6); doc.setTextColor(...colors.text);
+      const dnsLines = doc.splitTextToSize(r.value, CW - 25);
+      doc.text(dnsLines[0], M + 20, y + 3);
+      y += 5;
+    }
+
+    // ─── Compliance ───
+    sectionTitle("CONFORMITE");
+    const categories = [...new Set(result.compliance.map(c => c.category))];
+    for (const cat of categories) {
+      checkPage(8);
+      const items = result.compliance.filter(c => c.category === cat);
+      const passed = items.filter(c => c.passed).length;
+      doc.setFontSize(7); doc.setTextColor(...colors.accent);
+      doc.text(`${cat} (${passed}/${items.length})`, M + 2, y + 3);
+      y += 5;
+      for (const c of items) {
+        checkPage(8);
+        doc.setFontSize(6);
+        doc.setTextColor(...(c.passed ? colors.green : colors.critical));
+        doc.text(c.passed ? "[OK]" : "[  X]", M + 4, y + 3);
+        doc.setTextColor(...colors.text);
+        doc.text(c.name, M + 14, y + 3);
+        y += 4;
+        doc.setFontSize(5); doc.setTextColor(...colors.dim);
+        const detLines = doc.splitTextToSize(c.details, CW - 16);
+        doc.text(detLines.slice(0, 2), M + 14, y + 2);
+        y += Math.min(detLines.length, 2) * 3 + 2;
+      }
+    }
+
+    // ─── Source leaks ───
+    if (result.sourceAudit) {
+      sectionTitle("FUITES DE CODE SOURCE");
+      if (result.sourceAudit.leaks.length === 0) {
+        doc.setFontSize(7); doc.setTextColor(...colors.green);
+        doc.text("Aucune fuite de code source detectee.", M + 2, y + 3);
+        y += 8;
+      }
+      for (const leak of result.sourceAudit.leaks) {
+        checkPage(14);
+        doc.setFontSize(6); doc.setTextColor(...sevColor(leak.severity));
+        doc.text(`[${leak.severity.toUpperCase()}] ${leak.title}`, M + 2, y + 3);
+        y += 5;
+        doc.setFontSize(5); doc.setTextColor(...colors.dim);
+        const leakDesc = doc.splitTextToSize(leak.description, CW - 6);
+        doc.text(leakDesc.slice(0, 3), M + 4, y + 2);
+        y += Math.min(leakDesc.length, 3) * 3 + 3;
+      }
+      if (result.sourceAudit.aiAnalysis) {
+        checkPage(20);
+        doc.setFontSize(7); doc.setTextColor(...colors.accent);
+        doc.text("ANALYSE IA (MISTRAL)", M + 2, y + 3); y += 6;
+        doc.setFontSize(5); doc.setTextColor(...colors.dim);
+        const aiLines = doc.splitTextToSize(result.sourceAudit.aiAnalysis, CW - 6);
+        for (let i = 0; i < aiLines.length; i++) {
+          checkPage(4);
+          doc.text(aiLines[i], M + 4, y + 2);
+          y += 3;
+        }
+      }
+    }
+
+    // ─── Footer on each page ───
+    const totalPages = doc.getNumberOfPages();
+    for (let i = 1; i <= totalPages; i++) {
+      doc.setPage(i);
+      doc.setFontSize(6); doc.setTextColor(...colors.dim);
+      doc.text(`ARGOS — Rapport de securite — ${result.target} — ${new Date(result.scanDate).toLocaleString("fr-FR")}`, M, 290);
+      doc.text(`Page ${i}/${totalPages}`, W - M - 15, 290);
+      doc.setDrawColor(...colors.surface);
+      doc.line(M, 287, W - M, 287);
+    }
+
+    doc.save(`ARGOS-Audit-${result.target.replace(/[^a-z0-9]/gi, "_")}-${new Date().toISOString().slice(0, 10)}.pdf`);
   }, [result]);
 
   const critCount = result?.vulnerabilities.filter(v => v.severity === "critical").length ?? 0;

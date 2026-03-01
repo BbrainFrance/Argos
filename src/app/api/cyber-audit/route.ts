@@ -1693,7 +1693,33 @@ async function checkCompliance(html: string, headers: Headers, cookies: CookieCh
     } catch { /* skip */ }
   }
 
-  const hasCookieBanner = hasCookieBannerInHtml || hasCookieBannerInScripts || hasCookieConsentCookie || hasNextDataConsent || hasConsentInScriptNames || hasConsentEndpoint;
+  // Scan JS bundles for consent-related code (React client-side components)
+  let hasConsentInJsBundle = false;
+  if (!hasCookieBannerInHtml && !hasCookieBannerInScripts && !hasCookieConsentCookie && !hasConsentEndpoint) {
+    const jsSrcMatches = html.match(/src="([^"]*\.js)"/gi) || [];
+    const jsUrls = jsSrcMatches
+      .map(m => m.match(/src="([^"]+)"/)?.[1])
+      .filter((u): u is string => !!u && !u.includes("polyfill") && !u.includes("framework"))
+      .slice(0, 5);
+    for (const jsUrl of jsUrls) {
+      try {
+        const fullUrl = jsUrl.startsWith("http") ? jsUrl : `${origin}${jsUrl.startsWith("/") ? "" : "/"}${jsUrl}`;
+        const jsRes = await fetch(fullUrl, {
+          headers: { "User-Agent": "ARGOS-SecurityAudit/1.0" },
+          signal: AbortSignal.timeout(5000),
+        });
+        if (jsRes.ok) {
+          const jsBody = await jsRes.text();
+          if (/cookie.?consent|cookie.?banner|cookie.?notice|cookie.?accept|cookie.?modal|bandeau.*cookie|CookieConsent|cookieConsent|consentement.*cookie/i.test(jsBody)) {
+            hasConsentInJsBundle = true;
+            break;
+          }
+        }
+      } catch { /* skip */ }
+    }
+  }
+
+  const hasCookieBanner = hasCookieBannerInHtml || hasCookieBannerInScripts || hasCookieConsentCookie || hasNextDataConsent || hasConsentInScriptNames || hasConsentEndpoint || hasConsentInJsBundle;
   const detectionDetails: string[] = [];
   if (hasCookieBannerInHtml) detectionDetails.push("mots-cles dans le HTML");
   if (hasCookieBannerInScripts) detectionDetails.push("script de consentement detecte");
@@ -1701,6 +1727,7 @@ async function checkCompliance(html: string, headers: Headers, cookies: CookieCh
   if (hasNextDataConsent) detectionDetails.push("reference dans __NEXT_DATA__");
   if (hasConsentInScriptNames) detectionDetails.push("bundle JS de consentement");
   if (hasConsentEndpoint) detectionDetails.push("endpoint/page de consentement");
+  if (hasConsentInJsBundle) detectionDetails.push("composant cookie consent dans le JS compile");
   checks.push({
     name: "Bandeau de consentement cookies (RGPD)",
     passed: hasCookieBanner,
