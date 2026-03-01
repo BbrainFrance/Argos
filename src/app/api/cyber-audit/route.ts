@@ -71,6 +71,24 @@ interface ComplianceCheck {
   category: string;
 }
 
+interface SourceLeak {
+  id: string;
+  type: "git" | "env" | "sourcemap" | "backup" | "config" | "debug" | "directory" | "dependency" | "docker" | "api-doc";
+  url: string;
+  severity: "critical" | "high" | "medium" | "low" | "info";
+  title: string;
+  description: string;
+  content?: string;
+  remediation: string;
+}
+
+interface SourceAudit {
+  leaks: SourceLeak[];
+  aiAnalysis?: string;
+  exposedFiles: number;
+  criticalSecrets: number;
+}
+
 interface AuditResult {
   target: string;
   scanDate: string;
@@ -88,6 +106,7 @@ interface AuditResult {
   cookies: CookieCheck[];
   vulnerabilities: VulnCheck[];
   compliance: ComplianceCheck[];
+  sourceAudit?: SourceAudit;
   score: number;
   error?: string;
 }
@@ -1237,6 +1256,312 @@ async function checkSessionSecurity(url: string): Promise<VulnCheck[]> {
   return vulns;
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// Source code leak detection + AI analysis
+// ═══════════════════════════════════════════════════════════════════════════
+
+const SECRET_PATTERNS = [
+  { regex: /(?:api[_-]?key|apikey)\s*[:=]\s*['"]?([a-zA-Z0-9_\-]{20,})['"]?/gi, label: "API Key" },
+  { regex: /(?:secret|password|passwd|pwd|token)\s*[:=]\s*['"]?([^\s'"]{8,})['"]?/gi, label: "Secret/Password" },
+  { regex: /(?:aws_access_key_id|aws_secret_access_key)\s*[:=]\s*['"]?([A-Z0-9]{16,})['"]?/gi, label: "AWS Credentials" },
+  { regex: /(?:DATABASE_URL|DB_PASSWORD|MONGO_URI|REDIS_URL)\s*[:=]\s*['"]?([^\s'"]+)['"]?/gi, label: "Database Credentials" },
+  { regex: /(?:STRIPE_SECRET|SK_LIVE|sk_live_)[a-zA-Z0-9_\-]{20,}/gi, label: "Stripe Secret Key" },
+  { regex: /(?:PRIVATE[_-]?KEY|BEGIN RSA PRIVATE KEY|BEGIN EC PRIVATE KEY)/gi, label: "Private Key" },
+  { regex: /(?:NEXTAUTH_SECRET|JWT_SECRET|SESSION_SECRET)\s*[:=]\s*['"]?([^\s'"]+)['"]?/gi, label: "Auth Secret" },
+  { regex: /(?:SENDGRID_API_KEY|MAILGUN_API_KEY|SMTP_PASSWORD)\s*[:=]\s*['"]?([^\s'"]+)['"]?/gi, label: "Email Service Credentials" },
+];
+
+async function probeUrl(url: string, timeout = 5000): Promise<{ status: number; body: string; headers: Headers } | null> {
+  try {
+    const res = await fetch(url, {
+      redirect: "manual",
+      headers: { "User-Agent": "ARGOS-SecurityAudit/1.0" },
+      signal: AbortSignal.timeout(timeout),
+    });
+    const body = await res.text();
+    return { status: res.status, body: body.slice(0, 50000), headers: res.headers };
+  } catch { return null; }
+}
+
+function countSecrets(content: string): { count: number; types: string[] } {
+  const types = new Set<string>();
+  let count = 0;
+  for (const pattern of SECRET_PATTERNS) {
+    const matches = content.match(pattern.regex);
+    if (matches) { count += matches.length; types.add(pattern.label); }
+  }
+  return { count, types: Array.from(types) };
+}
+
+async function checkSourceLeaks(baseUrl: string): Promise<SourceAudit> {
+  const leaks: SourceLeak[] = [];
+  const origin = new URL(baseUrl).origin;
+
+  // 1. Git repository exposure
+  const gitHead = await probeUrl(`${origin}/.git/HEAD`);
+  if (gitHead && gitHead.status === 200 && /^ref:\s+refs\//m.test(gitHead.body)) {
+    leaks.push({
+      id: "leak-git-head", type: "git", url: `${origin}/.git/HEAD`,
+      severity: "critical",
+      title: "Depot Git expose (.git/HEAD accessible)",
+      description: "Le repertoire .git est accessible publiquement. Un attaquant peut reconstruire l'integralite du code source, l'historique des commits, et tous les secrets jamais commites.",
+      content: gitHead.body.slice(0, 500),
+      remediation: "Bloquer l'acces a /.git/ dans la configuration du serveur web (nginx: location ~ /\\.git { deny all; }).",
+    });
+    const gitConfig = await probeUrl(`${origin}/.git/config`);
+    if (gitConfig && gitConfig.status === 200 && /\[core\]|\[remote/i.test(gitConfig.body)) {
+      leaks.push({
+        id: "leak-git-config", type: "git", url: `${origin}/.git/config`,
+        severity: "critical",
+        title: "Configuration Git exposee (.git/config)",
+        description: "Le fichier .git/config revele l'URL du depot distant, les branches, et potentiellement des tokens d'acces.",
+        content: gitConfig.body.slice(0, 2000),
+        remediation: "Bloquer l'acces a /.git/ immediatement.",
+      });
+    }
+  }
+
+  // 2. Environment files
+  const envFiles = [".env", ".env.local", ".env.production", ".env.development", ".env.backup", ".env.old", "env.js", "config.env"];
+  for (const envFile of envFiles) {
+    const res = await probeUrl(`${origin}/${envFile}`);
+    if (res && res.status === 200 && res.body.length > 10) {
+      const hasEnvVars = /^[A-Z_]+=.+/m.test(res.body) || /(?:DATABASE|API_KEY|SECRET|PASSWORD|TOKEN)/i.test(res.body);
+      if (hasEnvVars) {
+        const secrets = countSecrets(res.body);
+        leaks.push({
+          id: `leak-env-${envFile.replace(/\./g, "-")}`, type: "env", url: `${origin}/${envFile}`,
+          severity: "critical",
+          title: `Fichier d'environnement expose (${envFile})`,
+          description: `Le fichier ${envFile} est accessible publiquement.${secrets.count > 0 ? ` ${secrets.count} secret(s) detecte(s): ${secrets.types.join(", ")}.` : ""} Acces direct aux credentials de l'application.`,
+          content: res.body.slice(0, 3000).replace(/(?:password|secret|key|token)\s*[:=]\s*['"]?([^\s'"]{4})[^\s'"]*/gi, (_, prefix) => `${prefix}${"*".repeat(20)}`),
+          remediation: "Supprimer le fichier du serveur web. Ajouter le fichier au .gitignore. Changer tous les secrets exposes immediatement.",
+        });
+      }
+    }
+  }
+
+  // 3. Source maps
+  const sourceMapPaths = ["main.js.map", "app.js.map", "bundle.js.map", "vendor.js.map",
+    "_next/static/chunks/main.js.map", "_next/static/chunks/app.js.map",
+    "static/js/main.js.map", "static/js/bundle.js.map", "assets/index.js.map",
+    "build/static/js/main.js.map"];
+  for (const sm of sourceMapPaths) {
+    const res = await probeUrl(`${origin}/${sm}`);
+    if (res && res.status === 200 && (res.body.includes('"sources"') || res.body.includes('"mappings"'))) {
+      leaks.push({
+        id: `leak-sourcemap-${sm.replace(/[/.]/g, "-")}`, type: "sourcemap", url: `${origin}/${sm}`,
+        severity: "high",
+        title: `Source map expose (${sm})`,
+        description: "Les source maps permettent de reconstruire le code source frontend original (avant minification). Expose la logique metier, les noms de variables, les commentaires, et potentiellement des secrets.",
+        content: res.body.slice(0, 500),
+        remediation: "Desactiver la generation de source maps en production (GENERATE_SOURCEMAP=false). Supprimer les fichiers .map du serveur.",
+      });
+      break;
+    }
+  }
+
+  // 4. Backup files
+  const backupPaths = [
+    "index.php.bak", "index.php.old", "index.php~", "wp-config.php.bak", "wp-config.php.old",
+    "config.php.bak", "config.yml.bak", "settings.py.bak", "web.config.old",
+    "database.sql", "dump.sql", "backup.sql", "db.sql", "data.sql",
+    "backup.zip", "backup.tar.gz", "site.zip", "www.zip", "public.zip",
+  ];
+  for (const bp of backupPaths) {
+    const res = await probeUrl(`${origin}/${bp}`);
+    if (res && res.status === 200 && res.body.length > 100) {
+      const isBinary = /backup\.zip|\.tar\.gz|site\.zip|www\.zip|public\.zip/.test(bp);
+      const isSQL = /\.sql$/.test(bp) && /CREATE TABLE|INSERT INTO|DROP TABLE/i.test(res.body);
+      const isCode = /\.bak|\.old|~$/.test(bp) && /<\?php|<?=|import |require |module\.exports/i.test(res.body);
+      if (isBinary || isSQL || isCode) {
+        leaks.push({
+          id: `leak-backup-${bp.replace(/[/.]/g, "-")}`, type: "backup", url: `${origin}/${bp}`,
+          severity: isSQL ? "critical" : "high",
+          title: `Fichier de backup expose (${bp})`,
+          description: isSQL
+            ? "Un dump de base de donnees est accessible publiquement. Contient potentiellement toutes les donnees utilisateurs, mots de passe, et informations sensibles."
+            : `Le fichier de backup ${bp} est accessible. Contient du code source ou des archives du site.`,
+          content: isSQL || isCode ? res.body.slice(0, 2000) : undefined,
+          remediation: "Supprimer tous les fichiers de backup du serveur web. Ne jamais stocker de backups dans le webroot.",
+        });
+      }
+    }
+  }
+
+  // 5. Configuration files
+  const configPaths = [
+    "phpinfo.php", "info.php", "test.php", "adminer.php",
+    "server-status", "server-info",
+    "elmah.axd", "trace.axd",
+    "web.config", "crossdomain.xml", "clientaccesspolicy.xml",
+    "composer.json", "composer.lock", "package.json", "package-lock.json", "yarn.lock",
+    "Gemfile", "Gemfile.lock", "requirements.txt", "Pipfile", "go.mod", "Cargo.toml",
+    "docker-compose.yml", "docker-compose.yaml", "Dockerfile",
+    ".dockerenv", "Procfile", "Makefile",
+    "swagger.json", "swagger.yaml", "openapi.json", "openapi.yaml",
+    "api-docs", "api/docs", "api/swagger",
+    ".htaccess", ".htpasswd", "nginx.conf",
+    "robots.txt", "sitemap.xml",
+  ];
+  for (const cp of configPaths) {
+    const res = await probeUrl(`${origin}/${cp}`);
+    if (!res || res.status !== 200 || res.body.length < 20) continue;
+
+    if (cp === "phpinfo.php" || cp === "info.php" || cp === "test.php") {
+      if (/phpinfo\(\)|PHP Version|Configuration/i.test(res.body)) {
+        leaks.push({
+          id: `leak-config-${cp.replace(/[/.]/g, "-")}`, type: "debug", url: `${origin}/${cp}`,
+          severity: "high",
+          title: `phpinfo() expose (${cp})`,
+          description: "phpinfo() revele la configuration PHP complete : version, extensions, chemins, variables d'environnement, configuration Apache/Nginx.",
+          remediation: "Supprimer le fichier du serveur. Ne jamais deployer phpinfo() en production.",
+        });
+      }
+    } else if (/composer\.json|package\.json|requirements\.txt|Gemfile|go\.mod|Cargo\.toml|Pipfile/i.test(cp)) {
+      if (/dependencies|require|name|version/i.test(res.body)) {
+        leaks.push({
+          id: `leak-dep-${cp.replace(/[/.]/g, "-")}`, type: "dependency", url: `${origin}/${cp}`,
+          severity: "medium",
+          title: `Fichier de dependances expose (${cp})`,
+          description: "Le fichier de dependances revele les librairies utilisees et leurs versions. Permet de cibler des CVE connues sur des versions vulnerables.",
+          content: res.body.slice(0, 3000),
+          remediation: "Bloquer l'acces aux fichiers de gestion de dependances dans la configuration du serveur.",
+        });
+      }
+    } else if (/docker-compose|Dockerfile/i.test(cp)) {
+      if (/FROM |services:|image:|volumes:|ports:/i.test(res.body)) {
+        leaks.push({
+          id: `leak-docker-${cp.replace(/[/.]/g, "-")}`, type: "docker", url: `${origin}/${cp}`,
+          severity: "high",
+          title: `Configuration Docker exposee (${cp})`,
+          description: "Le fichier Docker revele l'architecture de l'infrastructure : images, ports internes, volumes, variables d'environnement, services.",
+          content: res.body.slice(0, 3000),
+          remediation: "Bloquer l'acces aux fichiers Docker dans la configuration du serveur.",
+        });
+      }
+    } else if (/swagger|openapi|api-docs|api\/docs/i.test(cp)) {
+      if (/swagger|openapi|paths|info/i.test(res.body)) {
+        leaks.push({
+          id: `leak-api-${cp.replace(/[/.]/g, "-")}`, type: "api-doc", url: `${origin}/${cp}`,
+          severity: "medium",
+          title: `Documentation API exposee (${cp})`,
+          description: "La documentation API (Swagger/OpenAPI) est publiquement accessible. Revele tous les endpoints, parametres, et schemas de donnees.",
+          content: res.body.slice(0, 2000),
+          remediation: "Proteger la documentation API par authentification ou la desactiver en production.",
+        });
+      }
+    } else if (cp === ".htpasswd") {
+      if (/^\S+:\$|^\S+:\{/m.test(res.body)) {
+        leaks.push({
+          id: "leak-htpasswd", type: "config", url: `${origin}/${cp}`,
+          severity: "critical",
+          title: "Fichier .htpasswd expose",
+          description: "Le fichier .htpasswd contient des identifiants (hashes de mots de passe). Un attaquant peut tenter de les cracker.",
+          remediation: "Bloquer l'acces aux fichiers .ht* dans la configuration du serveur.",
+        });
+      }
+    } else if (cp === ".DS_Store") {
+      if (res.body.startsWith("\x00\x00\x00\x01Bud1") || res.body.length > 50) {
+        leaks.push({
+          id: "leak-dsstore", type: "directory", url: `${origin}/${cp}`,
+          severity: "low",
+          title: "Fichier .DS_Store expose",
+          description: "Le fichier .DS_Store (macOS) revele la structure des repertoires du projet.",
+          remediation: "Supprimer le fichier et ajouter .DS_Store au .gitignore.",
+        });
+      }
+    }
+  }
+
+  // 6. Directory listing
+  const dirPaths = ["/", "/uploads/", "/images/", "/assets/", "/static/", "/backup/", "/temp/", "/tmp/", "/admin/", "/api/"];
+  for (const dp of dirPaths) {
+    const res = await probeUrl(`${origin}${dp}`);
+    if (res && res.status === 200 && /Index of|Directory listing|Parent Directory|<a href="[^"]*\/">/i.test(res.body)) {
+      leaks.push({
+        id: `leak-dirlist-${dp.replace(/\//g, "-")}`, type: "directory", url: `${origin}${dp}`,
+        severity: dp === "/" ? "high" : "medium",
+        title: `Directory listing actif (${dp})`,
+        description: "Le serveur affiche la liste des fichiers du repertoire. Permet de decouvrir des fichiers sensibles, des backups, des fichiers de configuration.",
+        remediation: "Desactiver le directory listing (Apache: Options -Indexes, Nginx: autoindex off).",
+      });
+    }
+  }
+
+  // 7. Debug / error pages
+  const debugPaths = ["_debug", "__debug__", "_profiler", "debug/default/view", "telescope", "horizon",
+    "graphiql", "graphql/playground", "api/graphql"];
+  for (const dp of debugPaths) {
+    const res = await probeUrl(`${origin}/${dp}`);
+    if (res && res.status === 200 && res.body.length > 200) {
+      if (/profiler|debug|telescope|horizon|graphiql|playground|query.*mutation/i.test(res.body)) {
+        leaks.push({
+          id: `leak-debug-${dp.replace(/[/.]/g, "-")}`, type: "debug", url: `${origin}/${dp}`,
+          severity: "high",
+          title: `Interface de debug exposee (/${dp})`,
+          description: "Une interface de debug/profiling est accessible en production. Permet d'inspecter les requetes, les variables, et potentiellement d'executer du code.",
+          remediation: "Desactiver les interfaces de debug en production. Proteger par authentification.",
+        });
+      }
+    }
+  }
+
+  // Count critical secrets across all leaks
+  let criticalSecrets = 0;
+  for (const leak of leaks) {
+    if (leak.content) {
+      criticalSecrets += countSecrets(leak.content).count;
+    }
+  }
+
+  return { leaks, exposedFiles: leaks.length, criticalSecrets };
+}
+
+async function analyzeLeaksWithAI(leaks: SourceLeak[]): Promise<string | undefined> {
+  const apiKey = process.env.MISTRAL_API_KEY;
+  if (!apiKey || leaks.length === 0) return undefined;
+
+  const leaksWithContent = leaks.filter(l => l.content);
+  if (leaksWithContent.length === 0) return undefined;
+
+  const leakSummary = leaksWithContent.map(l =>
+    `=== ${l.title} (${l.severity.toUpperCase()}) ===\nURL: ${l.url}\nType: ${l.type}\n--- Contenu ---\n${l.content?.slice(0, 1500) || "N/A"}\n`
+  ).join("\n");
+
+  try {
+    const res = await fetch("https://api.mistral.ai/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model: "mistral-large-latest",
+        temperature: 0.2,
+        max_tokens: 3000,
+        messages: [
+          {
+            role: "system",
+            content: `Tu es un expert en securite informatique. On te fournit des fichiers exposes trouvés sur un serveur web lors d'un audit de securite. Analyse-les et fournis:
+1. SECRETS DETECTES: liste les cles API, mots de passe, tokens trouves (masque les valeurs sensibles partiellement: affiche les 4 premiers chars puis ****)
+2. VULNERABILITES: quelles failles ces fichiers revelent
+3. IMPACT: ce qu'un attaquant pourrait faire avec ces informations
+4. ACTIONS IMMEDIATES: les actions correctives urgentes par ordre de priorite
+5. Si des fichiers de dependances sont presents, identifie les librairies avec des CVE connues
+
+Reponds en francais, de maniere structuree et concise.`
+          },
+          { role: "user", content: `Voici les fichiers exposes trouves lors de l'audit:\n\n${leakSummary}` }
+        ],
+      }),
+      signal: AbortSignal.timeout(30000),
+    });
+    if (res.ok) {
+      const json = await res.json();
+      return json.choices?.[0]?.message?.content || undefined;
+    }
+  } catch { /* AI analysis failed, non-blocking */ }
+  return undefined;
+}
+
 function checkCompliance(html: string, headers: Headers, cookies: CookieCheck[], dnsRecords: DnsRecord[]): ComplianceCheck[] {
   const checks: ComplianceCheck[] = [];
 
@@ -1600,10 +1925,28 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // ─── Phase 6: Compliance ───
+    // ─── Phase 6: Source code leak detection ───
+    const sourceAudit = await checkSourceLeaks(url);
+    if (sourceAudit.leaks.length > 0) {
+      sourceAudit.aiAnalysis = await analyzeLeaksWithAI(sourceAudit.leaks);
+      for (const leak of sourceAudit.leaks) {
+        vulnerabilities.push({
+          id: leak.id,
+          title: leak.title,
+          severity: leak.severity,
+          category: "Fuite de code",
+          description: leak.description,
+          remediation: leak.remediation,
+          affectedComponent: leak.url,
+          cvss: leak.severity === "critical" ? 9.8 : leak.severity === "high" ? 7.5 : leak.severity === "medium" ? 5.0 : 3.0,
+        });
+      }
+    }
+
+    // ─── Phase 7: Compliance ───
     const compliance = checkCompliance(html, respHeaders, cookies, dnsRecords);
 
-    // ─── Phase 7: Scoring ───
+    // ─── Phase 8: Scoring ───
     let score = 100;
     for (const v of vulnerabilities) {
       if (v.severity === "critical") score -= 15;
@@ -1639,6 +1982,7 @@ export async function POST(req: NextRequest) {
       cookies,
       vulnerabilities,
       compliance,
+      sourceAudit: sourceAudit.leaks.length > 0 ? sourceAudit : undefined,
       score,
     };
 

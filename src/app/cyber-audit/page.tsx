@@ -33,6 +33,24 @@ interface ComplianceCheck {
   category: string;
 }
 
+interface SourceLeak {
+  id: string;
+  type: string;
+  url: string;
+  severity: Severity;
+  title: string;
+  description: string;
+  content?: string;
+  remediation: string;
+}
+
+interface SourceAudit {
+  leaks: SourceLeak[];
+  aiAnalysis?: string;
+  exposedFiles: number;
+  criticalSecrets: number;
+}
+
 interface ScanResult {
   target: string;
   scanDate: string;
@@ -57,6 +75,7 @@ interface ScanResult {
   dnsRecords: { type: string; value: string }[];
   cookies: CookieCheck[];
   compliance: ComplianceCheck[];
+  sourceAudit?: SourceAudit;
 }
 
 const SEVERITY_COLORS: Record<Severity, string> = {
@@ -113,7 +132,7 @@ export default function CyberAuditPage() {
   const [progress, setProgress] = useState(0);
   const [result, setResult] = useState<ScanResult | null>(null);
   const [expandedVuln, setExpandedVuln] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"overview" | "vulns" | "headers" | "ports" | "dns" | "tls" | "cookies" | "compliance" | "auth" | "injections" | "email" | "subdomains">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "vulns" | "headers" | "ports" | "dns" | "tls" | "cookies" | "compliance" | "auth" | "injections" | "email" | "subdomains" | "leaks">("overview");
   const [history, setHistory] = useState<ScanResult[]>([]);
 
   const startScan = useCallback(async () => {
@@ -413,8 +432,8 @@ export default function CyberAuditPage() {
                     { icon: "🔐", label: "Auth / Brute" },
                     { icon: "🍪", label: "Cookies" },
                     { icon: "🛡️", label: "Session/JWT" },
+                    { icon: "💀", label: "Fuites code" },
                     { icon: "📋", label: "Conformite" },
-                    { icon: "💣", label: "Stress Test" },
                   ].map(f => (
                     <div key={f.label} className="text-center py-3 border border-argos-border/20 rounded">
                       <span className="text-lg">{f.icon}</span>
@@ -462,6 +481,7 @@ export default function CyberAuditPage() {
                   { id: "subdomains", label: "SUBDOMAINS", icon: "🔎" },
                   { id: "cookies", label: `COOKIES (${result.cookies.length})`, icon: "🍪" },
                   { id: "auth", label: "AUTH / BRUTE FORCE", icon: "🔐" },
+                  { id: "leaks", label: `FUITES${result.sourceAudit ? ` (${result.sourceAudit.exposedFiles})` : ""}`, icon: "💀" },
                   { id: "compliance", label: "CONFORMITE", icon: "📋" },
                 ] as { id: typeof activeTab; label: string; icon: string }[]).map(tab => (
                   <button
@@ -549,6 +569,7 @@ export default function CyberAuditPage() {
                         { label: "Ports ouverts", value: String(result.ports.length), icon: "🔌", color: result.ports.length > 2 ? "text-red-400" : result.ports.length > 0 ? "text-yellow-400" : "text-green-400" },
                         { label: "Cookies", value: String(result.cookies.length), icon: "🍪", color: result.cookies.some(c => c.issues.length > 0) ? "text-yellow-400" : "text-green-400" },
                         { label: "DNS Records", value: String(result.dnsRecords.length), icon: "📡", color: "text-argos-accent" },
+                        { label: "Fuites code", value: result.sourceAudit ? String(result.sourceAudit.exposedFiles) : "0", icon: "💀", color: result.sourceAudit && result.sourceAudit.exposedFiles > 0 ? "text-red-400" : "text-green-400" },
                         { label: "Conformite", value: `${result.compliance.filter(c => c.passed).length}/${result.compliance.length}`, icon: "📋", color: result.compliance.filter(c => !c.passed).length > 2 ? "text-red-400" : "text-green-400" },
                       ].map(m => (
                         <div key={m.label} className="bg-argos-surface border border-argos-border/20 rounded-lg p-3 text-center">
@@ -996,6 +1017,97 @@ export default function CyberAuditPage() {
                               )}
                             </div>
                           ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                {activeTab === "leaks" && (() => {
+                  const sa = result.sourceAudit;
+                  return (
+                    <div className="space-y-4">
+                      <div className="bg-argos-surface border border-argos-border/20 rounded-lg p-4">
+                        <div className="flex items-center gap-3 mb-3">
+                          <span className="text-2xl">💀</span>
+                          <div>
+                            <p className="text-sm font-bold">Detection de fuites de code source</p>
+                            <p className="text-[9px] text-argos-text-dim mt-0.5">
+                              Scan de fichiers exposes : .git, .env, source maps, backups, configs, directory listing, debug — Analyse IA du code trouve
+                            </p>
+                          </div>
+                        </div>
+                        {sa && (
+                          <div className="grid grid-cols-3 gap-3 mt-3">
+                            <div className={`rounded-lg p-3 text-center ${sa.exposedFiles > 0 ? "bg-red-500/10 border border-red-500/30" : "bg-green-500/10 border border-green-500/30"}`}>
+                              <p className={`text-xl font-bold font-mono ${sa.exposedFiles > 0 ? "text-red-400" : "text-green-400"}`}>{sa.exposedFiles}</p>
+                              <p className="text-[8px] text-argos-text-dim mt-1">FICHIERS EXPOSES</p>
+                            </div>
+                            <div className={`rounded-lg p-3 text-center ${sa.criticalSecrets > 0 ? "bg-red-500/10 border border-red-500/30" : "bg-green-500/10 border border-green-500/30"}`}>
+                              <p className={`text-xl font-bold font-mono ${sa.criticalSecrets > 0 ? "text-red-400" : "text-green-400"}`}>{sa.criticalSecrets}</p>
+                              <p className="text-[8px] text-argos-text-dim mt-1">SECRETS DETECTES</p>
+                            </div>
+                            <div className="rounded-lg p-3 text-center bg-argos-panel/30 border border-argos-border/20">
+                              <p className="text-xl font-bold font-mono text-argos-accent">{sa.leaks.filter(l => l.severity === "critical").length}</p>
+                              <p className="text-[8px] text-argos-text-dim mt-1">CRITIQUES</p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {!sa || sa.leaks.length === 0 ? (
+                        <div className="bg-argos-surface border border-green-500/20 rounded-lg p-6 text-center">
+                          <span className="text-3xl">🛡️</span>
+                          <p className="text-green-400 text-sm font-bold mt-2">Aucune fuite de code source detectee</p>
+                          <p className="text-[9px] text-argos-text-dim mt-1">Les fichiers sensibles (.git, .env, backups, source maps, configs) ne sont pas accessibles publiquement.</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          {sa.leaks.map(leak => (
+                            <div key={leak.id} className={`border rounded-lg ${SEVERITY_COLORS[leak.severity]}`}>
+                              <button
+                                onClick={() => setExpandedVuln(expandedVuln === leak.id ? null : leak.id)}
+                                className="w-full text-left p-4 flex items-center gap-3 cursor-pointer"
+                              >
+                                <span className={`text-[8px] font-bold px-2 py-1 rounded ${SEVERITY_BADGE[leak.severity]}`}>
+                                  {leak.severity.toUpperCase()}
+                                </span>
+                                <span className="text-[9px] px-2 py-0.5 rounded bg-argos-panel/50 text-argos-text-dim font-mono">{leak.type}</span>
+                                <span className="flex-1 text-[11px] font-medium">{leak.title}</span>
+                                <span className="text-argos-text-dim text-xs">{expandedVuln === leak.id ? "▲" : "▼"}</span>
+                              </button>
+                              {expandedVuln === leak.id && (
+                                <div className="px-4 pb-4 pt-0 border-t border-argos-border/10 space-y-3">
+                                  <p className="text-[10px] text-argos-text-dim leading-relaxed">{leak.description}</p>
+                                  <div className="text-[9px] font-mono text-argos-accent break-all">
+                                    <a href={leak.url} target="_blank" rel="noopener noreferrer" className="hover:underline">{leak.url}</a>
+                                  </div>
+                                  {leak.content && (
+                                    <div className="bg-black/40 rounded p-3 border border-argos-border/10 max-h-64 overflow-y-auto">
+                                      <p className="text-[8px] text-argos-text-dim uppercase tracking-wider mb-2">Contenu expose (extrait)</p>
+                                      <pre className="text-[9px] text-green-400/80 font-mono whitespace-pre-wrap break-all leading-relaxed">{leak.content}</pre>
+                                    </div>
+                                  )}
+                                  <div className="bg-argos-panel/30 rounded p-3">
+                                    <p className="text-[8px] text-argos-text-dim uppercase tracking-wider mb-1">Remediation</p>
+                                    <p className="text-[10px] leading-relaxed">{leak.remediation}</p>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {sa?.aiAnalysis && (
+                        <div className="bg-argos-surface border border-argos-accent/30 rounded-lg overflow-hidden">
+                          <div className="px-4 py-2 bg-argos-accent/10 border-b border-argos-accent/20 flex items-center gap-2">
+                            <span className="text-sm">🤖</span>
+                            <p className="text-[10px] font-bold text-argos-accent tracking-wider uppercase">Analyse IA du code expose (Mistral)</p>
+                          </div>
+                          <div className="p-4">
+                            <pre className="text-[10px] text-argos-text-dim font-mono whitespace-pre-wrap leading-relaxed">{sa.aiAnalysis}</pre>
+                          </div>
                         </div>
                       )}
                     </div>
