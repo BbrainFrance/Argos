@@ -150,13 +150,12 @@ interface CCTVCamera {
   liveUrl: string;
 }
 const CCTV_CAMERAS: CCTVCamera[] = [
-  // YouTube live 24/7 — confirmed embeddable (use youtube.com, NOT youtube-nocookie.com)
-  { id: "cctv-par-1", name: "Tour Eiffel Live HD", city: "Paris", lat: 48.8584, lng: 2.2945, hdg: 180, fov: 90, liveUrl: "https://www.youtube.com/watch?v=iZipA1LL_sU", embedUrl: "https://www.youtube.com/embed/iZipA1LL_sU?autoplay=1&mute=1&playsinline=1" },
-  { id: "cctv-mia-1", name: "Port Miami 4K", city: "Miami", lat: 25.7743, lng: -80.1709, hdg: 90, fov: 80, liveUrl: "https://www.youtube.com/watch?v=mqJLCYASw2E", embedUrl: "https://www.youtube.com/embed/mqJLCYASw2E?autoplay=1&mute=1&playsinline=1" },
-  { id: "cctv-nyc-1", name: "Times Square EarthCam", city: "New York", lat: 40.758, lng: -73.9855, hdg: 180, fov: 75, liveUrl: "https://www.youtube.com/watch?v=QTTTY_ra2Tg", embedUrl: "https://www.youtube.com/embed/QTTTY_ra2Tg?autoplay=1&mute=1&playsinline=1" },
-  { id: "cctv-hou-1", name: "Houston City Cam", city: "Houston", lat: 29.7604, lng: -95.3698, hdg: 0, fov: 80, liveUrl: "https://www.youtube.com/watch?v=svV_zogN3sw", embedUrl: "https://www.youtube.com/embed/svV_zogN3sw?autoplay=1&mute=1&playsinline=1" },
-  { id: "cctv-sd-1", name: "San Diego Bay 4K", city: "San Diego", lat: 32.7157, lng: -117.1611, hdg: 270, fov: 80, liveUrl: "https://www.youtube.com/watch?v=OUB8NDFSmFI", embedUrl: "https://www.youtube.com/embed/OUB8NDFSmFI?autoplay=1&mute=1&playsinline=1" },
-  { id: "cctv-tok-1", name: "Shibuya Crossing", city: "Tokyo", lat: 35.6595, lng: 139.7004, hdg: 0, fov: 90, liveUrl: "https://www.youtube.com/watch?v=3q5Eoqhc4oc", embedUrl: "https://www.youtube.com/embed/3q5Eoqhc4oc?autoplay=1&mute=1&playsinline=1" },
+  { id: "cctv-par-1", name: "Paris Live", city: "Paris", lat: 48.8584, lng: 2.2945, hdg: 180, fov: 90, liveUrl: "https://www.youtube.com/watch?v=OzYp4NRZlwQ", embedUrl: "https://www.youtube.com/embed/OzYp4NRZlwQ?autoplay=1&mute=1&playsinline=1" },
+  { id: "cctv-mia-1", name: "Miami Live", city: "Miami", lat: 25.7743, lng: -80.1709, hdg: 90, fov: 80, liveUrl: "https://www.youtube.com/watch?v=lNAhqd8JLtw", embedUrl: "https://www.youtube.com/embed/lNAhqd8JLtw?autoplay=1&mute=1&playsinline=1" },
+  { id: "cctv-nyc-1", name: "New York Live", city: "New York", lat: 40.758, lng: -73.9855, hdg: 180, fov: 75, liveUrl: "https://www.youtube.com/watch?v=z6BNMoj9Pyo", embedUrl: "https://www.youtube.com/embed/z6BNMoj9Pyo?autoplay=1&mute=1&playsinline=1" },
+  { id: "cctv-hou-1", name: "Houston Live", city: "Houston", lat: 29.7604, lng: -95.3698, hdg: 0, fov: 80, liveUrl: "https://www.youtube.com/watch?v=SZmbvyfbPbg", embedUrl: "https://www.youtube.com/embed/SZmbvyfbPbg?autoplay=1&mute=1&playsinline=1" },
+  { id: "cctv-sd-1", name: "San Diego Live", city: "San Diego", lat: 32.7157, lng: -117.1611, hdg: 270, fov: 80, liveUrl: "https://www.youtube.com/watch?v=8cff6yAO9bw", embedUrl: "https://www.youtube.com/embed/8cff6yAO9bw?autoplay=1&mute=1&playsinline=1" },
+  { id: "cctv-tok-1", name: "Tokyo Live", city: "Tokyo", lat: 35.6595, lng: 139.7004, hdg: 0, fov: 90, liveUrl: "https://www.youtube.com/watch?v=asO_10T0k2k", embedUrl: "https://www.youtube.com/embed/asO_10T0k2k?autoplay=1&mute=1&playsinline=1" },
 ];
 
 // ─── Error Boundary ──────────────────────────────────────────────────────────
