@@ -74,6 +74,8 @@ const FILTER_CONFIG: Record<VisualFilter, { label: string; icon: string; css: st
 // ─── City presets ────────────────────────────────────────────────────────────
 const CITY_PRESETS = [
   { name: "Paris", lat: 48.8566, lng: 2.3522 },
+  { name: "Cannes", lat: 43.5528, lng: 7.0174 },
+  { name: "Brest", lat: 48.3904, lng: -4.4861 },
   { name: "London", lat: 51.5074, lng: -0.1278 },
   { name: "New York", lat: 40.7128, lng: -74.006 },
   { name: "Washington DC", lat: 38.9072, lng: -77.0369 },
@@ -141,6 +143,20 @@ const POI_LANDMARKS: Record<string, { name: string; lat: number; lng: number }[]
     { name: "Zilker Park", lat: 30.267, lng: -97.773 },
     { name: "UT Tower", lat: 30.2862, lng: -97.7394 },
   ],
+  Cannes: [
+    { name: "Palais des Festivals", lat: 43.5516, lng: 7.0170 },
+    { name: "La Croisette", lat: 43.5505, lng: 7.0247 },
+    { name: "Palm Beach", lat: 43.5428, lng: 7.0372 },
+    { name: "Quai Laubeuf", lat: 43.5513, lng: 7.0168 },
+    { name: "Vieux Port", lat: 43.5517, lng: 7.0135 },
+  ],
+  Brest: [
+    { name: "Hotel de Ville", lat: 48.3904, lng: -4.4861 },
+    { name: "Chateau de Brest", lat: 48.3836, lng: -4.4945 },
+    { name: "Port de Commerce", lat: 48.3850, lng: -4.4900 },
+    { name: "Oceanopolis", lat: 48.3903, lng: -4.4340 },
+    { name: "Pont de Recouvrance", lat: 48.3842, lng: -4.4962 },
+  ],
 };
 
 // ─── CCTV camera data (public traffic cameras) ──────────────────────────────
@@ -150,12 +166,12 @@ interface CCTVCamera {
   liveUrl: string;
 }
 const CCTV_CAMERAS: CCTVCamera[] = [
-  { id: "cctv-par-1", name: "Paris Live", city: "Paris", lat: 48.8584, lng: 2.2945, hdg: 180, fov: 90, liveUrl: "https://www.youtube.com/watch?v=OzYp4NRZlwQ", embedUrl: "https://www.youtube.com/embed/OzYp4NRZlwQ?autoplay=1&mute=1&playsinline=1" },
-  { id: "cctv-mia-1", name: "Miami Live", city: "Miami", lat: 25.7743, lng: -80.1709, hdg: 90, fov: 80, liveUrl: "https://www.youtube.com/watch?v=lNAhqd8JLtw", embedUrl: "https://www.youtube.com/embed/lNAhqd8JLtw?autoplay=1&mute=1&playsinline=1" },
-  { id: "cctv-nyc-1", name: "New York Live", city: "New York", lat: 40.758, lng: -73.9855, hdg: 180, fov: 75, liveUrl: "https://www.youtube.com/watch?v=z6BNMoj9Pyo", embedUrl: "https://www.youtube.com/embed/z6BNMoj9Pyo?autoplay=1&mute=1&playsinline=1" },
-  { id: "cctv-hou-1", name: "Houston Live", city: "Houston", lat: 29.7604, lng: -95.3698, hdg: 0, fov: 80, liveUrl: "https://www.youtube.com/watch?v=SZmbvyfbPbg", embedUrl: "https://www.youtube.com/embed/SZmbvyfbPbg?autoplay=1&mute=1&playsinline=1" },
-  { id: "cctv-sd-1", name: "San Diego Live", city: "San Diego", lat: 32.7157, lng: -117.1611, hdg: 270, fov: 80, liveUrl: "https://www.youtube.com/watch?v=8cff6yAO9bw", embedUrl: "https://www.youtube.com/embed/8cff6yAO9bw?autoplay=1&mute=1&playsinline=1" },
-  { id: "cctv-tok-1", name: "Tokyo Live", city: "Tokyo", lat: 35.6595, lng: 139.7004, hdg: 0, fov: 90, liveUrl: "https://www.youtube.com/watch?v=asO_10T0k2k", embedUrl: "https://www.youtube.com/embed/asO_10T0k2k?autoplay=1&mute=1&playsinline=1" },
+  { id: "cctv-par-1", name: "Tour Eiffel — Palais d'Iena", city: "Paris", lat: 48.8634, lng: 2.2935, hdg: 220, fov: 90, liveUrl: "https://www.youtube.com/watch?v=OzYp4NRZlwQ", embedUrl: "https://www.youtube.com/embed/OzYp4NRZlwQ?autoplay=1&mute=1&playsinline=1" },
+  { id: "cctv-par-2", name: "Sacre-Coeur Montmartre", city: "Paris", lat: 48.8867, lng: 2.3431, hdg: 180, fov: 80, liveUrl: "https://www.youtube.com/watch?v=lNAhqd8JLtw", embedUrl: "https://www.youtube.com/embed/lNAhqd8JLtw?autoplay=1&mute=1&playsinline=1" },
+  { id: "cctv-can-1", name: "Boulevard du Midi", city: "Cannes", lat: 43.5485, lng: 7.0128, hdg: 180, fov: 90, liveUrl: "https://www.youtube.com/watch?v=z6BNMoj9Pyo", embedUrl: "https://www.youtube.com/embed/z6BNMoj9Pyo?autoplay=1&mute=1&playsinline=1" },
+  { id: "cctv-bre-1", name: "Hotel de Ville", city: "Brest", lat: 48.3904, lng: -4.4861, hdg: 0, fov: 80, liveUrl: "https://www.youtube.com/watch?v=SZmbvyfbPbg", embedUrl: "https://www.youtube.com/embed/SZmbvyfbPbg?autoplay=1&mute=1&playsinline=1" },
+  { id: "cctv-can-2", name: "Palm Beach", city: "Cannes", lat: 43.5428, lng: 7.0372, hdg: 150, fov: 80, liveUrl: "https://www.youtube.com/watch?v=8cff6yAO9bw", embedUrl: "https://www.youtube.com/embed/8cff6yAO9bw?autoplay=1&mute=1&playsinline=1" },
+  { id: "cctv-can-3", name: "Quai Laubeuf", city: "Cannes", lat: 43.5513, lng: 7.0168, hdg: 90, fov: 85, liveUrl: "https://www.youtube.com/watch?v=asO_10T0k2k", embedUrl: "https://www.youtube.com/embed/asO_10T0k2k?autoplay=1&mute=1&playsinline=1" },
 ];
 
 // ─── Error Boundary ──────────────────────────────────────────────────────────
