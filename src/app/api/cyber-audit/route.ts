@@ -1708,18 +1708,46 @@ export async function POST(req: NextRequest) {
     const parsedUrl = new URL(url);
     const hostname = parsedUrl.hostname;
 
-    // ─── Phase 1: HTTP fetch + headers ───
+    // ─── Phase 1: HTTP fetch + headers (follow redirects, then re-fetch final URL for accurate headers) ───
+    const BROWSER_HEADERS = {
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+      "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      "Accept-Language": "fr-FR,fr;q=0.9,en;q=0.5",
+      "Cache-Control": "no-cache",
+      "Pragma": "no-cache",
+    };
+
     let response: Response;
     let html = "";
+    let finalUrl = url;
+    const redirectChain: string[] = [];
+
     try {
-      response = await fetch(url, {
+      // Step 1: follow redirects manually to capture the chain and the final URL
+      let currentUrl = url;
+      for (let hop = 0; hop < 5; hop++) {
+        const r = await fetch(currentUrl, {
+          method: "GET",
+          redirect: "manual",
+          headers: BROWSER_HEADERS,
+          signal: AbortSignal.timeout(10000),
+        });
+        if (r.status >= 300 && r.status < 400) {
+          const loc = r.headers.get("location");
+          if (!loc) break;
+          redirectChain.push(currentUrl);
+          currentUrl = loc.startsWith("http") ? loc : new URL(loc, currentUrl).toString();
+          continue;
+        }
+        break;
+      }
+      finalUrl = currentUrl;
+
+      // Step 2: fetch the final URL with full headers (fresh, no cache)
+      response = await fetch(finalUrl, {
         method: "GET",
         redirect: "follow",
-        headers: {
-          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-          "Accept-Language": "fr-FR,fr;q=0.9,en;q=0.5",
-        },
+        headers: BROWSER_HEADERS,
         signal: AbortSignal.timeout(15000),
       });
       html = await response.text();
@@ -1972,7 +2000,8 @@ export async function POST(req: NextRequest) {
       duration: Math.floor((Date.now() - startTime) / 1000),
       reachable: true,
       statusCode: response.status,
-      redirectUrl: response.redirected ? response.url : undefined,
+      redirectUrl: finalUrl !== url ? finalUrl : undefined,
+      redirectChain: redirectChain.length > 0 ? redirectChain : undefined,
       serverHeader,
       poweredBy: respHeaders.get("x-powered-by") || undefined,
       headers: headerChecks,
