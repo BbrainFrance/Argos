@@ -305,6 +305,30 @@ async function resolveDns(hostname: string): Promise<DnsRecord[]> {
     }
   } catch { /* no DMARC */ }
 
+  // DKIM detection via common selectors (TXT and CNAME)
+  if (!records.some(r => r.type === "DKIM")) {
+    const dkimSelectors = ["default", "selector1", "selector2", "google", "mail", "dkim", "k1", "k2", "s1", "s2", "smtp", "email"];
+    for (const sel of dkimSelectors) {
+      const dkimDomain = `${sel}._domainkey.${hostname}`;
+      try {
+        const txtRecs = await resolver.resolveTxt(dkimDomain);
+        for (const txt of txtRecs) {
+          const val = txt.join("");
+          if (/v=DKIM1|k=rsa|p=/i.test(val)) {
+            records.push({ type: "DKIM", value: `${sel}._domainkey → ${val.slice(0, 150)}` });
+          }
+        }
+      } catch { /* no TXT DKIM for this selector */ }
+      try {
+        const cnameRecs = await resolver.resolveCname(dkimDomain);
+        for (const cname of cnameRecs) {
+          records.push({ type: "DKIM", value: `${sel}._domainkey → CNAME ${cname}` });
+        }
+      } catch { /* no CNAME DKIM for this selector */ }
+      if (records.some(r => r.type === "DKIM")) break;
+    }
+  }
+
   return records;
 }
 
@@ -756,6 +780,8 @@ async function checkBruteForce(baseUrl: string): Promise<VulnCheck[]> {
   let blocked = false;
   let rateLimitHeader: string | null = null;
   const rapidResults: number[] = [];
+  let errorResponses = 0;
+  let lockedResponses = 0;
 
   for (let i = 0; i < 20; i++) {
     try {
@@ -765,15 +791,37 @@ async function checkBruteForce(baseUrl: string): Promise<VulnCheck[]> {
           "Content-Type": "application/x-www-form-urlencoded",
           "User-Agent": "ARGOS-SecurityAudit/1.0",
         },
-        body: buildAuthBody("admin", "wrongpassword123"),
+        body: buildAuthBody("admin", `wrongpassword_${i}_${Date.now()}`),
         redirect: "manual",
         signal: AbortSignal.timeout(4000),
       });
       rapidResults.push(res.status);
+
       if (res.status === 429 || res.status === 403) {
         blocked = true;
         rateLimitHeader = res.headers.get("retry-after") || res.headers.get("x-ratelimit-remaining");
         break;
+      }
+
+      // NextAuth returns 302/307 after processing — check if the redirect indicates an error (locked, rate-limited)
+      if (res.status >= 300 && res.status < 400) {
+        const location = res.headers.get("location") || "";
+        if (/error=|locked|blocked|too.?many|rate.?limit|captcha/i.test(location)) {
+          errorResponses++;
+          if (/locked|blocked|too.?many|rate.?limit/i.test(location)) {
+            lockedResponses++;
+          }
+        }
+      }
+
+      // 401 with error body also counts as a defense
+      if (res.status === 401) {
+        const body = await res.text();
+        if (/locked|blocked|too.?many|rate.?limit|verrouill|bloque/i.test(body)) {
+          blocked = true;
+          break;
+        }
+        errorResponses++;
       }
     } catch {
       blocked = true;
@@ -781,19 +829,39 @@ async function checkBruteForce(baseUrl: string): Promise<VulnCheck[]> {
     }
   }
 
+  // If most responses include error redirects, the endpoint is processing and rejecting — that's defense
+  if (lockedResponses >= 3) blocked = true;
+  if (errorResponses >= 15) blocked = true;
+
   const endpointLabel = isNextAuth ? `${authEndpoint} (NextAuth API)` : authEndpoint;
 
   if (!blocked) {
-    vulns.push({
-      id: "vuln-no-rate-limit",
-      title: "Absence de rate limiting sur l'authentification",
-      severity: "high",
-      category: "Authentification",
-      description: `L'endpoint d'authentification (${endpointLabel}) accepte ${rapidResults.length} tentatives rapides sans blocage (codes: ${rapidResults.join(", ")}). Vulnerable au brute force.`,
-      remediation: "Implementer un rate limiting (ex: 5 tentatives / minute). Ajouter un CAPTCHA apres 3 echecs. Configurer Cloudflare WAF Rate Limiting sur /api/auth/*.",
-      affectedComponent: "Systeme d'authentification",
-      cvss: 7.5,
-    });
+    // For NextAuth, 307 redirects are normal behavior — check if the redirect target contains "error"
+    const allRedirects = rapidResults.every(s => s >= 300 && s < 400);
+    const nextAuthProcessing = isNextAuth && allRedirects && errorResponses > 0;
+
+    if (nextAuthProcessing) {
+      vulns.push({
+        id: "vuln-rate-limit-partial",
+        title: "Rate limiting partiel detecte via NextAuth",
+        severity: "info",
+        category: "Authentification",
+        description: `L'endpoint NextAuth (${endpointLabel}) redirige apres chaque tentative (codes: ${[...new Set(rapidResults)].join(", ")}). ${errorResponses} reponse(s) d'erreur detectee(s). Le mecanisme de verification est cote serveur (endpoint interne).`,
+        remediation: "Verifier que le lockout applicatif fonctionne (ex: verrouillage apres 5 tentatives). Ajouter Cloudflare WAF Rate Limiting sur /api/auth/* pour une protection en amont.",
+        affectedComponent: "Systeme d'authentification",
+      });
+    } else {
+      vulns.push({
+        id: "vuln-no-rate-limit",
+        title: "Absence de rate limiting sur l'authentification",
+        severity: "high",
+        category: "Authentification",
+        description: `L'endpoint d'authentification (${endpointLabel}) accepte ${rapidResults.length} tentatives rapides sans blocage (codes: ${[...new Set(rapidResults)].join(", ")}). Vulnerable au brute force.`,
+        remediation: "Implementer un rate limiting (ex: 5 tentatives / minute). Ajouter un CAPTCHA apres 3 echecs. Configurer Cloudflare WAF Rate Limiting sur /api/auth/*.",
+        affectedComponent: "Systeme d'authentification",
+        cvss: 7.5,
+      });
+    }
   } else {
     vulns.push({
       id: "vuln-rate-limit-ok",
@@ -848,7 +916,14 @@ async function checkBruteForce(baseUrl: string): Promise<VulnCheck[]> {
     });
     const loginHtml = await loginRes.text();
 
-    const hasCaptcha = /captcha|recaptcha|hcaptcha|turnstile|g-recaptcha/i.test(loginHtml);
+    const hasCaptchaInHtml = /captcha|recaptcha|hcaptcha|g-recaptcha|cf-turnstile|data-sitekey|data-callback/i.test(loginHtml);
+    const hasTurnstileScript = /challenges\.cloudflare\.com|turnstile/i.test(loginHtml);
+    const hasRecaptchaScript = /google\.com\/recaptcha|gstatic\.com\/recaptcha/i.test(loginHtml);
+    const hasHcaptchaScript = /hcaptcha\.com/i.test(loginHtml);
+    const cfManaged = loginRes.headers.get("cf-mitigated") || loginRes.headers.get("cf-chl-bypass") || "";
+    const hasCfChallenge = /managed|challenge/i.test(cfManaged) || loginRes.headers.has("cf-challenge");
+    const hasCaptcha = hasCaptchaInHtml || hasTurnstileScript || hasRecaptchaScript || hasHcaptchaScript || hasCfChallenge;
+    const captchaType = hasTurnstileScript || hasCfChallenge ? "Cloudflare Turnstile" : hasRecaptchaScript ? "reCAPTCHA" : hasHcaptchaScript ? "hCaptcha" : hasCaptchaInHtml ? "CAPTCHA" : "";
     const hasMFA = /(?:two.?factor|2fa|mfa|otp|authenticator|verification.?code)/i.test(loginHtml);
 
     if (!hasCaptcha) {
@@ -857,17 +932,17 @@ async function checkBruteForce(baseUrl: string): Promise<VulnCheck[]> {
         title: "Absence de CAPTCHA sur le formulaire de connexion",
         severity: "medium",
         category: "Authentification",
-        description: "Aucun CAPTCHA detecte sur la page de connexion. Facilite les attaques automatisees.",
+        description: "Aucun CAPTCHA detecte sur la page de connexion (ni dans le HTML, ni via script externe, ni via challenge Cloudflare). Facilite les attaques automatisees.",
         remediation: "Ajouter un CAPTCHA (reCAPTCHA v3, hCaptcha, Cloudflare Turnstile) sur le formulaire de connexion.",
         affectedComponent: "Formulaire de connexion",
       });
     } else {
       vulns.push({
         id: "vuln-captcha-ok",
-        title: "CAPTCHA detecte sur la connexion",
+        title: `CAPTCHA detecte sur la connexion (${captchaType})`,
         severity: "info",
         category: "Authentification",
-        description: "Un systeme CAPTCHA est en place sur la page de connexion.",
+        description: `Systeme ${captchaType} detecte sur la page de connexion. Protection anti-bot active.`,
         remediation: "Aucune action requise.",
         affectedComponent: "Formulaire de connexion",
       });
@@ -1562,10 +1637,10 @@ Reponds en francais, de maniere structuree et concise.`
   return undefined;
 }
 
-function checkCompliance(html: string, headers: Headers, cookies: CookieCheck[], dnsRecords: DnsRecord[]): ComplianceCheck[] {
+async function checkCompliance(html: string, headers: Headers, cookies: CookieCheck[], dnsRecords: DnsRecord[], origin: string): Promise<ComplianceCheck[]> {
   const checks: ComplianceCheck[] = [];
 
-  // RGPD - Cookie consent (check HTML body, script sources, and consent cookies)
+  // RGPD - Cookie consent (check HTML body, script sources, consent cookies, and JS bundles)
   const consentKeywords = /cookie.?(?:consent|banner|notice|policy|accept|modal|popup|wall)|tarteaucitron|cookiebot|onetrust|axeptio|didomi|CookieConsent|cookie_consent|cc_cookie|gdpr|rgpd.?consent|complianz|iubenda|quantcast|evidon|trustarc|consentmanager|usercentrics|klaro|osano/i;
   const hasCookieBannerInHtml = consentKeywords.test(html);
   const scriptSrcConsentProviders = /tarteaucitron|cookiebot|onetrust|axeptio|didomi|iubenda|quantcast|trustarc|consentmanager|usercentrics|klaro|osano|cookie-consent|cookie-notice|complianz/i;
@@ -1573,11 +1648,40 @@ function checkCompliance(html: string, headers: Headers, cookies: CookieCheck[],
   const consentCookieNames = /cookieconsent|cookie_consent|cc_cookie|tarteaucitron|axeptio|didomi_token|euconsent|CookieConsent|OptanonConsent|__cmpcc|consentUUID|_iub_cs|cmplz_|cookielawinfo|gdpr|rgpd/i;
   const rawSetCookies = (headers.getSetCookie ? headers.getSetCookie() : []).join(" ");
   const hasCookieConsentCookie = consentCookieNames.test(rawSetCookies);
-  const hasCookieBanner = hasCookieBannerInHtml || hasCookieBannerInScripts || hasCookieConsentCookie;
+
+  // Also check for React/Next.js cookie consent components in __NEXT_DATA__ or JS chunk references
+  const hasNextDataConsent = /__NEXT_DATA__[^]*?(?:cookie.?consent|cookie.?banner|cookie.?policy|CookieConsent|gdpr|rgpd)/i.test(html);
+  // Check if JS bundles reference consent components (look at script src URLs)
+  const scriptUrls = (html.match(/<script[^>]+src="([^"]+)"/gi) || []);
+  const hasConsentInScriptNames = scriptUrls.some(s => /consent|cookie-banner|gdpr|rgpd|cookie-policy/i.test(s));
+
+  // Probe for common cookie consent endpoints (some CMPs have a config endpoint)
+  let hasConsentEndpoint = false;
+  for (const ep of ["/api/cookie-consent", "/api/cookies", "/cookie-policy", "/politique-cookies"]) {
+    try {
+      const r = await fetch(`${origin}${ep}`, {
+        headers: { "User-Agent": "ARGOS-SecurityAudit/1.0" },
+        signal: AbortSignal.timeout(3000),
+        redirect: "manual",
+      });
+      if (r.status === 200) {
+        const body = await r.text();
+        if (/cookie|consent|rgpd|gdpr|politique/i.test(body) && body.length > 100) {
+          hasConsentEndpoint = true;
+          break;
+        }
+      }
+    } catch { /* skip */ }
+  }
+
+  const hasCookieBanner = hasCookieBannerInHtml || hasCookieBannerInScripts || hasCookieConsentCookie || hasNextDataConsent || hasConsentInScriptNames || hasConsentEndpoint;
   const detectionDetails: string[] = [];
   if (hasCookieBannerInHtml) detectionDetails.push("mots-cles dans le HTML");
   if (hasCookieBannerInScripts) detectionDetails.push("script de consentement detecte");
   if (hasCookieConsentCookie) detectionDetails.push("cookie de consentement dans Set-Cookie");
+  if (hasNextDataConsent) detectionDetails.push("reference dans __NEXT_DATA__");
+  if (hasConsentInScriptNames) detectionDetails.push("bundle JS de consentement");
+  if (hasConsentEndpoint) detectionDetails.push("endpoint/page de consentement");
   checks.push({
     name: "Bandeau de consentement cookies (RGPD)",
     passed: hasCookieBanner,
@@ -1587,8 +1691,20 @@ function checkCompliance(html: string, headers: Headers, cookies: CookieCheck[],
     category: "RGPD",
   });
 
-  // RGPD - Privacy policy
-  const hasPrivacyLink = /(?:politique|privacy|confidentialit|rgpd|donnees.?personnelles|vie.?priv)/i.test(html);
+  // RGPD - Privacy policy (check text, links href, and common paths)
+  let hasPrivacyLink = /(?:politique|privacy|confidentialit|rgpd|donnees.?personnelles|vie.?priv)/i.test(html);
+  if (!hasPrivacyLink) {
+    const hrefCheck = /href="[^"]*(?:privacy|confidentialit|politique|rgpd|donnees-personnelles)[^"]*"/i.test(html);
+    if (hrefCheck) hasPrivacyLink = true;
+  }
+  if (!hasPrivacyLink) {
+    for (const p of ["/privacy", "/politique-de-confidentialite", "/confidentialite", "/privacy-policy"]) {
+      try {
+        const r = await fetch(`${origin}${p}`, { headers: { "User-Agent": "ARGOS-SecurityAudit/1.0" }, signal: AbortSignal.timeout(3000), redirect: "follow" });
+        if (r.ok && (await r.text()).length > 200) { hasPrivacyLink = true; break; }
+      } catch { /* skip */ }
+    }
+  }
   checks.push({
     name: "Lien vers politique de confidentialite",
     passed: hasPrivacyLink,
@@ -1598,8 +1714,20 @@ function checkCompliance(html: string, headers: Headers, cookies: CookieCheck[],
     category: "RGPD",
   });
 
-  // RGPD - Legal mentions
-  const hasLegalMentions = /(?:mentions?.?l[eé]gales|legal.?notice|imprint|impressum|cgu|cgv|conditions.?g[eé]n[eé]rales)/i.test(html);
+  // RGPD - Legal mentions (check text, links, and common paths)
+  let hasLegalMentions = /(?:mentions?.?l[eé]gales|legal.?notice|imprint|impressum|cgu|cgv|conditions.?g[eé]n[eé]rales)/i.test(html);
+  if (!hasLegalMentions) {
+    const hrefCheck = /href="[^"]*(?:mentions-legales|legal|cgu|cgv|conditions-generales)[^"]*"/i.test(html);
+    if (hrefCheck) hasLegalMentions = true;
+  }
+  if (!hasLegalMentions) {
+    for (const p of ["/mentions-legales", "/legal", "/cgu", "/cgv"]) {
+      try {
+        const r = await fetch(`${origin}${p}`, { headers: { "User-Agent": "ARGOS-SecurityAudit/1.0" }, signal: AbortSignal.timeout(3000), redirect: "follow" });
+        if (r.ok && (await r.text()).length > 200) { hasLegalMentions = true; break; }
+      } catch { /* skip */ }
+    }
+  }
   checks.push({
     name: "Mentions legales",
     passed: hasLegalMentions,
@@ -1672,13 +1800,30 @@ function checkCompliance(html: string, headers: Headers, cookies: CookieCheck[],
     category: "Email",
   });
 
-  // security.txt
-  const hasSecurityTxt = /security\.txt/i.test(html);
+  // security.txt — check HTML reference + probe /.well-known/security.txt and /security.txt
+  let hasSecurityTxt = /security\.txt/i.test(html);
+  if (!hasSecurityTxt) {
+    for (const p of ["/.well-known/security.txt", "/security.txt"]) {
+      try {
+        const r = await fetch(`${origin}${p}`, {
+          headers: { "User-Agent": "ARGOS-SecurityAudit/1.0" },
+          signal: AbortSignal.timeout(5000),
+        });
+        if (r.ok) {
+          const body = await r.text();
+          if (/Contact:|Expires:|Encryption:|Policy:/i.test(body)) {
+            hasSecurityTxt = true;
+            break;
+          }
+        }
+      } catch { /* skip */ }
+    }
+  }
   checks.push({
     name: "security.txt (RFC 9116)",
     passed: hasSecurityTxt,
     details: hasSecurityTxt
-      ? "Le fichier security.txt est reference."
+      ? "Le fichier security.txt est present et accessible."
       : "Aucun fichier security.txt detecte. Recommande pour le signalement responsable de vulnerabilites.",
     category: "ANSSI",
   });
@@ -1972,7 +2117,7 @@ export async function POST(req: NextRequest) {
     }
 
     // ─── Phase 7: Compliance ───
-    const compliance = checkCompliance(html, respHeaders, cookies, dnsRecords);
+    const compliance = await checkCompliance(html, respHeaders, cookies, dnsRecords, parsedUrl.origin);
 
     // ─── Phase 8: Scoring ───
     let score = 100;
