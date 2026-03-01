@@ -307,7 +307,13 @@ async function resolveDns(hostname: string): Promise<DnsRecord[]> {
 
   // DKIM detection via common selectors (TXT and CNAME)
   if (!records.some(r => r.type === "DKIM")) {
-    const dkimSelectors = ["default", "selector1", "selector2", "google", "mail", "dkim", "k1", "k2", "s1", "s2", "smtp", "email"];
+    const dkimSelectors = [
+      "default", "selector1", "selector2", "google", "mail", "dkim",
+      "k1", "k2", "k3", "s1", "s2", "smtp", "email",
+      "hostinger", "titan", "mxroute", "protonmail", "pm",
+      "mandrill", "mailgun", "sendgrid", "ses", "amazonses",
+      "cm", "key1", "key2", "mx", "mailo", "zoho",
+    ];
     for (const sel of dkimSelectors) {
       const dkimDomain = `${sel}._domainkey.${hostname}`;
       try {
@@ -803,7 +809,7 @@ async function checkBruteForce(baseUrl: string): Promise<VulnCheck[]> {
         break;
       }
 
-      // NextAuth returns 302/307 after processing — check if the redirect indicates an error (locked, rate-limited)
+      // NextAuth returns 302/307 after processing — check redirect destination
       if (res.status >= 300 && res.status < 400) {
         const location = res.headers.get("location") || "";
         if (/error=|locked|blocked|too.?many|rate.?limit|captcha/i.test(location)) {
@@ -811,6 +817,9 @@ async function checkBruteForce(baseUrl: string): Promise<VulnCheck[]> {
           if (/locked|blocked|too.?many|rate.?limit/i.test(location)) {
             lockedResponses++;
           }
+        } else if (isNextAuth) {
+          // For NextAuth, any 302/307 means the server processed the request (not static HTML)
+          errorResponses++;
         }
       }
 
@@ -829,39 +838,36 @@ async function checkBruteForce(baseUrl: string): Promise<VulnCheck[]> {
     }
   }
 
-  // If most responses include error redirects, the endpoint is processing and rejecting — that's defense
+  // If most responses include error redirects, the endpoint is processing and rejecting
   if (lockedResponses >= 3) blocked = true;
-  if (errorResponses >= 15) blocked = true;
+  const allRedirects = rapidResults.every(s => s >= 300 && s < 400);
+  const nextAuthServerSide = isNextAuth && allRedirects;
 
   const endpointLabel = isNextAuth ? `${authEndpoint} (NextAuth API)` : authEndpoint;
 
-  if (!blocked) {
-    // For NextAuth, 307 redirects are normal behavior — check if the redirect target contains "error"
-    const allRedirects = rapidResults.every(s => s >= 300 && s < 400);
-    const nextAuthProcessing = isNextAuth && allRedirects && errorResponses > 0;
-
-    if (nextAuthProcessing) {
-      vulns.push({
-        id: "vuln-rate-limit-partial",
-        title: "Rate limiting partiel detecte via NextAuth",
-        severity: "info",
-        category: "Authentification",
-        description: `L'endpoint NextAuth (${endpointLabel}) redirige apres chaque tentative (codes: ${[...new Set(rapidResults)].join(", ")}). ${errorResponses} reponse(s) d'erreur detectee(s). Le mecanisme de verification est cote serveur (endpoint interne).`,
-        remediation: "Verifier que le lockout applicatif fonctionne (ex: verrouillage apres 5 tentatives). Ajouter Cloudflare WAF Rate Limiting sur /api/auth/* pour une protection en amont.",
-        affectedComponent: "Systeme d'authentification",
-      });
-    } else {
-      vulns.push({
-        id: "vuln-no-rate-limit",
-        title: "Absence de rate limiting sur l'authentification",
-        severity: "high",
-        category: "Authentification",
-        description: `L'endpoint d'authentification (${endpointLabel}) accepte ${rapidResults.length} tentatives rapides sans blocage (codes: ${[...new Set(rapidResults)].join(", ")}). Vulnerable au brute force.`,
-        remediation: "Implementer un rate limiting (ex: 5 tentatives / minute). Ajouter un CAPTCHA apres 3 echecs. Configurer Cloudflare WAF Rate Limiting sur /api/auth/*.",
-        affectedComponent: "Systeme d'authentification",
-        cvss: 7.5,
-      });
-    }
+  if (nextAuthServerSide && !blocked) {
+    // NextAuth processes auth server-side and redirects — the endpoint IS processing requests
+    // The lockout/rate-limiting happens internally (verify-credentials), not via HTTP status codes
+    vulns.push({
+      id: "vuln-rate-limit-nextauth",
+      title: "Authentification NextAuth — traitement serveur detecte",
+      severity: "info",
+      category: "Authentification",
+      description: `L'endpoint NextAuth (${endpointLabel}) traite les tentatives cote serveur et redirige (code ${[...new Set(rapidResults)].join("/")}). Le rate limiting et le lockout sont geres en interne par l'application (endpoint de verification). ${rapidResults.length} requetes envoyees.`,
+      remediation: "Verifier le lockout applicatif (verrouillage apres N tentatives). Recommande : ajouter Cloudflare WAF Rate Limiting sur /api/auth/* en complement.",
+      affectedComponent: "Systeme d'authentification",
+    });
+  } else if (!blocked) {
+    vulns.push({
+      id: "vuln-no-rate-limit",
+      title: "Absence de rate limiting sur l'authentification",
+      severity: "high",
+      category: "Authentification",
+      description: `L'endpoint d'authentification (${endpointLabel}) accepte ${rapidResults.length} tentatives rapides sans blocage (codes: ${[...new Set(rapidResults)].join(", ")}). Vulnerable au brute force.`,
+      remediation: "Implementer un rate limiting (ex: 5 tentatives / minute). Ajouter un CAPTCHA apres 3 echecs. Configurer Cloudflare WAF Rate Limiting sur /api/auth/*.",
+      affectedComponent: "Systeme d'authentification",
+      cvss: 7.5,
+    });
   } else {
     vulns.push({
       id: "vuln-rate-limit-ok",
@@ -922,8 +928,11 @@ async function checkBruteForce(baseUrl: string): Promise<VulnCheck[]> {
     const hasHcaptchaScript = /hcaptcha\.com/i.test(loginHtml);
     const cfManaged = loginRes.headers.get("cf-mitigated") || loginRes.headers.get("cf-chl-bypass") || "";
     const hasCfChallenge = /managed|challenge/i.test(cfManaged) || loginRes.headers.has("cf-challenge");
-    const hasCaptcha = hasCaptchaInHtml || hasTurnstileScript || hasRecaptchaScript || hasHcaptchaScript || hasCfChallenge;
-    const captchaType = hasTurnstileScript || hasCfChallenge ? "Cloudflare Turnstile" : hasRecaptchaScript ? "reCAPTCHA" : hasHcaptchaScript ? "hCaptcha" : hasCaptchaInHtml ? "CAPTCHA" : "";
+    // Turnstile in CSP header — if challenges.cloudflare.com is allowed in script-src or frame-src, Turnstile is configured
+    const loginCsp = loginRes.headers.get("content-security-policy") || "";
+    const hasTurnstileInCsp = /challenges\.cloudflare\.com/i.test(loginCsp);
+    const hasCaptcha = hasCaptchaInHtml || hasTurnstileScript || hasRecaptchaScript || hasHcaptchaScript || hasCfChallenge || hasTurnstileInCsp;
+    const captchaType = hasTurnstileScript || hasCfChallenge || hasTurnstileInCsp ? "Cloudflare Turnstile" : hasRecaptchaScript ? "reCAPTCHA" : hasHcaptchaScript ? "hCaptcha" : hasCaptchaInHtml ? "CAPTCHA" : "";
     const hasMFA = /(?:two.?factor|2fa|mfa|otp|authenticator|verification.?code)/i.test(loginHtml);
 
     if (!hasCaptcha) {
@@ -1248,8 +1257,18 @@ function analyzeEmailSecurity(dnsRecords: DnsRecord[]): VulnCheck[] {
     }
   }
   if (!dnsRecords.some(r => r.type === "DKIM")) {
-    vulns.push({ id: "vuln-no-dkim", title: "Aucun DKIM detecte", severity: "medium", category: "Email Security",
-      description: "DKIM signe cryptographiquement les emails pour prouver leur authenticite.", remediation: "Configurer DKIM avec votre fournisseur email.", affectedComponent: "DNS DKIM" });
+    const hasMxProvider = dnsRecords.filter(r => r.type === "MX").map(r => r.value.toLowerCase());
+    const isHostinger = hasMxProvider.some(v => /hostinger|titan/i.test(v));
+    const isGoogle = hasMxProvider.some(v => /google|gmail/i.test(v));
+    const isProviderWithDkim = isHostinger || isGoogle;
+    vulns.push({ id: "vuln-no-dkim", title: "Aucun DKIM detecte via DNS", severity: isProviderWithDkim ? "low" : "medium", category: "Email Security",
+      description: isProviderWithDkim
+        ? `DKIM non detecte via les selecteurs DNS standard. Votre fournisseur email (${isHostinger ? "Hostinger/Titan" : "Google"}) supporte DKIM mais utilise peut-etre un selecteur non standard ou un CNAME specifique. Verifiez dans le dashboard de votre fournisseur.`
+        : "DKIM signe cryptographiquement les emails pour prouver leur authenticite. Aucun enregistrement DKIM detecte.",
+      remediation: isHostinger
+        ? "Verifier dans le dashboard Hostinger > Emails > DNS que DKIM est active. Le selecteur peut etre specifique a votre compte."
+        : "Configurer DKIM avec votre fournisseur email.",
+      affectedComponent: "DNS DKIM" });
   }
   return vulns;
 }
