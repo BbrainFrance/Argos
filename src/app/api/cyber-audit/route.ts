@@ -613,25 +613,78 @@ async function checkBruteForce(baseUrl: string): Promise<VulnCheck[]> {
     loginPaths.unshift(userPath);
   }
 
+  // Phase A: HTML-based login page detection
   for (const origin of originsToTest) {
     if (loginUrl) break;
     for (const path of loginPaths) {
       try {
         const res = await fetchFollowingRedirects(`${origin}${path}`);
-        if (!res || res.status !== 200) continue;
+        if (!res) continue;
+        const status = res.status;
+        if (status !== 200 && status !== 401 && status !== 403) continue;
         const body = await res.text();
-        // Soft-404 check
-        if (baseline404Size > 0 && Math.abs(body.length - baseline404Size) < 200) continue;
-        // Must contain a password input or login form
+        if (status === 200 && baseline404Size > 0 && Math.abs(body.length - baseline404Size) < 200) continue;
         const hasLoginForm = /<input[^>]*type\s*=\s*["']password["']/i.test(body)
           || (/<form/i.test(body) && /(?:password|login|sign.?in|connexion|mot.?de.?passe|e.?mail)/i.test(body))
           || /csrfToken|callbackUrl|credentials|next-auth|nextauth|__Host-next-auth|signIn\(|credential/i.test(body)
-          || (/signin|sign-in|login/i.test(path) && res.status === 200 && body.length > 500);
+          || (/signin|sign-in|login/i.test(path) && body.length > 500)
+          || (status === 401 || status === 403);
         if (!hasLoginForm) continue;
         loginUrl = `${origin}${path}`;
-        loginStatus = 200;
+        loginStatus = status;
         break;
       } catch { /* subdomain may not exist */ }
+    }
+  }
+
+  // Phase B: Fallback — probe /api/auth/csrf to detect NextAuth without HTML
+  let authEndpoint = loginUrl || "";
+  let csrfToken = "";
+  let isNextAuth = false;
+
+  if (!loginUrl) {
+    for (const origin of originsToTest) {
+      try {
+        const csrfRes = await fetch(`${origin}/api/auth/csrf`, {
+          headers: { "User-Agent": "ARGOS-SecurityAudit/1.0" },
+          signal: AbortSignal.timeout(5000),
+        });
+        if (csrfRes.ok) {
+          const csrfJson = await csrfRes.json();
+          if (csrfJson.csrfToken) {
+            isNextAuth = true;
+            csrfToken = csrfJson.csrfToken;
+            loginUrl = `${origin}/api/auth/signin`;
+            authEndpoint = `${origin}/api/auth/callback/credentials`;
+            break;
+          }
+        }
+      } catch { /* skip */ }
+    }
+  }
+
+  // Phase C: Fallback — detect OAuth/SSO redirects
+  if (!loginUrl) {
+    for (const origin of originsToTest) {
+      if (loginUrl) break;
+      for (const path of loginPaths) {
+        try {
+          const res = await fetch(`${origin}${path}`, {
+            redirect: "manual",
+            headers: { "User-Agent": "ARGOS-SecurityAudit/1.0" },
+            signal: AbortSignal.timeout(5000),
+          });
+          if (res.status >= 300 && res.status < 400) {
+            const location = res.headers.get("location") || "";
+            const isOAuth = /auth0|okta|keycloak|cognito|login\.microsoftonline|accounts\.google|oauth|authorize/i.test(location);
+            if (isOAuth) {
+              loginUrl = `${origin}${path}`;
+              authEndpoint = loginUrl;
+              break;
+            }
+          }
+        } catch { /* skip */ }
+      }
     }
   }
 
@@ -641,33 +694,31 @@ async function checkBruteForce(baseUrl: string): Promise<VulnCheck[]> {
       title: "Aucun formulaire de connexion detecte",
       severity: "info",
       category: "Authentification",
-      description: `Aucune page de connexion avec champ password trouvee. Origines testees: ${originsToTest.join(", ")}. Chemins: ${loginPaths.join(", ")}. Les tests de brute force n'ont pas pu etre effectues.`,
+      description: `Aucune page de connexion trouvee. Origines testees: ${originsToTest.join(", ")}. Chemins: ${loginPaths.join(", ")}. Les tests de brute force n'ont pas pu etre effectues.`,
       remediation: "Si un formulaire de connexion existe sur un chemin ou sous-domaine non standard, specifiez-le manuellement.",
       affectedComponent: "Pages d'authentification",
     });
     return vulns;
   }
 
-  // Detect NextAuth by probing /api/auth/csrf (HTML content is unreliable for SSR/React apps)
-  let authEndpoint = loginUrl;
-  let csrfToken = "";
-  let isNextAuth = false;
-  const loginOrigin = new URL(loginUrl).origin;
-
-  try {
-    const csrfRes = await fetch(`${loginOrigin}/api/auth/csrf`, {
-      headers: { "User-Agent": "ARGOS-SecurityAudit/1.0" },
-      signal: AbortSignal.timeout(5000),
-    });
-    if (csrfRes.ok) {
-      const csrfJson = await csrfRes.json();
-      if (csrfJson.csrfToken) {
-        isNextAuth = true;
-        csrfToken = csrfJson.csrfToken;
-        authEndpoint = `${loginOrigin}/api/auth/callback/credentials`;
+  // Detect NextAuth on the found login origin (if not already detected in Phase B)
+  if (!isNextAuth) {
+    const loginOrigin = new URL(loginUrl).origin;
+    try {
+      const csrfRes = await fetch(`${loginOrigin}/api/auth/csrf`, {
+        headers: { "User-Agent": "ARGOS-SecurityAudit/1.0" },
+        signal: AbortSignal.timeout(5000),
+      });
+      if (csrfRes.ok) {
+        const csrfJson = await csrfRes.json();
+        if (csrfJson.csrfToken) {
+          isNextAuth = true;
+          csrfToken = csrfJson.csrfToken;
+          authEndpoint = `${loginOrigin}/api/auth/callback/credentials`;
+        }
       }
-    }
-  } catch { /* not NextAuth */ }
+    } catch { /* not NextAuth */ }
+  }
 
   function buildAuthBody(username: string, password: string): string {
     const params = new URLSearchParams();
@@ -1189,13 +1240,24 @@ async function checkSessionSecurity(url: string): Promise<VulnCheck[]> {
 function checkCompliance(html: string, headers: Headers, cookies: CookieCheck[], dnsRecords: DnsRecord[]): ComplianceCheck[] {
   const checks: ComplianceCheck[] = [];
 
-  // RGPD - Cookie consent
-  const hasCookieBanner = /cookie.?(?:consent|banner|notice|policy|accept)|tarteaucitron|cookiebot|onetrust|axeptio|didomi|CookieConsent/i.test(html);
+  // RGPD - Cookie consent (check HTML body, script sources, and consent cookies)
+  const consentKeywords = /cookie.?(?:consent|banner|notice|policy|accept|modal|popup|wall)|tarteaucitron|cookiebot|onetrust|axeptio|didomi|CookieConsent|cookie_consent|cc_cookie|gdpr|rgpd.?consent|complianz|iubenda|quantcast|evidon|trustarc|consentmanager|usercentrics|klaro|osano/i;
+  const hasCookieBannerInHtml = consentKeywords.test(html);
+  const scriptSrcConsentProviders = /tarteaucitron|cookiebot|onetrust|axeptio|didomi|iubenda|quantcast|trustarc|consentmanager|usercentrics|klaro|osano|cookie-consent|cookie-notice|complianz/i;
+  const hasCookieBannerInScripts = scriptSrcConsentProviders.test(html);
+  const consentCookieNames = /cookieconsent|cookie_consent|cc_cookie|tarteaucitron|axeptio|didomi_token|euconsent|CookieConsent|OptanonConsent|__cmpcc|consentUUID|_iub_cs|cmplz_|cookielawinfo|gdpr|rgpd/i;
+  const rawSetCookies = (headers.getSetCookie ? headers.getSetCookie() : []).join(" ");
+  const hasCookieConsentCookie = consentCookieNames.test(rawSetCookies);
+  const hasCookieBanner = hasCookieBannerInHtml || hasCookieBannerInScripts || hasCookieConsentCookie;
+  const detectionDetails: string[] = [];
+  if (hasCookieBannerInHtml) detectionDetails.push("mots-cles dans le HTML");
+  if (hasCookieBannerInScripts) detectionDetails.push("script de consentement detecte");
+  if (hasCookieConsentCookie) detectionDetails.push("cookie de consentement dans Set-Cookie");
   checks.push({
     name: "Bandeau de consentement cookies (RGPD)",
     passed: hasCookieBanner,
     details: hasCookieBanner
-      ? "Un mecanisme de consentement cookies a ete detecte dans le code source."
+      ? `Mecanisme de consentement cookies detecte (${detectionDetails.join(", ")}).`
       : "Aucun bandeau de consentement cookies detecte. Obligatoire si des cookies non essentiels sont deposes (analytics, pub, etc.).",
     category: "RGPD",
   });

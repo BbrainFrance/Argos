@@ -110,7 +110,7 @@ async function findLoginPage(baseUrl: string): Promise<LoginPageInfo | null> {
   const parsed = new URL(baseUrl);
   const parts = parsed.hostname.split(".");
   const root = parts.length >= 2 ? parts.slice(-2).join(".") : parsed.hostname;
-  const origins = [baseUrl];
+  const origins = [parsed.origin];
   if (!parsed.hostname.startsWith("www.")) origins.push(`${parsed.protocol}//www.${parsed.hostname}`);
   if (!parsed.hostname.startsWith("app.")) origins.push(`${parsed.protocol}//app.${root}`);
 
@@ -121,16 +121,21 @@ async function findLoginPage(baseUrl: string): Promise<LoginPageInfo | null> {
     paths.unshift(userPath);
   }
 
+  // Phase A: Try to find login page via HTML content
   for (const origin of origins) {
     for (const path of paths) {
       try {
         const res = await fetchFollow(`${origin}${path}`);
-        if (!res || res.status !== 200) continue;
+        if (!res) continue;
+        const status = res.status;
+        if (status !== 200 && status !== 401 && status !== 403) continue;
+
         const body = await res.text();
         const hasLogin = /<input[^>]*type\s*=\s*["']password["']/i.test(body)
           || (/<form/i.test(body) && /(?:password|login|sign.?in|connexion|e.?mail)/i.test(body))
           || /csrfToken|callbackUrl|credentials|next-auth|nextauth|__Host-next-auth|signIn\(|credential/i.test(body)
-          || (/signin|sign-in|login/i.test(path) && body.length > 500);
+          || (/signin|sign-in|login/i.test(path) && body.length > 500)
+          || (status === 401 || status === 403);
         if (!hasLogin) continue;
 
         const foundOrigin = new URL(`${origin}${path}`).origin;
@@ -159,6 +164,54 @@ async function findLoginPage(baseUrl: string): Promise<LoginPageInfo | null> {
       } catch { /* skip */ }
     }
   }
+
+  // Phase B: Fallback — probe /api/auth/csrf on each origin to detect NextAuth without HTML
+  for (const origin of origins) {
+    try {
+      const csrfRes = await fetch(`${origin}/api/auth/csrf`, {
+        headers: { "User-Agent": "ARGOS-StressTest/1.0" },
+        signal: AbortSignal.timeout(5000),
+      });
+      if (csrfRes.ok) {
+        const csrfJson = await csrfRes.json();
+        if (csrfJson.csrfToken) {
+          const loginUrl = `${origin}/api/auth/signin`;
+          return {
+            loginUrl,
+            authEndpoint: `${origin}/api/auth/callback/credentials`,
+            isNextAuth: true,
+            csrfToken: csrfJson.csrfToken,
+          };
+        }
+      }
+    } catch { /* skip */ }
+  }
+
+  // Phase C: Fallback — detect OAuth/SSO redirects on login paths
+  for (const origin of origins) {
+    for (const path of paths) {
+      try {
+        const res = await fetch(`${origin}${path}`, {
+          redirect: "manual",
+          headers: { "User-Agent": "ARGOS-StressTest/1.0" },
+          signal: AbortSignal.timeout(5000),
+        });
+        if (res.status >= 300 && res.status < 400) {
+          const location = res.headers.get("location") || "";
+          const isOAuth = /auth0|okta|keycloak|cognito|login\.microsoftonline|accounts\.google|oauth|authorize/i.test(location);
+          if (isOAuth) {
+            return {
+              loginUrl: `${origin}${path}`,
+              authEndpoint: `${origin}${path}`,
+              isNextAuth: false,
+              csrfToken: "",
+            };
+          }
+        }
+      } catch { /* skip */ }
+    }
+  }
+
   return null;
 }
 
