@@ -1696,11 +1696,24 @@ async function checkCompliance(html: string, headers: Headers, cookies: CookieCh
   // Scan JS bundles for consent-related code (React client-side components)
   let hasConsentInJsBundle = false;
   if (!hasCookieBannerInHtml && !hasCookieBannerInScripts && !hasCookieConsentCookie && !hasConsentEndpoint) {
-    const jsSrcMatches = html.match(/src="([^"]*\.js)"/gi) || [];
+    const jsSrcMatches = html.match(/src=["']([^"']*\.js[^"']*)["']/gi) || [];
     const jsUrls = jsSrcMatches
-      .map(m => m.match(/src="([^"]+)"/)?.[1])
+      .map(m => m.match(/src=["']([^"']+)["']/)?.[1])
       .filter((u): u is string => !!u && !u.includes("polyfill") && !u.includes("framework"))
-      .slice(0, 5);
+      .slice(0, 15);
+
+    // Also discover _next/static chunks from buildManifest if Next.js
+    try {
+      const bmRes = await fetch(`${origin}/_next/static/${html.match(/buildId["':\s]+["']([^"']+)["']/)?.[1] || ""}/buildManifest.js`, {
+        headers: { "User-Agent": "ARGOS-SecurityAudit/1.0" },
+        signal: AbortSignal.timeout(3000),
+      });
+      if (!bmRes.ok) throw new Error();
+    } catch { /* not critical */ }
+
+    const consentCodePattern = /cookie.?consent|cookie.?banner|cookie.?notice|cookie.?accept|cookie.?modal|CookieConsent|cookieConsent|consentement.*cookie|bandeau.*cookie/i;
+    const consentUiPattern = /accepter.*cookie|refuser.*cookie|ce site utilise des cookies|nous utilisons des cookies|en poursuivant|j.accepte|param.tres? des? cookies|cookie.?settings|g.rer.*cookies|manage.*cookies|cookie.?preferences|accept all|tout accepter|tout refuser|reject all|cookie.?policy|politique.*cookies|GDPR|RGPD.*consent|tarteaucitron|axeptio|didomi|onetrust|cookiebot|cookiefirst|quantcast/i;
+
     for (const jsUrl of jsUrls) {
       try {
         const fullUrl = jsUrl.startsWith("http") ? jsUrl : `${origin}${jsUrl.startsWith("/") ? "" : "/"}${jsUrl}`;
@@ -1710,7 +1723,7 @@ async function checkCompliance(html: string, headers: Headers, cookies: CookieCh
         });
         if (jsRes.ok) {
           const jsBody = await jsRes.text();
-          if (/cookie.?consent|cookie.?banner|cookie.?notice|cookie.?accept|cookie.?modal|bandeau.*cookie|CookieConsent|cookieConsent|consentement.*cookie/i.test(jsBody)) {
+          if (consentCodePattern.test(jsBody) || consentUiPattern.test(jsBody)) {
             hasConsentInJsBundle = true;
             break;
           }
